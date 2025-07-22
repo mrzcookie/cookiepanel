@@ -1,0 +1,19 @@
+{
+	"name": "cookiepanel",
+	"private": true,
+	"scripts": {
+		"dev": "turbo run dev",
+		"check": "biome check --write",
+		"check-types": "turbo run check-types",
+		"build": "turbo run build"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.1.2",
+		"lefthook": "^1.12.2",
+		"turbo": "^2.5.5"
+	},
+	"packageManager": "pnpm@9.0.0",
+	"engines": {
+		"node": ">=18"
+	}
+}
