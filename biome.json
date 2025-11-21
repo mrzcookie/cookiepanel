@@ -26,6 +26,9 @@
 		"enabled": true,
 		"rules": {
 			"recommended": true,
+			"style": {
+				"noProcessEnv": "error"
+			},
 			"nursery": {
 				"useSortedClasses": "error"
 			},
