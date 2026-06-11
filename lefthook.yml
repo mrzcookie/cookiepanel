@@ -1,0 +1,11 @@
+pre-commit:
+  parallel: true
+  jobs:
+    - name: check-ts
+      glob: "*.{ts,tsx,js,jsx,json,jsonc,css}"
+      run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+    - name: check-go
+      glob: "apps/daemon/**/*.go"
+      run: cd apps/daemon && gofmt -w . && go vet ./...
+      stage_fixed: true

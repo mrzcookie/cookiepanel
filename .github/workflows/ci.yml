@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  panel:
+    name: Panel — lint, typecheck, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:ci
+      - run: pnpm --filter @cookiepanel/panel typecheck
+      - run: pnpm --filter @cookiepanel/panel build
+
+  daemon:
+    name: Daemon — fmt, vet, test, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/daemon
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/daemon/go.mod
+          cache: false
+      - name: gofmt
+        run: |
+          files=$(gofmt -l .)
+          if [ -n "$files" ]; then
+            echo "These files are not gofmt-clean:"
+            echo "$files"
+            exit 1
+          fi
+      - run: go vet ./...
+      - run: go test ./...
+      - run: make build
+      - run: make cross

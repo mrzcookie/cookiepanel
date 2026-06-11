@@ -1,0 +1,36 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build / framework outputs
+.output
+.nitro
+.tanstack
+.vinxi
+.wrangler
+dist
+dist-ssr
+.turbo
+
+# Go
+apps/daemon/bin
+apps/daemon/dist
+*.test
+*.out
+
+# Local env / secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Editor / OS
+.DS_Store
+.idea
+
+# AI
+.claude/settings.local.json
+.agents/
+
+# Misc
+__unconfig*
