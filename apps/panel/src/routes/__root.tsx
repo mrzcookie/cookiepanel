@@ -1,5 +1,8 @@
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { ThemeProvider } from "next-themes";
 import { lazy, type ReactNode, Suspense } from "react";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import appCss from "@/styles/global.css?url";
 
 const Devtools = import.meta.env.DEV
@@ -7,7 +10,8 @@ const Devtools = import.meta.env.DEV
 			Promise.all([
 				import("@tanstack/react-devtools"),
 				import("@tanstack/react-router-devtools"),
-			]).then(([{ TanStackDevtools }, router]) => ({
+				import("@tanstack/react-form-devtools"),
+			]).then(([{ TanStackDevtools }, router, form]) => ({
 				default: () => (
 					<TanStackDevtools
 						config={{ position: "bottom-right" }}
@@ -16,6 +20,7 @@ const Devtools = import.meta.env.DEV
 								name: "TanStack Router",
 								render: <router.TanStackRouterDevtoolsPanel />,
 							},
+							form.formDevtoolsPlugin(),
 						]}
 					/>
 				),
@@ -37,17 +42,25 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: ReactNode }) {
 	return (
-		<html lang="en">
+		<html lang="en" suppressHydrationWarning>
 			<head>
 				<HeadContent />
 			</head>
 			<body className="flex min-h-svh flex-col">
-				{children}
-				{Devtools && (
-					<Suspense fallback={null}>
-						<Devtools />
-					</Suspense>
-				)}
+				<ThemeProvider
+					attribute="class"
+					defaultTheme="system"
+					disableTransitionOnChange
+					enableSystem
+				>
+					<TooltipProvider>{children}</TooltipProvider>
+					{Devtools && (
+						<Suspense fallback={null}>
+							<Devtools />
+						</Suspense>
+					)}
+					<Toaster />
+				</ThemeProvider>
 				<Scripts />
 			</body>
 		</html>

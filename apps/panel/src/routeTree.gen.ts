@@ -9,50 +9,325 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as AppTemplatesRouteImport } from './routes/_app.templates'
+import { Route as AppSettingsRouteImport } from './routes/_app.settings'
+import { Route as AppServersRouteImport } from './routes/_app.servers'
+import { Route as AppNodesRouteImport } from './routes/_app.nodes'
+import { Route as AppAccountRouteImport } from './routes/_app.account'
+import { Route as AppSettingsIndexRouteImport } from './routes/_app.settings.index'
+import { Route as AppAccountIndexRouteImport } from './routes/_app.account.index'
+import { Route as AppSettingsMembersRouteImport } from './routes/_app.settings.members'
+import { Route as AppSettingsActivityRouteImport } from './routes/_app.settings.activity'
+import { Route as AppAccountSshKeysRouteImport } from './routes/_app.account.ssh-keys'
+import { Route as AppAccountActivityRouteImport } from './routes/_app.account.activity'
 
-const IndexRoute = IndexRouteImport.update({
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTemplatesRoute = AppTemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppServersRoute = AppServersRouteImport.update({
+  id: '/servers',
+  path: '/servers',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppNodesRoute = AppNodesRouteImport.update({
+  id: '/nodes',
+  path: '/nodes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAccountRoute = AppAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppAccountIndexRoute = AppAccountIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppAccountRoute,
+} as any)
+const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsActivityRoute = AppSettingsActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppAccountSshKeysRoute = AppAccountSshKeysRouteImport.update({
+  id: '/ssh-keys',
+  path: '/ssh-keys',
+  getParentRoute: () => AppAccountRoute,
+} as any)
+const AppAccountActivityRoute = AppAccountActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => AppAccountRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AppIndexRoute
+  '/account': typeof AppAccountRouteWithChildren
+  '/nodes': typeof AppNodesRoute
+  '/servers': typeof AppServersRoute
+  '/settings': typeof AppSettingsRouteWithChildren
+  '/templates': typeof AppTemplatesRoute
+  '/account/activity': typeof AppAccountActivityRoute
+  '/account/ssh-keys': typeof AppAccountSshKeysRoute
+  '/settings/activity': typeof AppSettingsActivityRoute
+  '/settings/members': typeof AppSettingsMembersRoute
+  '/account/': typeof AppAccountIndexRoute
+  '/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
+  '/nodes': typeof AppNodesRoute
+  '/servers': typeof AppServersRoute
+  '/templates': typeof AppTemplatesRoute
+  '/': typeof AppIndexRoute
+  '/account/activity': typeof AppAccountActivityRoute
+  '/account/ssh-keys': typeof AppAccountSshKeysRoute
+  '/settings/activity': typeof AppSettingsActivityRoute
+  '/settings/members': typeof AppSettingsMembersRoute
+  '/account': typeof AppAccountIndexRoute
+  '/settings': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/_app/account': typeof AppAccountRouteWithChildren
+  '/_app/nodes': typeof AppNodesRoute
+  '/_app/servers': typeof AppServersRoute
+  '/_app/settings': typeof AppSettingsRouteWithChildren
+  '/_app/templates': typeof AppTemplatesRoute
+  '/_app/': typeof AppIndexRoute
+  '/_app/account/activity': typeof AppAccountActivityRoute
+  '/_app/account/ssh-keys': typeof AppAccountSshKeysRoute
+  '/_app/settings/activity': typeof AppSettingsActivityRoute
+  '/_app/settings/members': typeof AppSettingsMembersRoute
+  '/_app/account/': typeof AppAccountIndexRoute
+  '/_app/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/account'
+    | '/nodes'
+    | '/servers'
+    | '/settings'
+    | '/templates'
+    | '/account/activity'
+    | '/account/ssh-keys'
+    | '/settings/activity'
+    | '/settings/members'
+    | '/account/'
+    | '/settings/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/nodes'
+    | '/servers'
+    | '/templates'
+    | '/'
+    | '/account/activity'
+    | '/account/ssh-keys'
+    | '/settings/activity'
+    | '/settings/members'
+    | '/account'
+    | '/settings'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/_app/account'
+    | '/_app/nodes'
+    | '/_app/servers'
+    | '/_app/settings'
+    | '/_app/templates'
+    | '/_app/'
+    | '/_app/account/activity'
+    | '/_app/account/ssh-keys'
+    | '/_app/settings/activity'
+    | '/_app/settings/members'
+    | '/_app/account/'
+    | '/_app/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/': {
+      id: '/_app/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/templates': {
+      id: '/_app/templates'
+      path: '/templates'
+      fullPath: '/templates'
+      preLoaderRoute: typeof AppTemplatesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/servers': {
+      id: '/_app/servers'
+      path: '/servers'
+      fullPath: '/servers'
+      preLoaderRoute: typeof AppServersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/nodes': {
+      id: '/_app/nodes'
+      path: '/nodes'
+      fullPath: '/nodes'
+      preLoaderRoute: typeof AppNodesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/account': {
+      id: '/_app/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AppAccountRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings/': {
+      id: '/_app/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/account/': {
+      id: '/_app/account/'
+      path: '/'
+      fullPath: '/account/'
+      preLoaderRoute: typeof AppAccountIndexRouteImport
+      parentRoute: typeof AppAccountRoute
+    }
+    '/_app/settings/members': {
+      id: '/_app/settings/members'
+      path: '/members'
+      fullPath: '/settings/members'
+      preLoaderRoute: typeof AppSettingsMembersRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/activity': {
+      id: '/_app/settings/activity'
+      path: '/activity'
+      fullPath: '/settings/activity'
+      preLoaderRoute: typeof AppSettingsActivityRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/account/ssh-keys': {
+      id: '/_app/account/ssh-keys'
+      path: '/ssh-keys'
+      fullPath: '/account/ssh-keys'
+      preLoaderRoute: typeof AppAccountSshKeysRouteImport
+      parentRoute: typeof AppAccountRoute
+    }
+    '/_app/account/activity': {
+      id: '/_app/account/activity'
+      path: '/activity'
+      fullPath: '/account/activity'
+      preLoaderRoute: typeof AppAccountActivityRouteImport
+      parentRoute: typeof AppAccountRoute
     }
   }
 }
 
+interface AppAccountRouteChildren {
+  AppAccountActivityRoute: typeof AppAccountActivityRoute
+  AppAccountSshKeysRoute: typeof AppAccountSshKeysRoute
+  AppAccountIndexRoute: typeof AppAccountIndexRoute
+}
+
+const AppAccountRouteChildren: AppAccountRouteChildren = {
+  AppAccountActivityRoute: AppAccountActivityRoute,
+  AppAccountSshKeysRoute: AppAccountSshKeysRoute,
+  AppAccountIndexRoute: AppAccountIndexRoute,
+}
+
+const AppAccountRouteWithChildren = AppAccountRoute._addFileChildren(
+  AppAccountRouteChildren,
+)
+
+interface AppSettingsRouteChildren {
+  AppSettingsActivityRoute: typeof AppSettingsActivityRoute
+  AppSettingsMembersRoute: typeof AppSettingsMembersRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+}
+
+const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+  AppSettingsActivityRoute: AppSettingsActivityRoute,
+  AppSettingsMembersRoute: AppSettingsMembersRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
+}
+
+const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
+  AppSettingsRouteChildren,
+)
+
+interface AppRouteChildren {
+  AppAccountRoute: typeof AppAccountRouteWithChildren
+  AppNodesRoute: typeof AppNodesRoute
+  AppServersRoute: typeof AppServersRoute
+  AppSettingsRoute: typeof AppSettingsRouteWithChildren
+  AppTemplatesRoute: typeof AppTemplatesRoute
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppAccountRoute: AppAccountRouteWithChildren,
+  AppNodesRoute: AppNodesRoute,
+  AppServersRoute: AppServersRoute,
+  AppSettingsRoute: AppSettingsRouteWithChildren,
+  AppTemplatesRoute: AppTemplatesRoute,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
