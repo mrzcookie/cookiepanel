@@ -15,6 +15,7 @@ import { Route as AppTemplatesRouteImport } from './routes/_app.templates'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppServersRouteImport } from './routes/_app.servers'
 import { Route as AppNodesRouteImport } from './routes/_app.nodes'
+import { Route as AppNetworksRouteImport } from './routes/_app.networks'
 import { Route as AppAccountRouteImport } from './routes/_app.account'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app.settings.index'
 import { Route as AppAccountIndexRouteImport } from './routes/_app.account.index'
@@ -50,6 +51,11 @@ const AppServersRoute = AppServersRouteImport.update({
 const AppNodesRoute = AppNodesRouteImport.update({
   id: '/nodes',
   path: '/nodes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppNetworksRoute = AppNetworksRouteImport.update({
+  id: '/networks',
+  path: '/networks',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAccountRoute = AppAccountRouteImport.update({
@@ -91,6 +97,7 @@ const AppAccountActivityRoute = AppAccountActivityRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/account': typeof AppAccountRouteWithChildren
+  '/networks': typeof AppNetworksRoute
   '/nodes': typeof AppNodesRoute
   '/servers': typeof AppServersRoute
   '/settings': typeof AppSettingsRouteWithChildren
@@ -103,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesByTo {
+  '/networks': typeof AppNetworksRoute
   '/nodes': typeof AppNodesRoute
   '/servers': typeof AppServersRoute
   '/templates': typeof AppTemplatesRoute
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_app/account': typeof AppAccountRouteWithChildren
+  '/_app/networks': typeof AppNetworksRoute
   '/_app/nodes': typeof AppNodesRoute
   '/_app/servers': typeof AppServersRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/account'
+    | '/networks'
     | '/nodes'
     | '/servers'
     | '/settings'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/networks'
     | '/nodes'
     | '/servers'
     | '/templates'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/_app/account'
+    | '/_app/networks'
     | '/_app/nodes'
     | '/_app/servers'
     | '/_app/settings'
@@ -220,6 +232,13 @@ declare module '@tanstack/react-router' {
       path: '/nodes'
       fullPath: '/nodes'
       preLoaderRoute: typeof AppNodesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/networks': {
+      id: '/_app/networks'
+      path: '/networks'
+      fullPath: '/networks'
+      preLoaderRoute: typeof AppNetworksRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/account': {
@@ -308,6 +327,7 @@ const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAccountRoute: typeof AppAccountRouteWithChildren
+  AppNetworksRoute: typeof AppNetworksRoute
   AppNodesRoute: typeof AppNodesRoute
   AppServersRoute: typeof AppServersRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
@@ -317,6 +337,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAccountRoute: AppAccountRouteWithChildren,
+  AppNetworksRoute: AppNetworksRoute,
   AppNodesRoute: AppNodesRoute,
   AppServersRoute: AppServersRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,

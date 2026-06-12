@@ -27,7 +27,7 @@ export function DetailRow({
 	);
 }
 
-function CopyButton({ label, value }: { label: string; value: string }) {
+export function CopyButton({ label, value }: { label: string; value: string }) {
 	return (
 		<Button
 			className="size-7 shrink-0 text-muted-foreground"

@@ -1,24 +1,166 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Server } from "lucide-react";
-import { EmptyState } from "@/components/empty-state";
-import { PageHeader } from "@/components/page-header";
+import { CopyButton } from "@/components/detail-list";
+import {
+	CardStat,
+	EntityCard,
+	EntityIdentity,
+	UsageMeter,
+} from "@/components/entity-card";
+import { ListPage } from "@/components/list-page";
+import { StatusIndicator } from "@/components/status-indicator";
+import { Badge } from "@/components/ui/badge";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
+import { formatBytes } from "@/lib/format";
+import { useListView } from "@/lib/list-view";
+import { serverStatus } from "@/lib/status";
+import { SERVERS, type ServerRow } from "@/lib/stubs";
 
 export const Route = createFileRoute("/_app/servers")({
 	component: Servers,
 });
 
 function Servers() {
+	const [view, setView] = useListView("servers");
+
 	return (
-		<>
-			<PageHeader
-				title="Servers"
-				description="Game and app instances you're running."
-			/>
-			<EmptyState
-				icon={Server}
-				title="No servers yet"
-				description="Servers you deploy from a template will appear here."
-			/>
-		</>
+		<ListPage
+			createLabel="Deploy server"
+			description="Game and app instances you're running."
+			emptyDescription="Servers you deploy from a template will appear here."
+			emptyTitle="No servers yet"
+			filter={(server, q) =>
+				server.name.toLowerCase().includes(q) ||
+				server.templateName.toLowerCase().includes(q) ||
+				server.nodeName.toLowerCase().includes(q)
+			}
+			icon={Server}
+			items={SERVERS}
+			noun="server"
+			onViewChange={setView}
+			renderCard={(server) => <ServerCard key={server.id} server={server} />}
+			renderTable={(servers) => <ServersTable servers={servers} />}
+			title="Servers"
+			view={view}
+		/>
+	);
+}
+
+function connectString(server: ServerRow) {
+	return server.port === null ? null : `${server.nodeAddress}:${server.port}`;
+}
+
+function memoryDetail(server: ServerRow) {
+	const limit = formatBytes(server.memLimitBytes);
+	return server.memUsedBytes === null
+		? `— / ${limit}`
+		: `${formatBytes(server.memUsedBytes)} / ${limit}`;
+}
+
+function ServerCard({ server }: { server: ServerRow }) {
+	const connect = connectString(server);
+	const memPercent =
+		server.memUsedBytes === null
+			? null
+			: Math.round((server.memUsedBytes / server.memLimitBytes) * 100);
+
+	return (
+		<EntityCard
+			action={<StatusIndicator status={serverStatus(server.state)} />}
+			icon={Server}
+			subtitle={server.templateName}
+			title={server.name}
+			titleSuffix={
+				server.updateAvailable ? (
+					<Badge variant="secondary">Update</Badge>
+				) : null
+			}
+		>
+			<div className="flex flex-col gap-2.5">
+				<CardStat label="Node" value={server.nodeName} />
+				<div className="flex items-baseline justify-between gap-3">
+					<span className="shrink-0 text-muted-foreground text-xs">
+						Connect
+					</span>
+					{connect ? (
+						<span className="flex min-w-0 items-center gap-1">
+							<span className="min-w-0 flex-1 truncate font-mono text-xs">
+								{connect}
+							</span>
+							<CopyButton label="connect address" value={connect} />
+						</span>
+					) : (
+						<span className="text-sm">—</span>
+					)}
+				</div>
+				<UsageMeter
+					detail={server.cpuPercent === null ? "—" : `${server.cpuPercent}%`}
+					label="CPU"
+					stressed={(server.cpuPercent ?? 0) >= 90}
+					value={server.cpuPercent}
+				/>
+				<UsageMeter
+					detail={memoryDetail(server)}
+					label="Memory"
+					stressed={(memPercent ?? 0) >= 90}
+					value={memPercent}
+				/>
+			</div>
+		</EntityCard>
+	);
+}
+
+function ServersTable({ servers }: { servers: ServerRow[] }) {
+	return (
+		<Table>
+			<TableHeader>
+				<TableRow>
+					<TableHead>Server</TableHead>
+					<TableHead>Template</TableHead>
+					<TableHead>Node</TableHead>
+					<TableHead>Connect</TableHead>
+					<TableHead className="text-right">Status</TableHead>
+				</TableRow>
+			</TableHeader>
+			<TableBody>
+				{servers.map((server) => {
+					const connect = connectString(server);
+					return (
+						<TableRow key={server.id}>
+							<TableCell>
+								<EntityIdentity
+									badge={
+										server.updateAvailable ? (
+											<Badge variant="secondary">Update</Badge>
+										) : null
+									}
+									icon={Server}
+									title={server.name}
+								/>
+							</TableCell>
+							<TableCell className="text-muted-foreground">
+								{server.templateName}
+							</TableCell>
+							<TableCell className="text-muted-foreground">
+								{server.nodeName}
+							</TableCell>
+							<TableCell className="font-mono text-muted-foreground text-xs">
+								{connect ?? "—"}
+							</TableCell>
+							<TableCell className="text-right">
+								<StatusIndicator status={serverStatus(server.state)} />
+							</TableCell>
+						</TableRow>
+					);
+				})}
+			</TableBody>
+		</Table>
 	);
 }
