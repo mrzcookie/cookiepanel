@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { LayoutTemplate } from "lucide-react";
 import { EntityCard, EntityIdentity } from "@/components/entity-card";
 import { ListPage } from "@/components/list-page";
 import { StatusIndicator } from "@/components/status-indicator";
+import { CreateTemplateMenu } from "@/components/templates/create-template-menu";
 import { Badge } from "@/components/ui/badge";
 import {
 	Table,
@@ -15,31 +16,34 @@ import {
 import { pluralize } from "@/lib/format";
 import { useListView } from "@/lib/list-view";
 import { templateStatus } from "@/lib/status";
-import { TEMPLATES, type TemplateRow } from "@/lib/stubs";
+import { ORIGIN_LABELS, type Template } from "@/lib/templates";
+import { useTemplates } from "@/lib/templates-store";
 
 export const Route = createFileRoute("/_app/templates")({
 	component: Templates,
 });
 
-const STATUS_RANK: Record<TemplateRow["status"], number> = {
+const STATUS_RANK: Record<Template["status"], number> = {
 	published: 0,
 	draft: 1,
 	archived: 2,
 };
 
-// Curated library first: official, then by lifecycle, then alphabetical.
-const SORTED_TEMPLATES = [...TEMPLATES].sort(
-	(a, b) =>
-		Number(b.official) - Number(a.official) ||
-		STATUS_RANK[a.status] - STATUS_RANK[b.status] ||
-		a.name.localeCompare(b.name)
-);
-
 function Templates() {
 	const [view, setView] = useListView("templates");
+	const templates = useTemplates();
+
+	// Curated library first: official, then by lifecycle, then alphabetical.
+	const sorted = [...templates].sort(
+		(a, b) =>
+			Number(b.official) - Number(a.official) ||
+			STATUS_RANK[a.status] - STATUS_RANK[b.status] ||
+			a.name.localeCompare(b.name)
+	);
 
 	return (
 		<ListPage
+			action={<CreateTemplateMenu />}
 			createLabel="New template"
 			description="Reusable recipes for deploying servers."
 			emptyDescription="Create or import a template to deploy servers from it."
@@ -50,13 +54,13 @@ function Templates() {
 				template.summary.toLowerCase().includes(q)
 			}
 			icon={LayoutTemplate}
-			items={SORTED_TEMPLATES}
+			items={sorted}
 			noun="template"
 			onViewChange={setView}
 			renderCard={(template) => (
 				<TemplateCard key={template.id} template={template} />
 			)}
-			renderTable={(templates) => <TemplatesTable templates={templates} />}
+			renderTable={(rows) => <TemplatesTable templates={rows} />}
 			title="Templates"
 			view={view}
 		/>
@@ -71,11 +75,19 @@ function usageLabel(count: number) {
 	return count === 0 ? "Unused" : pluralize(count, "server");
 }
 
-function capitalize(value: string) {
-	return value.charAt(0).toUpperCase() + value.slice(1);
+function TemplateLink({ template }: { template: Template }) {
+	return (
+		<Link
+			className="hover:underline"
+			params={{ templateId: template.id }}
+			to="/templates/$templateId"
+		>
+			{template.name}
+		</Link>
+	);
 }
 
-function TemplateCard({ template }: { template: TemplateRow }) {
+function TemplateCard({ template }: { template: Template }) {
 	return (
 		<EntityCard
 			action={template.official ? <OfficialBadge /> : null}
@@ -87,7 +99,7 @@ function TemplateCard({ template }: { template: TemplateRow }) {
 			}
 			icon={LayoutTemplate}
 			subtitle={`${template.category} · v${template.version}`}
-			title={template.name}
+			title={<TemplateLink template={template} />}
 		>
 			<p className="line-clamp-2 text-muted-foreground text-sm">
 				{template.summary}
@@ -96,7 +108,7 @@ function TemplateCard({ template }: { template: TemplateRow }) {
 	);
 }
 
-function TemplatesTable({ templates }: { templates: TemplateRow[] }) {
+function TemplatesTable({ templates }: { templates: Template[] }) {
 	return (
 		<Table>
 			<TableHeader>
@@ -116,11 +128,11 @@ function TemplatesTable({ templates }: { templates: TemplateRow[] }) {
 								badge={template.official ? <OfficialBadge /> : null}
 								icon={LayoutTemplate}
 								subtitle={template.category}
-								title={template.name}
+								title={<TemplateLink template={template} />}
 							/>
 						</TableCell>
 						<TableCell className="text-muted-foreground">
-							{capitalize(template.origin)}
+							{ORIGIN_LABELS[template.origin]}
 						</TableCell>
 						<TableCell className="text-right font-mono text-muted-foreground text-xs">
 							v{template.version}

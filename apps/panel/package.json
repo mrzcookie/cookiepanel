@@ -11,6 +11,7 @@
 	},
 	"dependencies": {
 		"@fontsource-variable/geist": "^5.2.9",
+		"@monaco-editor/react": "^4.7.0",
 		"@tailwindcss/vite": "^4.3.0",
 		"@tanstack/react-form": "^1.33.0",
 		"@tanstack/react-form-devtools": "^0.2.29",
@@ -19,6 +20,7 @@
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"lucide-react": "^1.17.0",
+		"monaco-editor": "^0.55.1",
 		"next-themes": "^0.4.6",
 		"nitro": "npm:nitro-nightly@3.0.1-20260605-145636-4ab22a9d",
 		"radix-ui": "^1.5.0",

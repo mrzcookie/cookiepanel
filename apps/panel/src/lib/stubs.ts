@@ -7,6 +7,8 @@
 // Ids are UUIDs, matching the real schema (the panel mints UUID primary keys);
 // cross-entity references (a network's `serverIds`) use the owning entity's UUID.
 
+import type { Template } from "@/lib/templates";
+
 const GiB = 1024 ** 3;
 const TiB = 1024 ** 4;
 
@@ -449,33 +451,19 @@ export const NETWORKS: NetworkRow[] = [
 ];
 
 // — Templates —————————————————————————————————————————————————————————————————
+// Full authoring records (the panel's "eggs"). Domain types + helpers live in
+// lib/templates.ts; the mutable client store is lib/templates-store.ts. Image
+// strings appear here because the *author* sees them in the editor — they're
+// never surfaced on the catalog, the detail page, or a server.
 
-export type TemplateOrigin = "official" | "scratch" | "import" | "fork";
-export type TemplateStatus = "draft" | "published" | "archived";
-
-export type TemplateRow = {
-	id: string;
-	name: string;
-	slug: string;
-	summary: string;
-	category: string;
-	/** Derived: organizationId === null. Official = platform-owned, read-only. */
-	official: boolean;
-	origin: TemplateOrigin;
-	status: TemplateStatus;
-	/** Bumps on re-publish. */
-	version: number;
-	/** Org servers deployed from this template (derived). */
-	serverCount: number;
-	updatedAt: string;
-};
-
-export const TEMPLATES: TemplateRow[] = [
+export const TEMPLATES: Template[] = [
 	{
 		id: "c4d5e6f7-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
 		name: "Minecraft: Java Edition",
 		slug: "minecraft-java-edition",
 		summary: "Vanilla Java server with auto EULA and tuned JVM flags.",
+		description:
+			"The official Mojang Java server, ready to play. Picks sane JVM flags for the memory you give it, accepts the EULA on first start, and exposes the settings most groups change — difficulty, gamemode, and the message of the day.",
 		category: "Minecraft",
 		official: true,
 		origin: "official",
@@ -483,12 +471,86 @@ export const TEMPLATES: TemplateRow[] = [
 		version: 7,
 		serverCount: 4,
 		updatedAt: "May 28, 2026",
+		parentName: null,
+		images: [
+			{
+				id: "img-mc-java21",
+				label: "Java 21",
+				image: "ghcr.io/pterodactyl/yolks:java_21",
+				isDefault: true,
+			},
+			{
+				id: "img-mc-java17",
+				label: "Java 17",
+				image: "ghcr.io/pterodactyl/yolks:java_17",
+				isDefault: false,
+			},
+		],
+		variables: [
+			{
+				id: "var-mc-version",
+				name: "Server version",
+				description: "Which Minecraft version to download.",
+				envVariable: "MINECRAFT_VERSION",
+				defaultValue: "latest",
+				type: "text",
+				required: true,
+				options: [],
+				access: "editable",
+			},
+			{
+				id: "var-mc-difficulty",
+				name: "Difficulty",
+				description: "World difficulty.",
+				envVariable: "DIFFICULTY",
+				defaultValue: "normal",
+				type: "select",
+				required: true,
+				options: ["peaceful", "easy", "normal", "hard"],
+				access: "editable",
+			},
+			{
+				id: "var-mc-motd",
+				name: "Message of the day",
+				description: "Shown in the server list.",
+				envVariable: "SERVER_MOTD",
+				defaultValue: "A CookiePanel server",
+				type: "text",
+				required: false,
+				options: [],
+				access: "editable",
+			},
+			{
+				id: "var-mc-jar",
+				name: "Server jar",
+				description: "Internal: the downloaded jar filename.",
+				envVariable: "SERVER_JARFILE",
+				defaultValue: "server.jar",
+				type: "text",
+				required: true,
+				options: [],
+				access: "hidden",
+			},
+		],
+		startupCommand:
+			"java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar {{SERVER_JARFILE}} nogui",
+		stopType: "command",
+		stopValue: "stop",
+		doneMarkers: [{ kind: "regex", pattern: '\\)! For help, type "help"' }],
+		installScript:
+			'#!/bin/bash\n# Download the requested Minecraft server jar into /mnt/server.\napt-get update && apt-get install -y curl jq\ncd /mnt/server\necho "Fetching Minecraft server {{MINECRAFT_VERSION}}..."\ncurl -sSL -o {{SERVER_JARFILE}} https://launcher.example/minecraft/{{MINECRAFT_VERSION}}/server.jar\necho "eula=true" > eula.txt\n',
+		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
+		installEntrypoint: "bash",
+		installRiskAcked: true,
+		features: [{ key: "minecraft:eula" }, { key: "minecraft:bukkit-plugins" }],
 	},
 	{
 		id: "d5e6f7a8-2b3c-4d4e-9f5a-6b7c8d9e0f1a",
 		name: "Valheim Dedicated",
 		slug: "valheim-dedicated",
 		summary: "Dedicated Valheim world with crossplay and world backups.",
+		description:
+			"A dedicated Valheim world over SteamCMD. Crossplay is on by default; set a world name and a join password and you're ready.",
 		category: "Survival",
 		official: true,
 		origin: "official",
@@ -496,12 +558,69 @@ export const TEMPLATES: TemplateRow[] = [
 		version: 3,
 		serverCount: 2,
 		updatedAt: "May 12, 2026",
+		parentName: null,
+		images: [
+			{
+				id: "img-valheim",
+				label: "SteamCMD (Debian)",
+				image: "ghcr.io/pterodactyl/yolks:steamcmd_debian",
+				isDefault: true,
+			},
+		],
+		variables: [
+			{
+				id: "var-vh-world",
+				name: "World name",
+				description: "The save the server loads.",
+				envVariable: "WORLD_NAME",
+				defaultValue: "Midgard",
+				type: "text",
+				required: true,
+				options: [],
+				access: "editable",
+			},
+			{
+				id: "var-vh-password",
+				name: "Join password",
+				description: "Required to connect (min 5 characters).",
+				envVariable: "SERVER_PASSWORD",
+				defaultValue: null,
+				type: "text",
+				required: true,
+				options: [],
+				access: "secret",
+			},
+			{
+				id: "var-vh-crossplay",
+				name: "Crossplay",
+				description: "Allow players from all platforms.",
+				envVariable: "CROSSPLAY",
+				defaultValue: "true",
+				type: "toggle",
+				required: false,
+				options: [],
+				access: "editable",
+			},
+		],
+		startupCommand:
+			"./valheim_server.x86_64 -name {{WORLD_NAME}} -world {{WORLD_NAME}} -password {{SERVER_PASSWORD}}",
+		stopType: "signal",
+		stopValue: "SIGINT",
+		doneMarkers: [{ kind: "string", value: "Game server connected" }],
+		installScript:
+			"#!/bin/bash\n# Install the Valheim dedicated server via SteamCMD.\nsteamcmd +force_install_dir /mnt/server +login anonymous +app_update 896660 validate +quit\n",
+		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
+		installEntrypoint: "bash",
+		installRiskAcked: true,
+		features: [],
 	},
 	{
 		id: "e6f7a8b9-3c4d-4e5f-8a6b-7c8d9e0f1a2b",
 		name: "Palworld",
 		slug: "palworld",
 		summary: "Palworld dedicated server with configurable rates and caps.",
+		description:
+			"A Palworld dedicated server. Tune the capture and breeding rates and the player cap; everything else uses Pocketpair's defaults.",
 		category: "Survival",
 		official: true,
 		origin: "official",
@@ -509,12 +628,69 @@ export const TEMPLATES: TemplateRow[] = [
 		version: 2,
 		serverCount: 1,
 		updatedAt: "Apr 30, 2026",
+		parentName: null,
+		images: [
+			{
+				id: "img-palworld",
+				label: "SteamCMD (Ubuntu)",
+				image: "ghcr.io/pterodactyl/yolks:steamcmd_ubuntu",
+				isDefault: true,
+			},
+		],
+		variables: [
+			{
+				id: "var-pw-name",
+				name: "Server name",
+				description: "Shown in the community server browser.",
+				envVariable: "SERVER_NAME",
+				defaultValue: "A Palworld Server",
+				type: "text",
+				required: true,
+				options: [],
+				access: "editable",
+			},
+			{
+				id: "var-pw-players",
+				name: "Max players",
+				description: "Up to 32.",
+				envVariable: "MAX_PLAYERS",
+				defaultValue: "16",
+				type: "number",
+				required: true,
+				options: [],
+				access: "editable",
+			},
+			{
+				id: "var-pw-admin",
+				name: "Admin password",
+				description: "Grants in-game admin commands.",
+				envVariable: "ADMIN_PASSWORD",
+				defaultValue: null,
+				type: "text",
+				required: false,
+				options: [],
+				access: "secret",
+			},
+		],
+		startupCommand:
+			'./PalServer.sh -players={{MAX_PLAYERS}} -servername="{{SERVER_NAME}}"',
+		stopType: "signal",
+		stopValue: "SIGINT",
+		doneMarkers: [{ kind: "string", value: "Setting breakpad minidump" }],
+		installScript:
+			"#!/bin/bash\nsteamcmd +force_install_dir /mnt/server +login anonymous +app_update 2394010 validate +quit\n",
+		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
+		installEntrypoint: "bash",
+		installRiskAcked: true,
+		features: [{ key: "steam:gslt" }],
 	},
 	{
 		id: "f7a8b9c0-4d5e-4f6a-9b7c-8d9e0f1a2b3c",
 		name: "Factorio Headless",
 		slug: "factorio-headless",
 		summary: "Headless Factorio with mod-portal sync and autosave rotation.",
+		description:
+			"A headless Factorio server with rotating autosaves. Point it at a mod-portal token to keep mods in sync across restarts.",
 		category: "Sandbox",
 		official: true,
 		origin: "official",
@@ -522,12 +698,69 @@ export const TEMPLATES: TemplateRow[] = [
 		version: 6,
 		serverCount: 1,
 		updatedAt: "May 20, 2026",
+		parentName: null,
+		images: [
+			{
+				id: "img-factorio",
+				label: "Factorio (latest)",
+				image: "factoriotools/factorio:stable",
+				isDefault: true,
+			},
+		],
+		variables: [
+			{
+				id: "var-fa-save",
+				name: "Save name",
+				description: "The map file to load or create.",
+				envVariable: "SAVE_NAME",
+				defaultValue: "world",
+				type: "text",
+				required: true,
+				options: [],
+				access: "editable",
+			},
+			{
+				id: "var-fa-autosave",
+				name: "Autosave interval",
+				description: "Minutes between autosaves.",
+				envVariable: "AUTOSAVE_INTERVAL",
+				defaultValue: "10",
+				type: "number",
+				required: false,
+				options: [],
+				access: "editable",
+			},
+			{
+				id: "var-fa-token",
+				name: "Mod-portal token",
+				description: "Used to download mods from the Factorio mod portal.",
+				envVariable: "MOD_PORTAL_TOKEN",
+				defaultValue: null,
+				type: "text",
+				required: false,
+				options: [],
+				access: "secret",
+			},
+		],
+		startupCommand:
+			"factorio --start-server /mnt/server/saves/{{SAVE_NAME}}.zip --autosave-interval {{AUTOSAVE_INTERVAL}}",
+		stopType: "signal",
+		stopValue: "SIGINT",
+		doneMarkers: [{ kind: "string", value: "Starting RCON interface" }],
+		installScript:
+			"#!/bin/bash\n# Pull the latest stable Factorio headless build into /mnt/server.\ncurl -sSL https://factorio.example/get-download/stable/headless/linux64 | tar -xJ -C /mnt/server --strip-components=1\n",
+		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
+		installEntrypoint: "bash",
+		installRiskAcked: true,
+		features: [],
 	},
 	{
 		id: "a8b9c0d1-5e6f-4a7b-8c8d-9e0f1a2b3c4d",
 		name: "Rust — Staff Event",
 		slug: "rust-staff-event",
 		summary: "Forked Rust build with our plugin pack and weekly wipe schedule.",
+		description:
+			"Our internal Rust build for staff events: the oxide plugin pack baked in and a weekly wipe. Customized from the official Rust template.",
 		category: "Survival",
 		official: false,
 		origin: "fork",
@@ -535,12 +768,69 @@ export const TEMPLATES: TemplateRow[] = [
 		version: 5,
 		serverCount: 1,
 		updatedAt: "Jun 09, 2026",
+		parentName: "Rust",
+		images: [
+			{
+				id: "img-rust",
+				label: "SteamCMD (Debian)",
+				image: "ghcr.io/pterodactyl/yolks:steamcmd_debian",
+				isDefault: true,
+			},
+		],
+		variables: [
+			{
+				id: "var-rust-hostname",
+				name: "Server name",
+				description: "Shown in the Rust server browser.",
+				envVariable: "HOSTNAME",
+				defaultValue: "Staff Event — Wipe Fridays",
+				type: "text",
+				required: true,
+				options: [],
+				access: "editable",
+			},
+			{
+				id: "var-rust-worldsize",
+				name: "World size",
+				description: "Map size in metres (1000–6000).",
+				envVariable: "WORLD_SIZE",
+				defaultValue: "3500",
+				type: "number",
+				required: true,
+				options: [],
+				access: "editable",
+			},
+			{
+				id: "var-rust-rcon",
+				name: "RCON password",
+				description: "Remote-console admin password.",
+				envVariable: "RCON_PASS",
+				defaultValue: null,
+				type: "text",
+				required: true,
+				options: [],
+				access: "secret",
+			},
+		],
+		startupCommand:
+			'./RustDedicated -batchmode +server.hostname "{{HOSTNAME}}" +server.worldsize {{WORLD_SIZE}} +rcon.password {{RCON_PASS}}',
+		stopType: "command",
+		stopValue: "quit",
+		doneMarkers: [{ kind: "string", value: "Server startup complete" }],
+		installScript:
+			"#!/bin/bash\nsteamcmd +force_install_dir /mnt/server +login anonymous +app_update 258550 validate +quit\n# Drop in our staff plugin pack.\ncp -r /tmp/oxide-pack/* /mnt/server/oxide/plugins/\n",
+		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
+		installEntrypoint: "bash",
+		installRiskAcked: true,
+		features: [],
 	},
 	{
 		id: "b9c0d1e2-6f7a-4b8c-9d9e-0f1a2b3c4d5e",
 		name: "Minecraft: Modded (Forge)",
 		slug: "minecraft-modded-forge",
 		summary: "Forge loader sized for large modpacks; community-curated pack.",
+		description:
+			"A Forge server tuned for heavy modpacks — extra heap headroom and a longer startup window. Imported from a community egg; review it before publishing more widely.",
 		category: "Minecraft",
 		official: false,
 		origin: "import",
@@ -548,12 +838,58 @@ export const TEMPLATES: TemplateRow[] = [
 		version: 1,
 		serverCount: 2,
 		updatedAt: "Jun 02, 2026",
+		parentName: null,
+		images: [
+			{
+				id: "img-forge",
+				label: "Java 17",
+				image: "ghcr.io/pterodactyl/yolks:java_17",
+				isDefault: true,
+			},
+		],
+		variables: [
+			{
+				id: "var-forge-version",
+				name: "Forge version",
+				description: "Forge installer version to use.",
+				envVariable: "FORGE_VERSION",
+				defaultValue: "47.2.0",
+				type: "text",
+				required: true,
+				options: [],
+				access: "editable",
+			},
+			{
+				id: "var-forge-mem",
+				name: "Heap headroom",
+				description: "Extra MB of heap for large packs.",
+				envVariable: "EXTRA_HEAP",
+				defaultValue: "2048",
+				type: "number",
+				required: false,
+				options: [],
+				access: "read-only",
+			},
+		],
+		startupCommand:
+			"java -Xmx{{SERVER_MEMORY}}M -jar forge-{{FORGE_VERSION}}.jar nogui",
+		stopType: "command",
+		stopValue: "stop",
+		doneMarkers: [{ kind: "string", value: "Done (" }],
+		installScript:
+			'#!/bin/bash\ncd /mnt/server\ncurl -sSL -o forge-installer.jar "https://maven.example/forge/{{FORGE_VERSION}}/installer.jar"\njava -jar forge-installer.jar --installServer\necho "eula=true" > eula.txt\n',
+		installContainerImage: "ghcr.io/pterodactyl/installers:java",
+		installEntrypoint: "bash",
+		installRiskAcked: false,
+		features: [{ key: "minecraft:mods" }],
 	},
 	{
 		id: "c0d1e2f3-7a8b-4c9d-8e0f-1a2b3c4d5e6f",
 		name: "Terraria (TShock)",
 		slug: "terraria-tshock",
 		summary: "TShock server with REST admin; in review before publishing.",
+		description:
+			"A TShock-powered Terraria server with the REST admin API. Still a draft — the startup flags are being finalized.",
 		category: "Sandbox",
 		official: false,
 		origin: "scratch",
@@ -561,12 +897,57 @@ export const TEMPLATES: TemplateRow[] = [
 		version: 1,
 		serverCount: 0,
 		updatedAt: "Jun 11, 2026",
+		parentName: null,
+		images: [
+			{
+				id: "img-tshock",
+				label: "Mono (Debian)",
+				image: "ghcr.io/pterodactyl/yolks:mono_latest",
+				isDefault: true,
+			},
+		],
+		variables: [
+			{
+				id: "var-ts-world",
+				name: "World file",
+				description: "The .wld to load.",
+				envVariable: "WORLD_FILE",
+				defaultValue: "world.wld",
+				type: "text",
+				required: true,
+				options: [],
+				access: "editable",
+			},
+			{
+				id: "var-ts-maxplayers",
+				name: "Max players",
+				description: "Slot count.",
+				envVariable: "MAX_PLAYERS",
+				defaultValue: "8",
+				type: "number",
+				required: false,
+				options: [],
+				access: "editable",
+			},
+		],
+		startupCommand:
+			"mono TShock.Server.exe -world /mnt/server/worlds/{{WORLD_FILE}} -maxplayers {{MAX_PLAYERS}}",
+		stopType: "command",
+		stopValue: "exit",
+		doneMarkers: [{ kind: "string", value: "Server started" }],
+		installScript: "",
+		installContainerImage: "",
+		installEntrypoint: "bash",
+		installRiskAcked: false,
+		features: [],
 	},
 	{
 		id: "d1e2f3a4-8b9c-4d0e-9f1a-2b3c4d5e6f70",
 		name: "CS:GO Competitive",
 		slug: "csgo-competitive",
 		summary: "Legacy competitive config; superseded by our CS2 template.",
+		description:
+			"The old competitive CS:GO config. Archived now that CS2 has replaced it; kept so existing servers still resolve their template.",
 		category: "FPS",
 		official: false,
 		origin: "scratch",
@@ -574,6 +955,50 @@ export const TEMPLATES: TemplateRow[] = [
 		version: 4,
 		serverCount: 0,
 		updatedAt: "Feb 18, 2026",
+		parentName: null,
+		images: [
+			{
+				id: "img-csgo",
+				label: "SteamCMD (Debian)",
+				image: "ghcr.io/pterodactyl/yolks:steamcmd_debian",
+				isDefault: true,
+			},
+		],
+		variables: [
+			{
+				id: "var-csgo-tickrate",
+				name: "Tickrate",
+				description: "Server tickrate.",
+				envVariable: "TICKRATE",
+				defaultValue: "128",
+				type: "select",
+				required: true,
+				options: ["64", "128"],
+				access: "editable",
+			},
+			{
+				id: "var-csgo-gslt",
+				name: "Game server token",
+				description: "Steam Game Server Login Token.",
+				envVariable: "GSLT",
+				defaultValue: null,
+				type: "text",
+				required: true,
+				options: [],
+				access: "secret",
+			},
+		],
+		startupCommand:
+			"./srcds_run -game csgo -tickrate {{TICKRATE}} +sv_setsteamaccount {{GSLT}}",
+		stopType: "signal",
+		stopValue: "SIGINT",
+		doneMarkers: [{ kind: "string", value: "GC Connection established" }],
+		installScript:
+			"#!/bin/bash\nsteamcmd +force_install_dir /mnt/server +login anonymous +app_update 740 validate +quit\n",
+		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
+		installEntrypoint: "bash",
+		installRiskAcked: true,
+		features: [{ key: "steam:gslt" }],
 	},
 ];
 

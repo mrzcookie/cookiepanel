@@ -14,6 +14,7 @@ import type { ListView } from "@/lib/list-view";
 // passed in. `noun` is the singular form ("node"); the create flow is a later
 // phase, so the CTA is a present affordance only.
 export function ListPage<T>({
+	action,
 	createLabel,
 	description,
 	emptyDescription,
@@ -29,6 +30,8 @@ export function ListPage<T>({
 	title,
 	view,
 }: {
+	/** Custom create control (e.g. a menu). Overrides the default button. */
+	action?: ReactNode;
 	createLabel: string;
 	description: string;
 	emptyDescription: string;
@@ -53,7 +56,7 @@ export function ListPage<T>({
 		? items.filter((item) => filter(item, needle))
 		: items;
 
-	const cta = (
+	const cta = action ?? (
 		<Button onClick={onCreate ?? (() => toast.info("Coming soon"))} size="sm">
 			<Plus />
 			{createLabel}
