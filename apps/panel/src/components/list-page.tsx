@@ -22,6 +22,7 @@ export function ListPage<T>({
 	icon: Icon,
 	items,
 	noun,
+	onCreate,
 	onViewChange,
 	renderCard,
 	renderTable,
@@ -36,6 +37,8 @@ export function ListPage<T>({
 	icon: LucideIcon;
 	items: T[];
 	noun: string;
+	/** Run when the create CTA is clicked. Defaults to a "coming soon" toast. */
+	onCreate?: () => void;
 	onViewChange: (view: ListView) => void;
 	/** Must set `key` on the returned element. */
 	renderCard: (item: T) => ReactNode;
@@ -51,7 +54,7 @@ export function ListPage<T>({
 		: items;
 
 	const cta = (
-		<Button onClick={() => toast.info("Coming soon")} size="sm">
+		<Button onClick={onCreate ?? (() => toast.info("Coming soon"))} size="sm">
 			<Plus />
 			{createLabel}
 		</Button>

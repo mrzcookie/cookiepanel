@@ -7,7 +7,7 @@ export function PageHeader({
 	actions,
 	border = true,
 }: {
-	title: string;
+	title: ReactNode;
 	description?: string;
 	actions?: ReactNode;
 	/** Bottom hairline + padding. Turn off when tabs render the divider instead. */

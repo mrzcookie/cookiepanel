@@ -5,7 +5,7 @@
 // Docker image string (templates expose only a friendly label).
 //
 // Ids are UUIDs, matching the real schema (the panel mints UUID primary keys);
-// cross-entity references (a network's `nodeId`) use the owning node's UUID.
+// cross-entity references (a network's `serverIds`) use the owning entity's UUID.
 
 const GiB = 1024 ** 3;
 const TiB = 1024 ** 4;
@@ -218,9 +218,20 @@ export type ServerRow = {
 	memLimitBytes: number;
 };
 
+// Server UUIDs, referenced by networks' `serverIds` membership.
+const SERVER_ID = {
+	survivalSmp: "3f9a1b2c-7d4e-4a8f-9b1c-2d3e4f5a6b7c",
+	creativeBuild: "7b21c3d4-8e5f-4b9a-8c2d-3e4f5a6b7c8d",
+	midgard: "a04e5f6a-9b7c-4c0d-8e1f-4a5b6c7d8e9f",
+	palworld: "c5d8e6f7-0a8b-4d1e-9f2a-5b6c7d8e9f0a",
+	rustMain: "1e6f7a8b-1c9d-4e2f-8a3b-6c7d8e9f0a1b",
+	terraria: "9d2c8e3f-2d0e-4f3a-9b4c-7d8e9f0a1b2c",
+	modTesting: "4a8b9c0d-3e1f-4a4b-8c5d-8e9f0a1b2c3d",
+} as const;
+
 export const SERVERS: ServerRow[] = [
 	{
-		id: "3f9a1b2c-7d4e-4a8f-9b1c-2d3e4f5a6b7c",
+		id: SERVER_ID.survivalSmp,
 		name: "Survival SMP",
 		templateName: "Minecraft: Java Edition",
 		updateAvailable: false,
@@ -233,7 +244,7 @@ export const SERVERS: ServerRow[] = [
 		memLimitBytes: 6 * GiB,
 	},
 	{
-		id: "7b21c3d4-8e5f-4b9a-8c2d-3e4f5a6b7c8d",
+		id: SERVER_ID.creativeBuild,
 		name: "Creative Build",
 		templateName: "Minecraft: Java Edition",
 		updateAvailable: true,
@@ -246,7 +257,7 @@ export const SERVERS: ServerRow[] = [
 		memLimitBytes: 4 * GiB,
 	},
 	{
-		id: "a04e5f6a-9b7c-4c0d-8e1f-4a5b6c7d8e9f",
+		id: SERVER_ID.midgard,
 		name: "Midgard",
 		templateName: "Valheim",
 		updateAvailable: false,
@@ -259,7 +270,7 @@ export const SERVERS: ServerRow[] = [
 		memLimitBytes: 4 * GiB,
 	},
 	{
-		id: "c5d8e6f7-0a8b-4d1e-9f2a-5b6c7d8e9f0a",
+		id: SERVER_ID.palworld,
 		name: "Palworld Dedicated",
 		templateName: "Palworld",
 		updateAvailable: false,
@@ -272,7 +283,7 @@ export const SERVERS: ServerRow[] = [
 		memLimitBytes: 16 * GiB,
 	},
 	{
-		id: "1e6f7a8b-1c9d-4e2f-8a3b-6c7d8e9f0a1b",
+		id: SERVER_ID.rustMain,
 		name: "Rust Main",
 		templateName: "Rust",
 		updateAvailable: true,
@@ -285,7 +296,7 @@ export const SERVERS: ServerRow[] = [
 		memLimitBytes: 8 * GiB,
 	},
 	{
-		id: "9d2c8e3f-2d0e-4f3a-9b4c-7d8e9f0a1b2c",
+		id: SERVER_ID.terraria,
 		name: "Terraria Co-op",
 		templateName: "Terraria",
 		updateAvailable: false,
@@ -298,7 +309,7 @@ export const SERVERS: ServerRow[] = [
 		memLimitBytes: 2 * GiB,
 	},
 	{
-		id: "4a8b9c0d-3e1f-4a4b-8c5d-8e9f0a1b2c3d",
+		id: SERVER_ID.modTesting,
 		name: "Mod Testing",
 		templateName: "Minecraft: Java Edition",
 		updateAvailable: false,
@@ -330,8 +341,8 @@ export type NetworkRow = {
 	gateway: string | null;
 	/** true = isolated, no outbound access. */
 	internal: boolean;
-	/** Derived from how many servers attach to this network. */
-	serverCount: number;
+	/** Attached server UUIDs (membership lives here; the count is derived). */
+	serverIds: string[];
 };
 
 export const NETWORKS: NetworkRow[] = [
@@ -344,7 +355,7 @@ export const NETWORKS: NetworkRow[] = [
 		subnet: "172.17.0.0/16",
 		gateway: "172.17.0.1",
 		internal: false,
-		serverCount: 4,
+		serverIds: [SERVER_ID.survivalSmp, SERVER_ID.creativeBuild],
 	},
 	{
 		id: "3c8d2e9f-5a4b-4c7d-8e2f-1b3c5d7e9f1a",
@@ -355,7 +366,7 @@ export const NETWORKS: NetworkRow[] = [
 		subnet: "192.168.10.0/24",
 		gateway: "192.168.10.1",
 		internal: false,
-		serverCount: 3,
+		serverIds: [SERVER_ID.survivalSmp],
 	},
 	{
 		id: "4d9e3f0a-6b5c-4d8e-9f3a-2c4d6e8f0a2b",
@@ -366,7 +377,7 @@ export const NETWORKS: NetworkRow[] = [
 		subnet: "172.20.0.0/16",
 		gateway: "172.20.0.1",
 		internal: false,
-		serverCount: 2,
+		serverIds: [SERVER_ID.midgard],
 	},
 	{
 		id: "5e0f4a1b-7c6d-4e9f-8a4b-3d5e7f9a1b3c",
@@ -377,7 +388,7 @@ export const NETWORKS: NetworkRow[] = [
 		subnet: "172.21.0.0/16",
 		gateway: "172.21.0.1",
 		internal: true,
-		serverCount: 2,
+		serverIds: [SERVER_ID.midgard, SERVER_ID.palworld],
 	},
 	{
 		id: "6f1a5b2c-8d7e-4f0a-9b5c-4e6f8a0b2c4d",
@@ -388,7 +399,7 @@ export const NETWORKS: NetworkRow[] = [
 		subnet: "10.30.0.0/16",
 		gateway: "10.30.0.1",
 		internal: false,
-		serverCount: 1,
+		serverIds: [SERVER_ID.rustMain],
 	},
 	{
 		id: "7a2b6c3d-9e8f-4a1b-8c6d-5f7a9b1c3d5e",
@@ -399,7 +410,7 @@ export const NETWORKS: NetworkRow[] = [
 		subnet: "192.168.40.0/24",
 		gateway: "192.168.40.1",
 		internal: false,
-		serverCount: 2,
+		serverIds: [SERVER_ID.modTesting],
 	},
 	{
 		id: "8b3c7d4e-0f9a-4b2c-9d7e-6a8b0c2d4e6f",
@@ -410,7 +421,7 @@ export const NETWORKS: NetworkRow[] = [
 		subnet: null,
 		gateway: null,
 		internal: true,
-		serverCount: 0,
+		serverIds: [],
 	},
 ];
 

@@ -24,7 +24,7 @@ export function EntityCard({
 	icon: LucideIcon;
 	subtitle?: ReactNode;
 	subtitleMono?: boolean;
-	title: string;
+	title: ReactNode;
 	/** Inline badge after the title (e.g. an "Update" hint). */
 	titleSuffix?: ReactNode;
 }) {
@@ -101,7 +101,7 @@ export function EntityIdentity({
 	icon: LucideIcon;
 	subtitle?: ReactNode;
 	subtitleMono?: boolean;
-	title: string;
+	title: ReactNode;
 }) {
 	return (
 		<div className="flex items-center gap-3">
