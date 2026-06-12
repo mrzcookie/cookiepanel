@@ -16,6 +16,13 @@ export const CURRENT_USER = { name: "Jane Cooper", email: "jane@example.com" };
 
 export type NodeStatus = "online" | "offline" | "unhealthy" | "pending";
 
+/** Operator-set allocatable ceilings, at or below the node's detected hardware. */
+export type NodeCaps = {
+	cpuCores: number;
+	memBytes: number;
+	diskBytes: number;
+};
+
 export type NodeRow = {
 	id: string;
 	/** Display name. The stable identity is `id`, not this. */
@@ -43,6 +50,8 @@ export type NodeRow = {
 	updateAvailable: boolean;
 	/** Pre-formatted relative time for the UI-first phase. */
 	lastHeartbeat: string | null;
+	/** Operator-set allocatable ceilings; null until hardware is detected. */
+	caps: NodeCaps | null;
 };
 
 // Node UUIDs, referenced by servers (by name/address) and networks (by id).
@@ -77,6 +86,7 @@ export const NODES: NodeRow[] = [
 		daemonVersion: "1.4.2",
 		updateAvailable: false,
 		lastHeartbeat: "12s ago",
+		caps: { cpuCores: 14, memBytes: 56 * GiB, diskBytes: 1.8 * TiB },
 	},
 	{
 		id: NODE_ID.valhalla,
@@ -99,6 +109,7 @@ export const NODES: NodeRow[] = [
 		daemonVersion: "1.3.9",
 		updateAvailable: true,
 		lastHeartbeat: "8s ago",
+		caps: { cpuCores: 12, memBytes: 30 * GiB, diskBytes: 960 * GiB },
 	},
 	{
 		id: NODE_ID.orion,
@@ -121,6 +132,7 @@ export const NODES: NodeRow[] = [
 		daemonVersion: "1.4.2",
 		updateAvailable: false,
 		lastHeartbeat: "5s ago",
+		caps: { cpuCores: 20, memBytes: 112 * GiB, diskBytes: 3.5 * TiB },
 	},
 	{
 		id: NODE_ID.helios,
@@ -143,6 +155,7 @@ export const NODES: NodeRow[] = [
 		daemonVersion: "1.4.2",
 		updateAvailable: false,
 		lastHeartbeat: "2m ago",
+		caps: { cpuCores: 8, memBytes: 14 * GiB, diskBytes: 460 * GiB },
 	},
 	{
 		id: NODE_ID.nova,
@@ -165,6 +178,7 @@ export const NODES: NodeRow[] = [
 		daemonVersion: "1.3.9",
 		updateAvailable: true,
 		lastHeartbeat: "1h 4m ago",
+		caps: { cpuCores: 8, memBytes: 14 * GiB, diskBytes: 960 * GiB },
 	},
 	{
 		id: NODE_ID.titan,
@@ -187,6 +201,7 @@ export const NODES: NodeRow[] = [
 		daemonVersion: null,
 		updateAvailable: false,
 		lastHeartbeat: null,
+		caps: null,
 	},
 ];
 
@@ -207,7 +222,8 @@ export type ServerRow = {
 	/** The source template has a newer published version. */
 	updateAvailable: boolean;
 	state: ServerState;
-	/** Node it runs on (display name + the panel-reachable address). */
+	/** Node it runs on (stable id + display name + panel-reachable address). */
+	nodeId: string;
 	nodeName: string;
 	nodeAddress: string;
 	/** Primary published port; null before a bind exists (installing). */
@@ -232,6 +248,7 @@ const SERVER_ID = {
 export const SERVERS: ServerRow[] = [
 	{
 		id: SERVER_ID.survivalSmp,
+		nodeId: NODE_ID.atlas,
 		name: "Survival SMP",
 		templateName: "Minecraft: Java Edition",
 		updateAvailable: false,
@@ -245,6 +262,7 @@ export const SERVERS: ServerRow[] = [
 	},
 	{
 		id: SERVER_ID.creativeBuild,
+		nodeId: NODE_ID.atlas,
 		name: "Creative Build",
 		templateName: "Minecraft: Java Edition",
 		updateAvailable: true,
@@ -258,6 +276,7 @@ export const SERVERS: ServerRow[] = [
 	},
 	{
 		id: SERVER_ID.midgard,
+		nodeId: NODE_ID.valhalla,
 		name: "Midgard",
 		templateName: "Valheim",
 		updateAvailable: false,
@@ -271,6 +290,7 @@ export const SERVERS: ServerRow[] = [
 	},
 	{
 		id: SERVER_ID.palworld,
+		nodeId: NODE_ID.valhalla,
 		name: "Palworld Dedicated",
 		templateName: "Palworld",
 		updateAvailable: false,
@@ -284,6 +304,7 @@ export const SERVERS: ServerRow[] = [
 	},
 	{
 		id: SERVER_ID.rustMain,
+		nodeId: NODE_ID.orion,
 		name: "Rust Main",
 		templateName: "Rust",
 		updateAvailable: true,
@@ -297,6 +318,7 @@ export const SERVERS: ServerRow[] = [
 	},
 	{
 		id: SERVER_ID.terraria,
+		nodeId: NODE_ID.orion,
 		name: "Terraria Co-op",
 		templateName: "Terraria",
 		updateAvailable: false,
@@ -310,6 +332,7 @@ export const SERVERS: ServerRow[] = [
 	},
 	{
 		id: SERVER_ID.modTesting,
+		nodeId: NODE_ID.helios,
 		name: "Mod Testing",
 		templateName: "Minecraft: Java Edition",
 		updateAvailable: false,
@@ -553,3 +576,351 @@ export const TEMPLATES: TemplateRow[] = [
 		updatedAt: "Feb 18, 2026",
 	},
 ];
+
+// — Drives / Allocations / Firewall (daemon-derived, per node) —————————————————
+
+export type DriveRow = {
+	id: string;
+	nodeId: string;
+	/** e.g. "/dev/nvme0n1p1". */
+	device: string;
+	/** Friendly model string, never an image. */
+	model: string;
+	sizeBytes: number;
+	/** null when unmounted (no usage to read). */
+	usedBytes: number | null;
+	/** null = unformatted. */
+	filesystem: string | null;
+	/** null = unmounted; "/" or "/boot" = the protected system disk. */
+	mountpoint: string | null;
+	/** Server data is stored here. */
+	isDataTarget: boolean;
+};
+
+// Only the reporting (online/unhealthy) nodes have drives; offline/pending nodes
+// show their tab's stale/empty state instead.
+export const DRIVES: DriveRow[] = [
+	{
+		id: "5a1b2c3d-1111-4a22-8b33-aa01bb02cc03",
+		nodeId: NODE_ID.atlas,
+		device: "/dev/nvme0n1p1",
+		model: "Samsung PM9A3",
+		sizeBytes: 128 * GiB,
+		usedBytes: 41 * GiB,
+		filesystem: "ext4",
+		mountpoint: "/",
+		isDataTarget: false,
+	},
+	{
+		id: "5a1b2c3d-2222-4a22-8b33-aa01bb02cc04",
+		nodeId: NODE_ID.atlas,
+		device: "/dev/nvme1n1",
+		model: "Samsung PM9A3 1.9TB",
+		sizeBytes: 2 * TiB,
+		usedBytes: 1 * TiB,
+		filesystem: "ext4",
+		mountpoint: "/var/lib/cookiepanel",
+		isDataTarget: true,
+	},
+	{
+		id: "5a1b2c3d-3333-4a22-8b33-aa01bb02cc05",
+		nodeId: NODE_ID.atlas,
+		device: "/dev/sda",
+		model: "Seagate IronWolf 4TB",
+		sizeBytes: 4 * TiB,
+		usedBytes: null,
+		filesystem: null,
+		mountpoint: null,
+		isDataTarget: false,
+	},
+	{
+		id: "6b2c3d4e-1111-4b33-9c44-bb02cc03dd04",
+		nodeId: NODE_ID.valhalla,
+		device: "/dev/sda2",
+		model: "Crucial MX500",
+		sizeBytes: 256 * GiB,
+		usedBytes: 52 * GiB,
+		filesystem: "ext4",
+		mountpoint: "/",
+		isDataTarget: false,
+	},
+	{
+		id: "6b2c3d4e-2222-4b33-9c44-bb02cc03dd05",
+		nodeId: NODE_ID.valhalla,
+		device: "/dev/sdb1",
+		model: "WD Red 1TB",
+		sizeBytes: 1 * TiB,
+		usedBytes: 700 * GiB,
+		filesystem: "xfs",
+		mountpoint: "/data",
+		isDataTarget: true,
+	},
+	{
+		id: "7c3d4e5f-1111-4c44-8d55-cc03dd04ee05",
+		nodeId: NODE_ID.orion,
+		device: "/dev/nvme0n1p1",
+		model: "WD Black SN850X",
+		sizeBytes: 1 * GiB,
+		usedBytes: 0.3 * GiB,
+		filesystem: "ext4",
+		mountpoint: "/boot",
+		isDataTarget: false,
+	},
+	{
+		id: "7c3d4e5f-2222-4c44-8d55-cc03dd04ee06",
+		nodeId: NODE_ID.orion,
+		device: "/dev/nvme0n1p2",
+		model: "WD Black SN850X",
+		sizeBytes: 200 * GiB,
+		usedBytes: 64 * GiB,
+		filesystem: "ext4",
+		mountpoint: "/",
+		isDataTarget: false,
+	},
+	{
+		id: "7c3d4e5f-3333-4c44-8d55-cc03dd04ee07",
+		nodeId: NODE_ID.orion,
+		device: "/dev/nvme1n1",
+		model: "Micron 7450 3.84TB",
+		sizeBytes: 4 * TiB,
+		usedBytes: 1.5 * TiB,
+		filesystem: "ext4",
+		mountpoint: "/var/lib/cookiepanel",
+		isDataTarget: true,
+	},
+	{
+		id: "8d4e5f6a-1111-4d55-9e66-dd04ee05ff06",
+		nodeId: NODE_ID.helios,
+		device: "/dev/sda1",
+		model: "Kingston DC600M",
+		sizeBytes: 500 * GiB,
+		usedBytes: 470 * GiB,
+		filesystem: "ext4",
+		mountpoint: "/",
+		isDataTarget: false,
+	},
+	{
+		id: "8d4e5f6a-2222-4d55-9e66-dd04ee05ff07",
+		nodeId: NODE_ID.helios,
+		device: "/dev/sdb1",
+		model: "Kingston DC600M",
+		sizeBytes: 500 * GiB,
+		usedBytes: 180 * GiB,
+		filesystem: "ext4",
+		mountpoint: "/data",
+		isDataTarget: true,
+	},
+];
+
+export type AllocationProtocol = "tcp" | "udp";
+
+export type AllocationRow = {
+	id: string;
+	nodeId: string;
+	/** "0.0.0.0" = all interfaces. */
+	ip: string;
+	port: number;
+	protocol: AllocationProtocol;
+	/** null = free; else a real server. */
+	serverId: string | null;
+	serverName: string | null;
+};
+
+export const ALLOCATIONS: AllocationRow[] = [
+	{
+		id: "a1100001-0000-4a00-8a00-000000025565",
+		nodeId: NODE_ID.atlas,
+		ip: "0.0.0.0",
+		port: 25565,
+		protocol: "tcp",
+		serverId: SERVER_ID.survivalSmp,
+		serverName: "Survival SMP",
+	},
+	{
+		id: "a1100002-0000-4a00-8a00-000000025566",
+		nodeId: NODE_ID.atlas,
+		ip: "0.0.0.0",
+		port: 25566,
+		protocol: "tcp",
+		serverId: SERVER_ID.creativeBuild,
+		serverName: "Creative Build",
+	},
+	{
+		id: "a1100003-0000-4a00-8a00-000000025567",
+		nodeId: NODE_ID.atlas,
+		ip: "0.0.0.0",
+		port: 25567,
+		protocol: "tcp",
+		serverId: null,
+		serverName: null,
+	},
+	{
+		id: "a1100004-0000-4a00-8a00-000000019132",
+		nodeId: NODE_ID.atlas,
+		ip: "0.0.0.0",
+		port: 19132,
+		protocol: "udp",
+		serverId: null,
+		serverName: null,
+	},
+	{
+		id: "b2200001-0000-4b00-8b00-000000002456",
+		nodeId: NODE_ID.valhalla,
+		ip: "0.0.0.0",
+		port: 2456,
+		protocol: "udp",
+		serverId: SERVER_ID.midgard,
+		serverName: "Midgard",
+	},
+	{
+		id: "b2200002-0000-4b00-8b00-000000002457",
+		nodeId: NODE_ID.valhalla,
+		ip: "0.0.0.0",
+		port: 2457,
+		protocol: "udp",
+		serverId: SERVER_ID.midgard,
+		serverName: "Midgard",
+	},
+	{
+		id: "b2200003-0000-4b00-8b00-000000008211",
+		nodeId: NODE_ID.valhalla,
+		ip: "0.0.0.0",
+		port: 8211,
+		protocol: "udp",
+		serverId: null,
+		serverName: null,
+	},
+	{
+		id: "c3300001-0000-4c00-8c00-000000028015",
+		nodeId: NODE_ID.orion,
+		ip: "0.0.0.0",
+		port: 28015,
+		protocol: "tcp",
+		serverId: SERVER_ID.rustMain,
+		serverName: "Rust Main",
+	},
+	{
+		id: "c3300002-0000-4c00-8c00-000000128015",
+		nodeId: NODE_ID.orion,
+		ip: "0.0.0.0",
+		port: 28015,
+		protocol: "udp",
+		serverId: SERVER_ID.rustMain,
+		serverName: "Rust Main",
+	},
+	{
+		id: "c3300003-0000-4c00-8c00-000000007777",
+		nodeId: NODE_ID.orion,
+		ip: "0.0.0.0",
+		port: 7777,
+		protocol: "tcp",
+		serverId: SERVER_ID.terraria,
+		serverName: "Terraria Co-op",
+	},
+	{
+		id: "c3300004-0000-4c00-8c00-000000007778",
+		nodeId: NODE_ID.orion,
+		ip: "0.0.0.0",
+		port: 7778,
+		protocol: "tcp",
+		serverId: null,
+		serverName: null,
+	},
+	{
+		id: "d4400001-0000-4d00-8d00-000000025567",
+		nodeId: NODE_ID.helios,
+		ip: "0.0.0.0",
+		port: 25567,
+		protocol: "tcp",
+		serverId: SERVER_ID.modTesting,
+		serverName: "Mod Testing",
+	},
+	{
+		id: "d4400002-0000-4d00-8d00-000000025568",
+		nodeId: NODE_ID.helios,
+		ip: "0.0.0.0",
+		port: 25568,
+		protocol: "tcp",
+		serverId: null,
+		serverName: null,
+	},
+];
+
+export type FirewallBackend = "ufw" | "iptables" | "none";
+export type FirewallRule = { port: number; protocol: AllocationProtocol };
+export type FirewallRow = {
+	nodeId: string;
+	backend: FirewallBackend;
+	active: boolean;
+	/** Open ports. SSH (22) and the daemon port are always present and locked. */
+	rules: FirewallRule[];
+};
+
+export const FIREWALL: FirewallRow[] = [
+	{
+		nodeId: NODE_ID.atlas,
+		backend: "ufw",
+		active: true,
+		rules: [
+			{ port: 22, protocol: "tcp" },
+			{ port: 8443, protocol: "tcp" },
+			{ port: 25565, protocol: "tcp" },
+			{ port: 25566, protocol: "tcp" },
+		],
+	},
+	{
+		nodeId: NODE_ID.valhalla,
+		backend: "ufw",
+		active: true,
+		rules: [
+			{ port: 22, protocol: "tcp" },
+			{ port: 8443, protocol: "tcp" },
+			{ port: 2456, protocol: "udp" },
+			{ port: 2457, protocol: "udp" },
+		],
+	},
+	{
+		nodeId: NODE_ID.orion,
+		backend: "iptables",
+		active: true,
+		rules: [
+			{ port: 22, protocol: "tcp" },
+			{ port: 8443, protocol: "tcp" },
+			{ port: 28015, protocol: "tcp" },
+			{ port: 28015, protocol: "udp" },
+			{ port: 7777, protocol: "tcp" },
+		],
+	},
+	{
+		nodeId: NODE_ID.helios,
+		backend: "iptables",
+		active: false,
+		rules: [
+			{ port: 22, protocol: "tcp" },
+			{ port: 8443, protocol: "tcp" },
+			{ port: 25567, protocol: "tcp" },
+		],
+	},
+	{
+		nodeId: NODE_ID.nova,
+		backend: "none",
+		active: false,
+		rules: [
+			{ port: 22, protocol: "tcp" },
+			{ port: 8443, protocol: "tcp" },
+		],
+	},
+];
+
+export function serversForNode(nodeId: string) {
+	return SERVERS.filter((server) => server.nodeId === nodeId);
+}
+export function drivesForNode(nodeId: string) {
+	return DRIVES.filter((drive) => drive.nodeId === nodeId);
+}
+export function allocationsForNode(nodeId: string) {
+	return ALLOCATIONS.filter((allocation) => allocation.nodeId === nodeId);
+}
+export function firewallForNode(nodeId: string) {
+	return FIREWALL.find((firewall) => firewall.nodeId === nodeId);
+}

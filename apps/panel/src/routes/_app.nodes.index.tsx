@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { HardDrive } from "lucide-react";
 import {
 	CardStat,
@@ -19,15 +19,17 @@ import {
 } from "@/components/ui/table";
 import { formatBytes } from "@/lib/format";
 import { useListView } from "@/lib/list-view";
+import { useNodes } from "@/lib/nodes-store";
 import { nodeStatus } from "@/lib/status";
-import { NODES, type NodeRow } from "@/lib/stubs";
+import type { NodeRow } from "@/lib/stubs";
 
-export const Route = createFileRoute("/_app/nodes")({
+export const Route = createFileRoute("/_app/nodes/")({
 	component: Nodes,
 });
 
 function Nodes() {
 	const [view, setView] = useListView("nodes");
+	const nodes = useNodes();
 
 	return (
 		<ListPage
@@ -40,11 +42,11 @@ function Nodes() {
 				node.fqdn.toLowerCase().includes(q)
 			}
 			icon={HardDrive}
-			items={NODES}
+			items={nodes}
 			noun="node"
 			onViewChange={setView}
 			renderCard={(node) => <NodeCard key={node.id} node={node} />}
-			renderTable={(nodes) => <NodesTable nodes={nodes} />}
+			renderTable={(rows) => <NodesTable nodes={rows} />}
 			title="Nodes"
 			view={view}
 		/>
@@ -71,6 +73,18 @@ function serversLabel(node: NodeRow) {
 	}
 	const running = node.serversRunning ?? "—";
 	return `${running} / ${node.serversTotal} running`;
+}
+
+function NodeLink({ node }: { node: NodeRow }) {
+	return (
+		<Link
+			className="hover:underline"
+			params={{ nodeId: node.id }}
+			to="/nodes/$nodeId"
+		>
+			{node.name}
+		</Link>
+	);
 }
 
 function NodeCard({ node }: { node: NodeRow }) {
@@ -101,7 +115,7 @@ function NodeCard({ node }: { node: NodeRow }) {
 			icon={HardDrive}
 			subtitle={`${node.fqdn}:${node.daemonPort}`}
 			subtitleMono
-			title={node.name}
+			title={<NodeLink node={node} />}
 		>
 			{node.status === "pending" ? (
 				<p className="text-muted-foreground text-sm">
@@ -158,7 +172,7 @@ function NodesTable({ nodes }: { nodes: NodeRow[] }) {
 							<EntityIdentity
 								icon={HardDrive}
 								subtitle={node.os ? `${node.os} · ${node.arch}` : undefined}
-								title={node.name}
+								title={<NodeLink node={node} />}
 							/>
 						</TableCell>
 						<TableCell className="font-mono text-muted-foreground text-xs">

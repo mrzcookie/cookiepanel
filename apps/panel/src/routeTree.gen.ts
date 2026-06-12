@@ -14,16 +14,21 @@ import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppTemplatesRouteImport } from './routes/_app.templates'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppServersRouteImport } from './routes/_app.servers'
-import { Route as AppNodesRouteImport } from './routes/_app.nodes'
 import { Route as AppAccountRouteImport } from './routes/_app.account'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app.settings.index'
+import { Route as AppNodesIndexRouteImport } from './routes/_app.nodes.index'
 import { Route as AppNetworksIndexRouteImport } from './routes/_app.networks.index'
 import { Route as AppAccountIndexRouteImport } from './routes/_app.account.index'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app.settings.members'
 import { Route as AppSettingsActivityRouteImport } from './routes/_app.settings.activity'
+import { Route as AppNodesNodeIdRouteImport } from './routes/_app.nodes.$nodeId'
 import { Route as AppNetworksNetworkIdRouteImport } from './routes/_app.networks.$networkId'
 import { Route as AppAccountSshKeysRouteImport } from './routes/_app.account.ssh-keys'
 import { Route as AppAccountActivityRouteImport } from './routes/_app.account.activity'
+import { Route as AppNodesNodeIdIndexRouteImport } from './routes/_app.nodes.$nodeId.index'
+import { Route as AppNodesNodeIdStorageRouteImport } from './routes/_app.nodes.$nodeId.storage'
+import { Route as AppNodesNodeIdSettingsRouteImport } from './routes/_app.nodes.$nodeId.settings'
+import { Route as AppNodesNodeIdNetworkingRouteImport } from './routes/_app.nodes.$nodeId.networking'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -49,11 +54,6 @@ const AppServersRoute = AppServersRouteImport.update({
   path: '/servers',
   getParentRoute: () => AppRoute,
 } as any)
-const AppNodesRoute = AppNodesRouteImport.update({
-  id: '/nodes',
-  path: '/nodes',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppAccountRoute = AppAccountRouteImport.update({
   id: '/account',
   path: '/account',
@@ -63,6 +63,11 @@ const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppNodesIndexRoute = AppNodesIndexRouteImport.update({
+  id: '/nodes/',
+  path: '/nodes/',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppNetworksIndexRoute = AppNetworksIndexRouteImport.update({
   id: '/networks/',
@@ -84,6 +89,11 @@ const AppSettingsActivityRoute = AppSettingsActivityRouteImport.update({
   path: '/activity',
   getParentRoute: () => AppSettingsRoute,
 } as any)
+const AppNodesNodeIdRoute = AppNodesNodeIdRouteImport.update({
+  id: '/nodes/$nodeId',
+  path: '/nodes/$nodeId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppNetworksNetworkIdRoute = AppNetworksNetworkIdRouteImport.update({
   id: '/networks/$networkId',
   path: '/networks/$networkId',
@@ -99,25 +109,50 @@ const AppAccountActivityRoute = AppAccountActivityRouteImport.update({
   path: '/activity',
   getParentRoute: () => AppAccountRoute,
 } as any)
+const AppNodesNodeIdIndexRoute = AppNodesNodeIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppNodesNodeIdRoute,
+} as any)
+const AppNodesNodeIdStorageRoute = AppNodesNodeIdStorageRouteImport.update({
+  id: '/storage',
+  path: '/storage',
+  getParentRoute: () => AppNodesNodeIdRoute,
+} as any)
+const AppNodesNodeIdSettingsRoute = AppNodesNodeIdSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppNodesNodeIdRoute,
+} as any)
+const AppNodesNodeIdNetworkingRoute =
+  AppNodesNodeIdNetworkingRouteImport.update({
+    id: '/networking',
+    path: '/networking',
+    getParentRoute: () => AppNodesNodeIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/account': typeof AppAccountRouteWithChildren
-  '/nodes': typeof AppNodesRoute
   '/servers': typeof AppServersRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/templates': typeof AppTemplatesRoute
   '/account/activity': typeof AppAccountActivityRoute
   '/account/ssh-keys': typeof AppAccountSshKeysRoute
   '/networks/$networkId': typeof AppNetworksNetworkIdRoute
+  '/nodes/$nodeId': typeof AppNodesNodeIdRouteWithChildren
   '/settings/activity': typeof AppSettingsActivityRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/account/': typeof AppAccountIndexRoute
   '/networks/': typeof AppNetworksIndexRoute
+  '/nodes/': typeof AppNodesIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
+  '/nodes/$nodeId/networking': typeof AppNodesNodeIdNetworkingRoute
+  '/nodes/$nodeId/settings': typeof AppNodesNodeIdSettingsRoute
+  '/nodes/$nodeId/storage': typeof AppNodesNodeIdStorageRoute
+  '/nodes/$nodeId/': typeof AppNodesNodeIdIndexRoute
 }
 export interface FileRoutesByTo {
-  '/nodes': typeof AppNodesRoute
   '/servers': typeof AppServersRoute
   '/templates': typeof AppTemplatesRoute
   '/': typeof AppIndexRoute
@@ -128,13 +163,17 @@ export interface FileRoutesByTo {
   '/settings/members': typeof AppSettingsMembersRoute
   '/account': typeof AppAccountIndexRoute
   '/networks': typeof AppNetworksIndexRoute
+  '/nodes': typeof AppNodesIndexRoute
   '/settings': typeof AppSettingsIndexRoute
+  '/nodes/$nodeId/networking': typeof AppNodesNodeIdNetworkingRoute
+  '/nodes/$nodeId/settings': typeof AppNodesNodeIdSettingsRoute
+  '/nodes/$nodeId/storage': typeof AppNodesNodeIdStorageRoute
+  '/nodes/$nodeId': typeof AppNodesNodeIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_app/account': typeof AppAccountRouteWithChildren
-  '/_app/nodes': typeof AppNodesRoute
   '/_app/servers': typeof AppServersRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/templates': typeof AppTemplatesRoute
@@ -142,32 +181,42 @@ export interface FileRoutesById {
   '/_app/account/activity': typeof AppAccountActivityRoute
   '/_app/account/ssh-keys': typeof AppAccountSshKeysRoute
   '/_app/networks/$networkId': typeof AppNetworksNetworkIdRoute
+  '/_app/nodes/$nodeId': typeof AppNodesNodeIdRouteWithChildren
   '/_app/settings/activity': typeof AppSettingsActivityRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
   '/_app/account/': typeof AppAccountIndexRoute
   '/_app/networks/': typeof AppNetworksIndexRoute
+  '/_app/nodes/': typeof AppNodesIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
+  '/_app/nodes/$nodeId/networking': typeof AppNodesNodeIdNetworkingRoute
+  '/_app/nodes/$nodeId/settings': typeof AppNodesNodeIdSettingsRoute
+  '/_app/nodes/$nodeId/storage': typeof AppNodesNodeIdStorageRoute
+  '/_app/nodes/$nodeId/': typeof AppNodesNodeIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/account'
-    | '/nodes'
     | '/servers'
     | '/settings'
     | '/templates'
     | '/account/activity'
     | '/account/ssh-keys'
     | '/networks/$networkId'
+    | '/nodes/$nodeId'
     | '/settings/activity'
     | '/settings/members'
     | '/account/'
     | '/networks/'
+    | '/nodes/'
     | '/settings/'
+    | '/nodes/$nodeId/networking'
+    | '/nodes/$nodeId/settings'
+    | '/nodes/$nodeId/storage'
+    | '/nodes/$nodeId/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/nodes'
     | '/servers'
     | '/templates'
     | '/'
@@ -178,12 +227,16 @@ export interface FileRouteTypes {
     | '/settings/members'
     | '/account'
     | '/networks'
+    | '/nodes'
     | '/settings'
+    | '/nodes/$nodeId/networking'
+    | '/nodes/$nodeId/settings'
+    | '/nodes/$nodeId/storage'
+    | '/nodes/$nodeId'
   id:
     | '__root__'
     | '/_app'
     | '/_app/account'
-    | '/_app/nodes'
     | '/_app/servers'
     | '/_app/settings'
     | '/_app/templates'
@@ -191,11 +244,17 @@ export interface FileRouteTypes {
     | '/_app/account/activity'
     | '/_app/account/ssh-keys'
     | '/_app/networks/$networkId'
+    | '/_app/nodes/$nodeId'
     | '/_app/settings/activity'
     | '/_app/settings/members'
     | '/_app/account/'
     | '/_app/networks/'
+    | '/_app/nodes/'
     | '/_app/settings/'
+    | '/_app/nodes/$nodeId/networking'
+    | '/_app/nodes/$nodeId/settings'
+    | '/_app/nodes/$nodeId/storage'
+    | '/_app/nodes/$nodeId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -239,13 +298,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppServersRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/nodes': {
-      id: '/_app/nodes'
-      path: '/nodes'
-      fullPath: '/nodes'
-      preLoaderRoute: typeof AppNodesRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/account': {
       id: '/_app/account'
       path: '/account'
@@ -259,6 +311,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/'
       preLoaderRoute: typeof AppSettingsIndexRouteImport
       parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/nodes/': {
+      id: '/_app/nodes/'
+      path: '/nodes'
+      fullPath: '/nodes/'
+      preLoaderRoute: typeof AppNodesIndexRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/networks/': {
       id: '/_app/networks/'
@@ -288,6 +347,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsActivityRouteImport
       parentRoute: typeof AppSettingsRoute
     }
+    '/_app/nodes/$nodeId': {
+      id: '/_app/nodes/$nodeId'
+      path: '/nodes/$nodeId'
+      fullPath: '/nodes/$nodeId'
+      preLoaderRoute: typeof AppNodesNodeIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/networks/$networkId': {
       id: '/_app/networks/$networkId'
       path: '/networks/$networkId'
@@ -308,6 +374,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/account/activity'
       preLoaderRoute: typeof AppAccountActivityRouteImport
       parentRoute: typeof AppAccountRoute
+    }
+    '/_app/nodes/$nodeId/': {
+      id: '/_app/nodes/$nodeId/'
+      path: '/'
+      fullPath: '/nodes/$nodeId/'
+      preLoaderRoute: typeof AppNodesNodeIdIndexRouteImport
+      parentRoute: typeof AppNodesNodeIdRoute
+    }
+    '/_app/nodes/$nodeId/storage': {
+      id: '/_app/nodes/$nodeId/storage'
+      path: '/storage'
+      fullPath: '/nodes/$nodeId/storage'
+      preLoaderRoute: typeof AppNodesNodeIdStorageRouteImport
+      parentRoute: typeof AppNodesNodeIdRoute
+    }
+    '/_app/nodes/$nodeId/settings': {
+      id: '/_app/nodes/$nodeId/settings'
+      path: '/settings'
+      fullPath: '/nodes/$nodeId/settings'
+      preLoaderRoute: typeof AppNodesNodeIdSettingsRouteImport
+      parentRoute: typeof AppNodesNodeIdRoute
+    }
+    '/_app/nodes/$nodeId/networking': {
+      id: '/_app/nodes/$nodeId/networking'
+      path: '/networking'
+      fullPath: '/nodes/$nodeId/networking'
+      preLoaderRoute: typeof AppNodesNodeIdNetworkingRouteImport
+      parentRoute: typeof AppNodesNodeIdRoute
     }
   }
 }
@@ -344,26 +438,46 @@ const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
   AppSettingsRouteChildren,
 )
 
+interface AppNodesNodeIdRouteChildren {
+  AppNodesNodeIdNetworkingRoute: typeof AppNodesNodeIdNetworkingRoute
+  AppNodesNodeIdSettingsRoute: typeof AppNodesNodeIdSettingsRoute
+  AppNodesNodeIdStorageRoute: typeof AppNodesNodeIdStorageRoute
+  AppNodesNodeIdIndexRoute: typeof AppNodesNodeIdIndexRoute
+}
+
+const AppNodesNodeIdRouteChildren: AppNodesNodeIdRouteChildren = {
+  AppNodesNodeIdNetworkingRoute: AppNodesNodeIdNetworkingRoute,
+  AppNodesNodeIdSettingsRoute: AppNodesNodeIdSettingsRoute,
+  AppNodesNodeIdStorageRoute: AppNodesNodeIdStorageRoute,
+  AppNodesNodeIdIndexRoute: AppNodesNodeIdIndexRoute,
+}
+
+const AppNodesNodeIdRouteWithChildren = AppNodesNodeIdRoute._addFileChildren(
+  AppNodesNodeIdRouteChildren,
+)
+
 interface AppRouteChildren {
   AppAccountRoute: typeof AppAccountRouteWithChildren
-  AppNodesRoute: typeof AppNodesRoute
   AppServersRoute: typeof AppServersRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppTemplatesRoute: typeof AppTemplatesRoute
   AppIndexRoute: typeof AppIndexRoute
   AppNetworksNetworkIdRoute: typeof AppNetworksNetworkIdRoute
+  AppNodesNodeIdRoute: typeof AppNodesNodeIdRouteWithChildren
   AppNetworksIndexRoute: typeof AppNetworksIndexRoute
+  AppNodesIndexRoute: typeof AppNodesIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAccountRoute: AppAccountRouteWithChildren,
-  AppNodesRoute: AppNodesRoute,
   AppServersRoute: AppServersRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
   AppTemplatesRoute: AppTemplatesRoute,
   AppIndexRoute: AppIndexRoute,
   AppNetworksNetworkIdRoute: AppNetworksNetworkIdRoute,
+  AppNodesNodeIdRoute: AppNodesNodeIdRouteWithChildren,
   AppNetworksIndexRoute: AppNetworksIndexRoute,
+  AppNodesIndexRoute: AppNodesIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

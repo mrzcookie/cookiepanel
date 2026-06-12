@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronLeft, Network, ShieldOff } from "lucide-react";
+import { ChevronLeft, Network } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DetailList, DetailRow } from "@/components/detail-list";
 import { EmptyState } from "@/components/empty-state";
+import { IsolatedBadge } from "@/components/isolated-badge";
 import { PageHeader } from "@/components/page-header";
 import { StatusIndicator } from "@/components/status-indicator";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -113,12 +113,7 @@ function NetworkManage({ network }: { network: NetworkRow }) {
 				title={
 					<span className="flex items-center gap-2">
 						{network.name}
-						{network.internal ? (
-							<Badge variant="secondary">
-								<ShieldOff />
-								Isolated
-							</Badge>
-						) : null}
+						{network.internal ? <IsolatedBadge /> : null}
 					</span>
 				}
 			/>
