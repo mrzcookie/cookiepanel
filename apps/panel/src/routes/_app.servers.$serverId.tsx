@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { ChevronLeft, Play, RotateCw, Server, Square } from "lucide-react";
+import { ChevronLeft, Play, RotateCw, Square } from "lucide-react";
 import { toast } from "sonner";
-import { EmptyState } from "@/components/empty-state";
+import { ErrorScreen } from "@/components/error-screen";
 import { PageHeader } from "@/components/page-header";
 import { RouteTabs, routeTabClassName } from "@/components/route-tabs";
 import { StatusIndicator } from "@/components/status-indicator";
@@ -18,6 +18,20 @@ import type { ServerRow } from "@/lib/stubs";
 
 export const Route = createFileRoute("/_app/servers/$serverId")({
 	component: ServerDetailLayout,
+	notFoundComponent: () => (
+		<ErrorScreen
+			action={
+				<Button asChild size="sm" variant="outline">
+					<Link to="/servers">Back to servers</Link>
+				</Button>
+			}
+			className="min-h-[60vh]"
+			code="404"
+			description="That section doesn't exist. Pick a tab above, or head back."
+			title="Page not found"
+			tone="muted"
+		/>
+	),
 });
 
 function ServerDetailLayout() {
@@ -26,15 +40,17 @@ function ServerDetailLayout() {
 
 	if (!server) {
 		return (
-			<EmptyState
+			<ErrorScreen
 				action={
 					<Button asChild size="sm" variant="outline">
 						<Link to="/servers">Back to servers</Link>
 					</Button>
 				}
+				className="min-h-[70vh]"
+				code="404"
 				description="It may have been removed, or you followed an old link."
-				icon={Server}
 				title="Server not found"
+				tone="muted"
 			/>
 		);
 	}
@@ -117,7 +133,7 @@ function ServerChrome({ server }: { server: ServerRow }) {
 	return (
 		<>
 			<Link
-				className="-mb-2 inline-flex items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground"
+				className="-mb-2 inline-flex items-center gap-1 font-mono text-muted-foreground text-xs uppercase tracking-wider transition-colors hover:text-foreground"
 				to="/servers"
 			>
 				<ChevronLeft className="size-4" />

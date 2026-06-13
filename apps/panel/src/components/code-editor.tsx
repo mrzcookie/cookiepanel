@@ -11,7 +11,8 @@ import { cn } from "@/lib/utils";
 // the editor core + the shell grammar, wire MonacoEnvironment so the worker
 // comes from our own bundle, then point @monaco-editor/react's loader at the
 // bundled instance. All of this runs in this client-only chunk, so SSR never
-// touches Monaco. Theming is left at Monaco's built-in light/dark for now.
+// touches Monaco. Custom "console" themes (defineTheme below) match the app's
+// cool-ink palette, including the suggest / find / context-menu widgets.
 const Monaco = lazy(async () => {
 	// Import the editor CORE only (`editor.api`), not the full `monaco-editor`
 	// package — the full package bundles the json/css/html/ts language services
@@ -34,6 +35,109 @@ const Monaco = lazy(async () => {
 			return new Worker();
 		},
 	};
+	// "The Console" editor themes: cool-ink surface, azure + semantic syntax,
+	// matching the app palette (see DESIGN.md / global.css).
+	monaco.editor.defineTheme("console-dark", {
+		base: "vs-dark",
+		inherit: true,
+		rules: [
+			{ token: "", foreground: "dfe3ea" },
+			{ token: "comment", foreground: "5b6472", fontStyle: "italic" },
+			{ token: "string", foreground: "7ee6a8" },
+			{ token: "keyword", foreground: "82bdf8" },
+			{ token: "number", foreground: "ffd166" },
+			{ token: "type", foreground: "82d8f2" },
+			{ token: "key", foreground: "82bdf8" },
+			{ token: "delimiter", foreground: "9aa3b2" },
+		],
+		colors: {
+			"editor.background": "#0a0c11",
+			"editor.foreground": "#dfe3ea",
+			"editorLineNumber.foreground": "#454b57",
+			"editorLineNumber.activeForeground": "#8a93a3",
+			"editor.selectionBackground": "#21456e",
+			"editor.lineHighlightBackground": "#12151c",
+			"editorCursor.foreground": "#5aa6f0",
+			"editorIndentGuide.background1": "#1c2129",
+			focusBorder: "#5aa6f0",
+			"editorWidget.background": "#161922",
+			"editorWidget.foreground": "#dfe3ea",
+			"editorWidget.border": "#2a313c",
+			"editorWidget.resizeBorder": "#5aa6f0",
+			"editorSuggestWidget.background": "#161922",
+			"editorSuggestWidget.border": "#2a313c",
+			"editorSuggestWidget.foreground": "#dfe3ea",
+			"editorSuggestWidget.selectedBackground": "#21456e",
+			"editorSuggestWidget.highlightForeground": "#82bdf8",
+			"editorHoverWidget.background": "#161922",
+			"editorHoverWidget.border": "#2a313c",
+			"input.background": "#0e1117",
+			"input.foreground": "#dfe3ea",
+			"input.border": "#2a313c",
+			"inputOption.activeBorder": "#5aa6f0",
+			"dropdown.background": "#161922",
+			"dropdown.foreground": "#dfe3ea",
+			"dropdown.border": "#2a313c",
+			"list.hoverBackground": "#1c212b",
+			"list.focusBackground": "#21456e",
+			"list.activeSelectionBackground": "#21456e",
+			"list.inactiveSelectionBackground": "#1c212b",
+			"list.highlightForeground": "#82bdf8",
+			"menu.background": "#161922",
+			"menu.foreground": "#dfe3ea",
+			"menu.border": "#2a313c",
+			"menu.selectionBackground": "#21456e",
+			"quickInput.background": "#161922",
+			"quickInput.foreground": "#dfe3ea",
+			"pickerGroup.foreground": "#82bdf8",
+			"scrollbarSlider.background": "#2a313c66",
+			"scrollbarSlider.hoverBackground": "#3a414d88",
+			"scrollbarSlider.activeBackground": "#3a414daa",
+		},
+	});
+	monaco.editor.defineTheme("console-light", {
+		base: "vs",
+		inherit: true,
+		rules: [
+			{ token: "comment", foreground: "6b7280", fontStyle: "italic" },
+			{ token: "string", foreground: "1f7a4d" },
+			{ token: "keyword", foreground: "1f5fb0" },
+			{ token: "number", foreground: "9a6b00" },
+			{ token: "type", foreground: "0e6e8c" },
+		],
+		colors: {
+			"editor.background": "#f3f4f7",
+			"editor.foreground": "#1f242e",
+			"editorLineNumber.foreground": "#9aa1ad",
+			"editor.selectionBackground": "#c7dbf5",
+			"editor.lineHighlightBackground": "#e9ebf0",
+			"editorCursor.foreground": "#2c6fc7",
+			focusBorder: "#2c6fc7",
+			"editorWidget.background": "#ffffff",
+			"editorWidget.foreground": "#1f242e",
+			"editorWidget.border": "#d4d8e0",
+			"editorSuggestWidget.background": "#ffffff",
+			"editorSuggestWidget.border": "#d4d8e0",
+			"editorSuggestWidget.foreground": "#1f242e",
+			"editorSuggestWidget.selectedBackground": "#c7dbf5",
+			"editorSuggestWidget.highlightForeground": "#1f5fb0",
+			"editorHoverWidget.background": "#ffffff",
+			"editorHoverWidget.border": "#d4d8e0",
+			"input.background": "#ffffff",
+			"input.foreground": "#1f242e",
+			"input.border": "#d4d8e0",
+			"dropdown.background": "#ffffff",
+			"dropdown.foreground": "#1f242e",
+			"dropdown.border": "#d4d8e0",
+			"list.hoverBackground": "#eef1f6",
+			"list.focusBackground": "#c7dbf5",
+			"list.activeSelectionBackground": "#c7dbf5",
+			"list.highlightForeground": "#1f5fb0",
+			"menu.background": "#ffffff",
+			"menu.foreground": "#1f242e",
+			"menu.selectionBackground": "#c7dbf5",
+		},
+	});
 	reactMonaco.loader.config({ monaco });
 	return { default: reactMonaco.default };
 });
@@ -107,7 +211,7 @@ export function CodeEditor({
 						},
 						overviewRulerLanes: 0,
 					}}
-					theme={resolvedTheme === "dark" ? "vs-dark" : "vs"}
+					theme={resolvedTheme === "dark" ? "console-dark" : "console-light"}
 					value={value}
 				/>
 			</Suspense>

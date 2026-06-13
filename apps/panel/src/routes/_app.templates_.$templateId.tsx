@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronLeft, LayoutTemplate, Pencil } from "lucide-react";
-import { EmptyState } from "@/components/empty-state";
+import { ChevronLeft, Pencil } from "lucide-react";
+import { ErrorScreen } from "@/components/error-screen";
 import { PageHeader } from "@/components/page-header";
 import { CustomizeButton } from "@/components/templates/customize-button";
 import { UseTemplateDialog } from "@/components/templates/use-template-dialog";
@@ -25,15 +25,17 @@ function TemplateDetail() {
 
 	if (!template) {
 		return (
-			<EmptyState
+			<ErrorScreen
 				action={
 					<Button asChild size="sm" variant="outline">
 						<Link to="/templates">Back to templates</Link>
 					</Button>
 				}
+				className="min-h-[70vh]"
+				code="404"
 				description="It may have been removed, or you followed an old link."
-				icon={LayoutTemplate}
 				title="Template not found"
+				tone="muted"
 			/>
 		);
 	}
@@ -48,7 +50,7 @@ function TemplateView({ template }: { template: Template }) {
 	return (
 		<>
 			<Link
-				className="-mb-2 inline-flex items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground"
+				className="-mb-2 inline-flex items-center gap-1 font-mono text-muted-foreground text-xs uppercase tracking-wider transition-colors hover:text-foreground"
 				to="/templates"
 			>
 				<ChevronLeft className="size-4" />

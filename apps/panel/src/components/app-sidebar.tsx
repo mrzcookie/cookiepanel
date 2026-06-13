@@ -1,10 +1,13 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { Cookie } from "lucide-react";
 import type { ComponentProps } from "react";
+import { OrgSwitcher } from "@/components/org-switcher";
 import {
 	Sidebar,
 	SidebarContent,
+	SidebarFooter,
 	SidebarGroup,
+	SidebarGroupLabel,
 	SidebarHeader,
 	SidebarMenu,
 	SidebarMenuButton,
@@ -12,11 +15,30 @@ import {
 	SidebarRail,
 } from "@/components/ui/sidebar";
 import { NAV } from "@/lib/nav";
+import { useNodes } from "@/lib/nodes-store";
 
 function isActive(pathname: string, to: string) {
 	return to === "/"
 		? pathname === "/"
 		: pathname === to || pathname.startsWith(`${to}/`);
+}
+
+// The sidebar footer's instrument readout: how many of the fleet's boxes are
+// reporting, in mono with an alpha-only pulse on the live count.
+function NodeReadout() {
+	const nodes = useNodes();
+	const online = nodes.filter((node) => node.status === "online").length;
+
+	return (
+		<div className="flex items-center gap-2 px-2 py-1 font-mono text-xs">
+			<span className="animate-[live-pulse_1.4s_ease-in-out_infinite] text-ok tabular-nums motion-reduce:animate-none">
+				[ {online} ONLINE ]
+			</span>
+			<span className="text-muted-foreground tabular-nums">
+				/ {nodes.length} NODES
+			</span>
+		</div>
+	);
 }
 
 export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
@@ -37,7 +59,13 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
 			</SidebarHeader>
 
 			<SidebarContent>
+				<div className="px-2 pt-2 group-data-[collapsible=icon]:px-1.5">
+					<OrgSwitcher />
+				</div>
 				<SidebarGroup>
+					<SidebarGroupLabel className="font-mono text-[0.7rem] uppercase tracking-[0.18em]">
+						{"// manage"}
+					</SidebarGroupLabel>
 					<SidebarMenu className="gap-1">
 						{NAV.map((item) => (
 							<SidebarMenuItem key={item.to}>
@@ -57,6 +85,10 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
 					</SidebarMenu>
 				</SidebarGroup>
 			</SidebarContent>
+
+			<SidebarFooter className="border-t group-data-[collapsible=icon]:hidden">
+				<NodeReadout />
+			</SidebarFooter>
 
 			<SidebarRail />
 		</Sidebar>

@@ -1,13 +1,27 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/hanken-grotesk";
+@import "@fontsource-variable/jetbrains-mono";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+	--font-sans: "Hanken Grotesk Variable", system-ui, sans-serif;
 	--font-heading: var(--font-sans);
-	--font-sans: "Geist Variable", sans-serif;
+	--font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+	--ease-out-quint: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+	/* Semantic state vocabulary — use these, never hardcoded emerald/amber/etc. */
+	--color-brand: var(--primary);
+	--color-brand-wash: var(--brand-wash);
+	--color-rule-bright: var(--rule-bright);
+	--color-ok: var(--ok);
+	--color-ok-wash: var(--ok-wash);
+	--color-warn: var(--warn);
+	--color-warn-wash: var(--warn-wash);
+	--color-danger-wash: var(--danger-wash);
+
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -39,11 +53,11 @@
 	--color-card: var(--card);
 	--color-foreground: var(--foreground);
 	--color-background: var(--background);
-	/* The console surface is a fixed dark terminal in both themes (xterm reads the
-	   same value into its theme). One token so it lives in a single place. */
-	--color-terminal: #09090b;
+	/* The console surface stays deep cool-ink in both themes; xterm reads the same
+	   value into its terminal theme (server-console.tsx). One token, one place. */
+	--color-terminal: #0a0c11;
 	--radius-sm: calc(var(--radius) * 0.6);
-	--radius-md: calc(var(--radius) * 0.8);
+	--radius-md: calc(var(--radius) * 0.85);
 	--radius-lg: var(--radius);
 	--radius-xl: calc(var(--radius) * 1.4);
 	--radius-2xl: calc(var(--radius) * 1.8);
@@ -51,83 +65,166 @@
 	--radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* "Daylight": clean instrument-panel light theme. Same azure, deeper for AA.
+   Light is the base layer; .dark overrides it and must come after this block. */
 :root {
-	--background: oklch(1 0 0);
-	--foreground: oklch(0.145 0 0);
-	--card: oklch(1 0 0);
-	--card-foreground: oklch(0.145 0 0);
-	--popover: oklch(1 0 0);
-	--popover-foreground: oklch(0.145 0 0);
-	--primary: oklch(0.205 0 0);
-	--primary-foreground: oklch(0.985 0 0);
-	--secondary: oklch(0.97 0 0);
-	--secondary-foreground: oklch(0.205 0 0);
-	--muted: oklch(0.97 0 0);
-	--muted-foreground: oklch(0.556 0 0);
-	--accent: oklch(0.97 0 0);
-	--accent-foreground: oklch(0.205 0 0);
-	--destructive: oklch(0.577 0.245 27.325);
-	--border: oklch(0.922 0 0);
-	--input: oklch(0.922 0 0);
-	--ring: oklch(0.708 0 0);
-	--chart-1: oklch(0.87 0 0);
-	--chart-2: oklch(0.556 0 0);
-	--chart-3: oklch(0.439 0 0);
-	--chart-4: oklch(0.371 0 0);
-	--chart-5: oklch(0.269 0 0);
-	--radius: 0.625rem;
-	--sidebar: oklch(0.985 0 0);
-	--sidebar-foreground: oklch(0.145 0 0);
-	--sidebar-primary: oklch(0.205 0 0);
-	--sidebar-primary-foreground: oklch(0.985 0 0);
-	--sidebar-accent: oklch(0.97 0 0);
-	--sidebar-accent-foreground: oklch(0.205 0 0);
-	--sidebar-border: oklch(0.922 0 0);
-	--sidebar-ring: oklch(0.708 0 0);
+	--background: oklch(0.975 0.004 250);
+	--foreground: oklch(0.18 0.02 252);
+	--card: oklch(0.955 0.006 250);
+	--card-foreground: oklch(0.18 0.02 252);
+	--popover: oklch(0.985 0.004 250);
+	--popover-foreground: oklch(0.18 0.02 252);
+	--primary: oklch(0.54 0.19 252);
+	--primary-foreground: oklch(0.99 0.01 250);
+	--secondary: oklch(0.92 0.008 250);
+	--secondary-foreground: oklch(0.28 0.02 252);
+	--muted: oklch(0.92 0.008 250);
+	--muted-foreground: oklch(0.46 0.014 250);
+	--accent: oklch(0.89 0.01 250);
+	--accent-foreground: oklch(0.28 0.02 252);
+	--destructive: oklch(0.55 0.22 22);
+	--border: oklch(0.88 0.01 250);
+	--input: oklch(0.88 0.01 250);
+	--ring: oklch(0.54 0.18 252);
+	--chart-1: oklch(0.54 0.19 252);
+	--chart-2: oklch(0.6 0.13 228);
+	--chart-3: oklch(0.56 0.12 264);
+	--chart-4: oklch(0.55 0.15 150);
+	--chart-5: oklch(0.55 0.22 22);
+	--radius: 0.25rem;
+	--brand-wash: oklch(0.93 0.07 252);
+	--rule-bright: oklch(0.74 0.014 250);
+	--ok: oklch(0.55 0.15 150);
+	--ok-wash: oklch(0.93 0.06 150);
+	--warn: oklch(0.62 0.14 75);
+	--warn-wash: oklch(0.93 0.07 80);
+	--danger-wash: oklch(0.93 0.06 22);
+	--sidebar: oklch(0.955 0.006 250);
+	--sidebar-foreground: oklch(0.18 0.02 252);
+	--sidebar-primary: oklch(0.54 0.19 252);
+	--sidebar-primary-foreground: oklch(0.99 0.01 250);
+	--sidebar-accent: oklch(0.92 0.06 252);
+	--sidebar-accent-foreground: oklch(0.4 0.16 252);
+	--sidebar-border: oklch(0.88 0.01 250);
+	--sidebar-ring: oklch(0.54 0.18 252);
 }
 
+/* "The Console": deep ink, one lit electric-azure accent, hairlines not shadows,
+   mono as chassis, sharp corners, no glow. Neutrals carry a cool undertone
+   (hue 250) that ties to the azure brand. Dark is the default theme; this block
+   must come after :root so it wins when applied. */
 .dark {
-	--background: oklch(0.145 0 0);
-	--foreground: oklch(0.985 0 0);
-	--card: oklch(0.205 0 0);
-	--card-foreground: oklch(0.985 0 0);
-	--popover: oklch(0.205 0 0);
-	--popover-foreground: oklch(0.985 0 0);
-	--primary: oklch(0.922 0 0);
-	--primary-foreground: oklch(0.205 0 0);
-	--secondary: oklch(0.269 0 0);
-	--secondary-foreground: oklch(0.985 0 0);
-	--muted: oklch(0.269 0 0);
-	--muted-foreground: oklch(0.708 0 0);
-	--accent: oklch(0.269 0 0);
-	--accent-foreground: oklch(0.985 0 0);
-	--destructive: oklch(0.704 0.191 22.216);
-	--border: oklch(1 0 0 / 10%);
-	--input: oklch(1 0 0 / 15%);
-	--ring: oklch(0.556 0 0);
-	--chart-1: oklch(0.87 0 0);
-	--chart-2: oklch(0.556 0 0);
-	--chart-3: oklch(0.439 0 0);
-	--chart-4: oklch(0.371 0 0);
-	--chart-5: oklch(0.269 0 0);
-	--sidebar: oklch(0.205 0 0);
-	--sidebar-foreground: oklch(0.985 0 0);
-	--sidebar-primary: oklch(0.488 0.243 264.376);
-	--sidebar-primary-foreground: oklch(0.985 0 0);
-	--sidebar-accent: oklch(0.269 0 0);
-	--sidebar-accent-foreground: oklch(0.985 0 0);
-	--sidebar-border: oklch(1 0 0 / 10%);
-	--sidebar-ring: oklch(0.556 0 0);
+	--background: oklch(0.145 0.014 250);
+	--foreground: oklch(0.96 0.006 250);
+	--card: oklch(0.185 0.016 250);
+	--card-foreground: oklch(0.96 0.006 250);
+	--popover: oklch(0.185 0.016 250);
+	--popover-foreground: oklch(0.96 0.006 250);
+	--primary: oklch(0.68 0.18 250);
+	--primary-foreground: oklch(0.15 0.02 250);
+	--secondary: oklch(0.225 0.018 250);
+	--secondary-foreground: oklch(0.96 0.006 250);
+	--muted: oklch(0.225 0.018 250);
+	--muted-foreground: oklch(0.64 0.012 250);
+	--accent: oklch(0.275 0.02 250);
+	--accent-foreground: oklch(0.96 0.006 250);
+	--destructive: oklch(0.64 0.21 18);
+	--border: oklch(0.3 0.014 250);
+	--input: oklch(0.3 0.014 250);
+	--ring: oklch(0.68 0.18 250);
+	--chart-1: oklch(0.68 0.18 250);
+	--chart-2: oklch(0.74 0.13 228);
+	--chart-3: oklch(0.7 0.1 264);
+	--chart-4: oklch(0.78 0.16 150);
+	--chart-5: oklch(0.64 0.21 18);
+	--radius: 0.25rem;
+	--brand-wash: oklch(0.27 0.07 250);
+	--rule-bright: oklch(0.42 0.018 250);
+	--ok: oklch(0.8 0.16 150);
+	--ok-wash: oklch(0.3 0.07 150);
+	--warn: oklch(0.82 0.15 80);
+	--warn-wash: oklch(0.3 0.07 80);
+	--danger-wash: oklch(0.3 0.1 18);
+	--sidebar: oklch(0.125 0.013 250);
+	--sidebar-foreground: oklch(0.96 0.006 250);
+	--sidebar-primary: oklch(0.68 0.18 250);
+	--sidebar-primary-foreground: oklch(0.15 0.02 250);
+	--sidebar-accent: oklch(0.27 0.07 250);
+	--sidebar-accent-foreground: oklch(0.82 0.13 250);
+	--sidebar-border: oklch(0.28 0.014 250);
+	--sidebar-ring: oklch(0.68 0.18 250);
 }
 
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
 	}
+	html {
+		/* Background lives on html so the scrollbar track, overscroll area, and any
+		   reserved gutter all read as --background. */
+		@apply bg-background font-sans;
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizelegibility;
+	}
 	body {
 		@apply bg-background text-foreground;
 	}
-	html {
-		@apply font-sans;
+	::selection {
+		background: color-mix(in oklch, var(--primary) 30%, transparent);
+	}
+	/* Scrollbars: thin, tinted to the cool neutral, transparent track. */
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--border) transparent;
+	}
+	::-webkit-scrollbar {
+		width: 10px;
+		height: 10px;
+	}
+	::-webkit-scrollbar-track,
+	::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+	::-webkit-scrollbar-thumb {
+		background-color: var(--border);
+		border: 2px solid transparent;
+		border-radius: 9999px;
+		background-clip: padding-box;
+	}
+	::-webkit-scrollbar-thumb:hover {
+		background-color: var(--rule-bright);
+	}
+	/* Light catching a metal bezel: a 1px inset highlight on primary buttons. */
+	[data-slot="button"][data-variant="default"]:not(:disabled) {
+		box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.22);
+	}
+}
+
+/* Unlayered (so it beats both the base layer and xterm's own stylesheet): the
+   .xterm root inherits a 1px border-width that our global border-color tints
+   visible. Keep the console surface a seamless inset, no frame. */
+.xterm {
+	/* biome-ignore lint/complexity/noImportantStyles: must override xterm's own
+	   unlayered stylesheet, which a layered rule can't beat */
+	border: 0 !important;
+}
+
+@layer utilities {
+	/* Console surface for install commands / logs. Deep cool ink in both themes. */
+	.terminal {
+		background: var(--color-terminal);
+		color: oklch(0.92 0.008 250);
+		border: 1px solid oklch(0.3 0.014 250);
+	}
+}
+
+/* Alpha-only live pulse for [ LIVE ] / [ ONLINE ] bracket chips. No glow. */
+@keyframes live-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
 	}
 }

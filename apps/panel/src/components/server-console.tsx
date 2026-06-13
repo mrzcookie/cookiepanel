@@ -1,6 +1,6 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
-import { SendHorizontal } from "lucide-react";
+import { Maximize2, Minimize2, SendHorizontal } from "lucide-react";
 import {
 	type FormEvent,
 	type KeyboardEvent,
@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ServerState } from "@/lib/stubs";
+import { cn } from "@/lib/utils";
 import "@xterm/xterm/css/xterm.css";
 
 // The live server console. xterm.js renders the streamed stdout/stderr (the
@@ -20,32 +21,33 @@ import "@xterm/xterm/css/xterm.css";
 // and the command flow matches the rest of the panel. This module is loaded only
 // on the client (lazy + ClientOnly), since xterm touches the DOM at import.
 
-// A calm, conventional dark terminal palette (zinc) that reads the same in both
-// app themes — terminals are dark by convention. Re-skin alongside the design
-// language later. `background` mirrors the `--color-terminal` token (the
-// `bg-terminal` surface behind the canvas); xterm needs a concrete color string.
+// "The Console" terminal palette: deep cool-ink surface, azure cursor + brand,
+// and ANSI colors mapped to the app's semantic tones (green = ok, amber = warn,
+// red = destructive, blue = azure). Dark in both app themes (terminals are dark
+// by convention). `background` mirrors the `--color-terminal` token; xterm needs
+// concrete color strings, so these are the sRGB renderings of the OKLCH tokens.
 const THEME = {
-	background: "#09090b",
-	foreground: "#e4e4e7",
-	cursor: "#e4e4e7",
-	cursorAccent: "#09090b",
-	selectionBackground: "#3f3f46",
-	black: "#27272a",
-	red: "#f87171",
-	green: "#34d399",
-	yellow: "#fbbf24",
-	blue: "#60a5fa",
-	magenta: "#c084fc",
-	cyan: "#22d3ee",
-	white: "#e4e4e7",
-	brightBlack: "#52525b",
-	brightRed: "#fca5a5",
-	brightGreen: "#6ee7b7",
-	brightYellow: "#fcd34d",
-	brightBlue: "#93c5fd",
-	brightMagenta: "#d8b4fe",
-	brightCyan: "#67e8ff",
-	brightWhite: "#fafafa",
+	background: "#0a0c11",
+	foreground: "#dfe3ea",
+	cursor: "#5aa6f0",
+	cursorAccent: "#0a0c11",
+	selectionBackground: "#21456e",
+	black: "#1a1e26",
+	red: "#ef5350",
+	green: "#57d98f",
+	yellow: "#f0c050",
+	blue: "#5aa6f0",
+	magenta: "#a98cf2",
+	cyan: "#5cc8ec",
+	white: "#dfe3ea",
+	brightBlack: "#4a525f",
+	brightRed: "#ff7a72",
+	brightGreen: "#7ee6a8",
+	brightYellow: "#ffd166",
+	brightBlue: "#82bdf8",
+	brightMagenta: "#c4a8f8",
+	brightCyan: "#82d8f2",
+	brightWhite: "#f5f7fa",
 } as const;
 
 const DIM = "\x1b[90m";
@@ -112,6 +114,22 @@ export default function ServerConsole({
 	const [command, setCommand] = useState("");
 	const [history, setHistory] = useState<string[]>([]);
 	const [histIdx, setHistIdx] = useState<number | null>(null);
+	const [fullscreen, setFullscreen] = useState(false);
+
+	// Esc leaves fullscreen, and refit when the panel resizes between modes.
+	useEffect(() => {
+		fitRef.current?.fit();
+		if (!fullscreen) {
+			return;
+		}
+		const onKey = (event: globalThis.KeyboardEvent) => {
+			if (event.key === "Escape") {
+				setFullscreen(false);
+			}
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [fullscreen]);
 
 	// Create the terminal once, and keep it fitted to its container.
 	useEffect(() => {
@@ -234,11 +252,31 @@ export default function ServerConsole({
 	}
 
 	return (
-		<div className="space-y-3">
-			<div
-				className="h-96 overflow-hidden rounded-lg bg-terminal p-3"
-				ref={mountRef}
-			/>
+		<div
+			className={cn(
+				"flex flex-col gap-3",
+				fullscreen && "fixed inset-0 z-50 bg-background p-4"
+			)}
+		>
+			<div className={cn("relative", fullscreen && "min-h-0 flex-1")}>
+				<div
+					className={cn(
+						"overflow-hidden rounded-lg bg-terminal p-3",
+						fullscreen ? "h-full" : "h-96"
+					)}
+					ref={mountRef}
+				/>
+				<Button
+					aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen console"}
+					className="absolute top-2 right-2 size-7 text-muted-foreground hover:text-foreground"
+					onClick={() => setFullscreen((value) => !value)}
+					size="icon"
+					type="button"
+					variant="ghost"
+				>
+					{fullscreen ? <Minimize2 /> : <Maximize2 />}
+				</Button>
+			</div>
 			<form className="flex items-center gap-2" onSubmit={submit}>
 				<span className="font-mono text-muted-foreground text-sm">$</span>
 				<Input

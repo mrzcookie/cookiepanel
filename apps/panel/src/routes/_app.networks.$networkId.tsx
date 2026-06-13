@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronLeft, Network } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DetailList, DetailRow } from "@/components/detail-list";
-import { EmptyState } from "@/components/empty-state";
+import { ErrorScreen } from "@/components/error-screen";
 import { IsolatedBadge } from "@/components/isolated-badge";
 import { PageHeader } from "@/components/page-header";
 import { StatusIndicator } from "@/components/status-indicator";
@@ -55,15 +55,17 @@ function NetworkDetail() {
 
 	if (!network) {
 		return (
-			<EmptyState
+			<ErrorScreen
 				action={
 					<Button asChild size="sm" variant="outline">
 						<Link to="/networks">Back to networks</Link>
 					</Button>
 				}
+				className="min-h-[70vh]"
+				code="404"
 				description="It may have been removed, or you followed an old link."
-				icon={Network}
 				title="Network not found"
+				tone="muted"
 			/>
 		);
 	}
@@ -85,7 +87,7 @@ function NetworkManage({ network }: { network: NetworkRow }) {
 	return (
 		<>
 			<Link
-				className="-mb-2 inline-flex items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground"
+				className="-mb-2 inline-flex items-center gap-1 font-mono text-muted-foreground text-xs uppercase tracking-wider transition-colors hover:text-foreground"
 				to="/networks"
 			>
 				<ChevronLeft className="size-4" />
@@ -219,7 +221,7 @@ function NetworkServers({ network }: { network: NetworkRow }) {
 				{attachable.length > 0 ? (
 					<div className="flex items-center gap-2 border-t pt-3">
 						<Select onValueChange={setToAttach} value={toAttach}>
-							<SelectTrigger className="w-full">
+							<SelectTrigger aria-label="Attach a server" className="w-full">
 								<SelectValue placeholder="Attach a server…" />
 							</SelectTrigger>
 							<SelectContent>

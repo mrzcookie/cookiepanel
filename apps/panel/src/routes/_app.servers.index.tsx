@@ -36,6 +36,7 @@ function Servers() {
 		<ListPage
 			createLabel="Deploy server"
 			description="Game and app instances you're running."
+			eyebrow="fleet"
 			emptyDescription="Servers you deploy from a template will appear here."
 			emptyTitle="No servers yet"
 			filter={(server, q) =>

@@ -1,19 +1,22 @@
 # Design language
 
-> **Status: intent only.** Nothing here is binding. The current phase uses
-> **shadcn defaults**, and the **`impeccable` skill owns the real design language
-> later**. The "prior direction" below is recorded for reference, to adopt,
-> adapt, or discard when the UI matures — not a spec to implement now.
+> **Status: live.** The design language is now **"The Console"** (dark default) /
+> **"Daylight"** — implemented and documented in **`DESIGN.md`** + **`PRODUCT.md`**
+> at the repo root (the `impeccable` skill's context files). Tokens live in
+> `apps/panel/src/styles/global.css`. `DESIGN.md` is the spec; this file is the
+> short orientation. The "prior direction" below is the original reference it was
+> built from.
 
 ## Now
 
-- Build with **shadcn defaults** — basic, consistent, easy to restyle later.
-  Don't hand-craft a bespoke theme during the UI-first phase; we want pages and
-  flows in place first, on a neutral skin.
-- Keep components presentational and the styling shallow (Tailwind utilities,
-  shadcn primitives) so a later design pass can re-skin without rewrites.
-- When a real design language is wanted, drive it through the **`impeccable`**
-  skill rather than inventing one ad hoc.
+- The theme is applied: azure-on-ink, mono-as-chassis, `[ LABEL ]` bracket status
+  chips, `// section` eyebrows, hairlines not shadows, sharp `0.25rem` corners.
+  Read **`DESIGN.md`** before touching UI.
+- Use the **semantic tokens** (`text-ok`/`text-warn`/`bg-warn-wash`/…), never
+  hardcoded palette colors. Status is shown with `StatusIndicator` bracket chips,
+  not dot-pills.
+- Drive further design work through the **`impeccable`** skill; keep components
+  presentational so re-skins stay cheap.
 
 ## Prior direction (non-binding reference)
 

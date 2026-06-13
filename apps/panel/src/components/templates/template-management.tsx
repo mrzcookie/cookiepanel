@@ -130,9 +130,9 @@ export function TemplateManagement({ template }: { template: Template }) {
 				</CardHeader>
 				<CardContent className="space-y-4">
 					{needsInstallAck(template) ? (
-						<div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+						<div className="space-y-2 rounded-lg border border-warn/40 bg-warn-wash/40 p-3 text-sm">
 							<p className="flex items-center gap-2 font-medium">
-								<ShieldCheck className="size-4 text-amber-600 dark:text-amber-400" />
+								<ShieldCheck className="size-4 text-warn" />
 								This template runs an install script
 							</p>
 							<p className="text-muted-foreground">
@@ -183,7 +183,7 @@ export function TemplateManagement({ template }: { template: Template }) {
 							</Button>
 						)}
 						<Button onClick={exportEgg} size="sm" variant="outline">
-							<Download className="size-4" /> Export egg
+							<Download className="size-4" /> Export template
 						</Button>
 					</div>
 				</CardContent>

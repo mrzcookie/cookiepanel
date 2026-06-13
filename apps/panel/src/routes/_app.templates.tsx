@@ -47,6 +47,7 @@ function Templates() {
 			createLabel="New template"
 			description="Reusable recipes for deploying servers."
 			emptyDescription="Create or import a template to deploy servers from it."
+			eyebrow="library"
 			emptyTitle="No templates yet"
 			filter={(template, q) =>
 				template.name.toLowerCase().includes(q) ||

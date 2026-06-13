@@ -14,7 +14,7 @@ export function ActivityList({ items }: { items: ActivityItem[] }) {
 		<ol className="space-y-4">
 			{items.map((item) => (
 				<li className="flex items-start gap-3" key={item.id}>
-					<span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+					<span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
 						<item.icon className="size-4" />
 					</span>
 					<div className="min-w-0 flex-1 space-y-0.5">

@@ -12,7 +12,7 @@ function NewTemplate() {
 	return (
 		<>
 			<Link
-				className="-mb-2 inline-flex items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground"
+				className="-mb-2 inline-flex items-center gap-1 font-mono text-muted-foreground text-xs uppercase tracking-wider transition-colors hover:text-foreground"
 				to="/templates"
 			>
 				<ChevronLeft className="size-4" />

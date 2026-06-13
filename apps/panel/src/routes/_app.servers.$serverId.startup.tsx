@@ -77,13 +77,13 @@ function RuntimeCard({
 			<CardHeader>
 				<CardTitle>Runtime</CardTitle>
 				<CardDescription>
-					The template and image this server was deployed from.
+					The template and runtime this server was deployed from.
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<div className="grid gap-4 sm:grid-cols-3">
 					<Field label="Template" value={server.templateName} />
-					<Field label="Image" value={server.imageLabel} />
+					<Field label="Runtime" value={server.imageLabel} />
 					<Field
 						label="Template version"
 						value={template ? `v${template.version}` : "—"}

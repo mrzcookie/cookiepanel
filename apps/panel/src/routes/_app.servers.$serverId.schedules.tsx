@@ -65,7 +65,7 @@ function ServerSchedulesTab() {
 				<div className="space-y-1.5">
 					<CardTitle>Schedules</CardTitle>
 					<CardDescription>
-						Automations that run on the box — they keep firing even when the
+						Automations that run on the node; they keep firing even when the
 						panel is offline.
 					</CardDescription>
 				</div>
@@ -81,7 +81,7 @@ function ServerSchedulesTab() {
 						<div className="space-y-1">
 							<p className="font-medium text-sm">No schedules yet</p>
 							<p className="text-muted-foreground text-sm">
-								Build a multi-step automation — restart, back up, and more.
+								Build a multi-step automation: restart, back up, and more.
 							</p>
 						</div>
 						<Button onClick={() => setWizardOpen(true)} size="sm">

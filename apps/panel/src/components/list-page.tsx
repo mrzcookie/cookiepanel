@@ -19,6 +19,7 @@ export function ListPage<T>({
 	description,
 	emptyDescription,
 	emptyTitle,
+	eyebrow,
 	filter,
 	icon: Icon,
 	items,
@@ -34,6 +35,8 @@ export function ListPage<T>({
 	action?: ReactNode;
 	createLabel: string;
 	description: string;
+	/** `// section` kicker for the page header. */
+	eyebrow?: string;
 	emptyDescription: string;
 	emptyTitle: string;
 	filter: (item: T, query: string) => boolean;
@@ -57,7 +60,7 @@ export function ListPage<T>({
 		: items;
 
 	const cta = action ?? (
-		<Button onClick={onCreate ?? (() => toast.info("Coming soon"))} size="sm">
+		<Button onClick={onCreate ?? (() => toast.info("Coming soon…"))} size="sm">
 			<Plus />
 			{createLabel}
 		</Button>
@@ -65,7 +68,12 @@ export function ListPage<T>({
 
 	return (
 		<>
-			<PageHeader actions={cta} description={description} title={title} />
+			<PageHeader
+				actions={cta}
+				description={description}
+				eyebrow={eyebrow}
+				title={title}
+			/>
 			{items.length === 0 ? (
 				<EmptyState
 					action={cta}

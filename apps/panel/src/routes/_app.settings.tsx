@@ -1,9 +1,25 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
+import { ErrorScreen } from "@/components/error-screen";
 import { PageHeader } from "@/components/page-header";
 import { RouteTabs, routeTabClassName } from "@/components/route-tabs";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_app/settings")({
 	component: SettingsLayout,
+	notFoundComponent: () => (
+		<ErrorScreen
+			action={
+				<Button asChild size="sm" variant="outline">
+					<Link to="/settings">Back to settings</Link>
+				</Button>
+			}
+			className="min-h-[60vh]"
+			code="404"
+			description="That section doesn't exist. Pick a tab above, or head back."
+			title="Page not found"
+			tone="muted"
+		/>
+	),
 });
 
 function SettingsLayout() {
@@ -13,6 +29,7 @@ function SettingsLayout() {
 				<PageHeader
 					border={false}
 					description="Manage this organization and its members."
+					eyebrow="organization"
 					title="Settings"
 				/>
 				<RouteTabs label="Settings sections">

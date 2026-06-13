@@ -1,6 +1,7 @@
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { ThemeProvider } from "next-themes";
 import { lazy, type ReactNode, Suspense } from "react";
+import { ErrorScreen } from "@/components/error-screen";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import appCss from "@/styles/global.css?url";
@@ -37,6 +38,21 @@ export const Route = createRootRoute({
 		],
 		links: [{ rel: "stylesheet", href: appCss }],
 	}),
+	notFoundComponent: () => (
+		<ErrorScreen
+			code="404"
+			description="That page doesn't exist, or it moved. Check the address, or head back to your fleet."
+			title="Page not found"
+			tone="muted"
+		/>
+	),
+	errorComponent: () => (
+		<ErrorScreen
+			code="500"
+			description="Something broke on our end. The team has been notified; try again in a moment."
+			title="Something went wrong"
+		/>
+	),
 	shellComponent: RootDocument,
 });
 
@@ -49,7 +65,7 @@ function RootDocument({ children }: { children: ReactNode }) {
 			<body className="flex min-h-svh flex-col">
 				<ThemeProvider
 					attribute="class"
-					defaultTheme="system"
+					defaultTheme="dark"
 					disableTransitionOnChange
 					enableSystem
 				>

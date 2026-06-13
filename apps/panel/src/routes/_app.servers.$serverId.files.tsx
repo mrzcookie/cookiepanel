@@ -112,7 +112,6 @@ import {
 	type SftpSession,
 	useSftpSession,
 } from "@/lib/sftp-store";
-import { statusDotClass } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/servers/$serverId/files")({
@@ -363,7 +362,7 @@ function FileBrowser({
 							type="file"
 						/>
 						<Button
-							aria-label={session ? "SFTP — session active" : undefined}
+							aria-label={session ? "SFTP, session active" : undefined}
 							onClick={() => setSftpOpen(true)}
 							size="sm"
 							variant="outline"
@@ -374,10 +373,7 @@ function FileBrowser({
 								<>
 									<span
 										aria-hidden
-										className={cn(
-											"size-2 shrink-0 rounded-full",
-											statusDotClass("online")
-										)}
+										className="size-2 shrink-0 rounded-full bg-ok"
 									/>
 									<span className="sr-only">session active</span>
 								</>
@@ -1140,8 +1136,8 @@ function UrlDialog({
 					<DialogHeader>
 						<DialogTitle>Pull from a link</DialogTitle>
 						<DialogDescription>
-							Paste an HTTPS link and the server downloads it directly — no need
-							to download it yourself first.
+							Paste an HTTPS link and the server downloads it directly, with no
+							need to download it yourself first.
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4 py-4">

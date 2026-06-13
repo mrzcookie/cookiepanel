@@ -373,7 +373,7 @@ function DangerZone({ node }: { node: NodeRow }) {
 								Reboot
 							</Button>
 						}
-						description="Restart the whole machine. Servers go offline until it's back."
+						description="Restart the whole node. Servers go offline until it's back."
 						title="Reboot node"
 					/>
 					<DangerRow
@@ -400,7 +400,7 @@ function DangerZone({ node }: { node: NodeRow }) {
 								Remove
 							</Button>
 						}
-						description="Disconnect this node from your org. Its servers and data stay on the box."
+						description="Disconnect this node from your org. Its servers and data stay on the node."
 						title="Remove node"
 					/>
 				</div>
@@ -412,7 +412,7 @@ function DangerZone({ node }: { node: NodeRow }) {
 						<DialogTitle>Remove this node?</DialogTitle>
 						<DialogDescription>
 							Remove “{node.name}” from your org. The panel stops managing it.
-							Its servers and data stay on the box; you can connect it again
+							Its servers and data stay on the node; you can connect it again
 							later.
 						</DialogDescription>
 					</DialogHeader>

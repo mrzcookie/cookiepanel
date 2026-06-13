@@ -465,7 +465,7 @@ function StartupTab({ state, patch }: TabProps) {
 						<SelectContent>
 							<SelectItem value="command">A command</SelectItem>
 							<SelectItem value="signal">A signal</SelectItem>
-							<SelectItem value="native">Container default</SelectItem>
+							<SelectItem value="native">Server default</SelectItem>
 						</SelectContent>
 					</Select>
 				</div>

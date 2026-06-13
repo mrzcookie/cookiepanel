@@ -198,7 +198,7 @@ function IdentityCard({ node }: { node: NodeRow }) {
 		<Card>
 			<CardHeader>
 				<CardTitle>Identity</CardTitle>
-				<CardDescription>How the panel reaches this box.</CardDescription>
+				<CardDescription>How the panel reaches this node.</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<DetailList>
@@ -228,7 +228,7 @@ function DaemonCard({ node }: { node: NodeRow }) {
 			<CardHeader>
 				<CardTitle>Daemon</CardTitle>
 				<CardDescription>
-					The cookied agent running on this box.
+					The cookied agent running on this node.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-3">
@@ -252,13 +252,13 @@ function PendingCard() {
 			<CardHeader>
 				<CardTitle>Waiting for the daemon</CardTitle>
 				<CardDescription>
-					Run the connect command on this box to finish setup.
+					Run the connect command on this node to finish setup.
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<p className="text-muted-foreground text-sm">
-					Waiting for the daemon to report in. Once it does, this box's hardware
-					and live usage appear here.
+					Waiting for the daemon to report in. Once it does, this node's
+					hardware and live usage appear here.
 				</p>
 			</CardContent>
 		</Card>
@@ -276,14 +276,14 @@ function ServersCard({
 		<Card>
 			<CardHeader>
 				<CardTitle>Servers</CardTitle>
-				<CardDescription>Game servers running on this box.</CardDescription>
+				<CardDescription>Game servers running on this node.</CardDescription>
 			</CardHeader>
 			<CardContent>
 				{servers.length === 0 ? (
 					<p className="text-muted-foreground text-sm">
 						{pending
-							? "No servers yet. Deploy one once this box is online."
-							: "No servers are running on this box yet."}
+							? "No servers yet. Deploy one once this node is online."
+							: "No servers are running on this node yet."}
 					</p>
 				) : (
 					<ul className="divide-y">

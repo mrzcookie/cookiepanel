@@ -10,7 +10,11 @@ export const Route = createFileRoute("/_app/")({
 function Overview() {
 	return (
 		<>
-			<PageHeader title="Overview" description="Your fleet at a glance." />
+			<PageHeader
+				description="Your fleet at a glance."
+				eyebrow="fleet"
+				title="Overview"
+			/>
 			<EmptyState
 				icon={LayoutDashboard}
 				title="Nothing to show yet"

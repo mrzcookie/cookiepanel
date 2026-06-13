@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { ChevronLeft, HardDrive } from "lucide-react";
-import { EmptyState } from "@/components/empty-state";
+import { ChevronLeft } from "lucide-react";
+import { ErrorScreen } from "@/components/error-screen";
 import { PageHeader } from "@/components/page-header";
 import { RouteTabs, routeTabClassName } from "@/components/route-tabs";
 import { StatusIndicator } from "@/components/status-indicator";
@@ -12,6 +12,20 @@ import type { NodeRow } from "@/lib/stubs";
 
 export const Route = createFileRoute("/_app/nodes/$nodeId")({
 	component: NodeDetailLayout,
+	notFoundComponent: () => (
+		<ErrorScreen
+			action={
+				<Button asChild size="sm" variant="outline">
+					<Link to="/nodes">Back to nodes</Link>
+				</Button>
+			}
+			className="min-h-[60vh]"
+			code="404"
+			description="That section doesn't exist. Pick a tab above, or head back."
+			title="Page not found"
+			tone="muted"
+		/>
+	),
 });
 
 function NodeDetailLayout() {
@@ -20,15 +34,17 @@ function NodeDetailLayout() {
 
 	if (!node) {
 		return (
-			<EmptyState
+			<ErrorScreen
 				action={
 					<Button asChild size="sm" variant="outline">
 						<Link to="/nodes">Back to nodes</Link>
 					</Button>
 				}
+				className="min-h-[70vh]"
+				code="404"
 				description="It may have been removed, or you followed an old link."
-				icon={HardDrive}
 				title="Node not found"
+				tone="muted"
 			/>
 		);
 	}
@@ -40,7 +56,7 @@ function NodeChrome({ node }: { node: NodeRow }) {
 	return (
 		<>
 			<Link
-				className="-mb-2 inline-flex items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground"
+				className="-mb-2 inline-flex items-center gap-1 font-mono text-muted-foreground text-xs uppercase tracking-wider transition-colors hover:text-foreground"
 				to="/nodes"
 			>
 				<ChevronLeft className="size-4" />

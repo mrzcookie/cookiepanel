@@ -34,8 +34,9 @@ function Nodes() {
 	return (
 		<ListPage
 			createLabel="Connect node"
-			description="The Linux boxes running your servers."
-			emptyDescription="Connect a Linux box you own to start running servers on it."
+			description="The nodes running your servers."
+			eyebrow="infrastructure"
+			emptyDescription="Connect a node to start running servers on it."
 			emptyTitle="No nodes yet"
 			filter={(node, q) =>
 				node.name.toLowerCase().includes(q) ||

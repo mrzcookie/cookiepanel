@@ -94,7 +94,7 @@ export function UseTemplateDialog({ template }: { template: Template }) {
 		}
 		const node = nodes.find((candidate) => candidate.id === nodeId);
 		toast.success(
-			`Setting up “${name.trim()}” on ${node?.name ?? "the node"}.`
+			`Setting up “${name.trim()}” on ${node?.name ?? "the node"}…`
 		);
 		setOpen(false);
 	}
@@ -226,7 +226,7 @@ export function UseTemplateDialog({ template }: { template: Template }) {
 					<>
 						<div className="grid gap-3 py-4 text-sm">
 							<p className="text-muted-foreground">
-								You need a node (a Linux box) before you can run a server.
+								You need a node before you can run a server.
 							</p>
 							<Button asChild size="sm" variant="outline">
 								<Link to="/nodes">Add a node</Link>

@@ -9,6 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as HomeRouteImport } from './routes/home'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppTemplatesRouteImport } from './routes/_app.templates'
@@ -42,6 +45,21 @@ import { Route as AppNodesNodeIdStorageRouteImport } from './routes/_app.nodes.$
 import { Route as AppNodesNodeIdSettingsRouteImport } from './routes/_app.nodes.$nodeId.settings'
 import { Route as AppNodesNodeIdNetworkingRouteImport } from './routes/_app.nodes.$nodeId.networking'
 
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
@@ -212,6 +230,9 @@ const AppNodesNodeIdNetworkingRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/home': typeof HomeRoute
+  '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/account': typeof AppAccountRouteWithChildren
   '/settings': typeof AppSettingsRouteWithChildren
   '/templates': typeof AppTemplatesRoute
@@ -244,6 +265,9 @@ export interface FileRoutesByFullPath {
   '/servers/$serverId/': typeof AppServersServerIdIndexRoute
 }
 export interface FileRoutesByTo {
+  '/home': typeof HomeRoute
+  '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/templates': typeof AppTemplatesRoute
   '/': typeof AppIndexRoute
   '/account/activity': typeof AppAccountActivityRoute
@@ -275,6 +299,9 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/home': typeof HomeRoute
+  '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/_app/account': typeof AppAccountRouteWithChildren
   '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/templates': typeof AppTemplatesRoute
@@ -311,6 +338,9 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/home'
+    | '/login'
+    | '/onboarding'
     | '/account'
     | '/settings'
     | '/templates'
@@ -343,6 +373,9 @@ export interface FileRouteTypes {
     | '/servers/$serverId/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/home'
+    | '/login'
+    | '/onboarding'
     | '/templates'
     | '/'
     | '/account/activity'
@@ -373,6 +406,9 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
+    | '/home'
+    | '/login'
+    | '/onboarding'
     | '/_app/account'
     | '/_app/settings'
     | '/_app/templates'
@@ -408,10 +444,34 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  HomeRoute: typeof HomeRoute
+  LoginRoute: typeof LoginRoute
+  OnboardingRoute: typeof OnboardingRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app': {
       id: '/_app'
       path: ''
@@ -750,6 +810,9 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  HomeRoute: HomeRoute,
+  LoginRoute: LoginRoute,
+  OnboardingRoute: OnboardingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
