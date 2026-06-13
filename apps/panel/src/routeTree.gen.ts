@@ -26,7 +26,9 @@ import { Route as AppTemplatesNewRouteImport } from './routes/_app.templates_.ne
 import { Route as AppTemplatesTemplateIdRouteImport } from './routes/_app.templates_.$templateId'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app.settings.members'
 import { Route as AppSettingsActivityRouteImport } from './routes/_app.settings.activity'
+import { Route as AppServersNewRouteImport } from './routes/_app.servers.new'
 import { Route as AppServersServerIdRouteImport } from './routes/_app.servers.$serverId'
+import { Route as AppNodesNewRouteImport } from './routes/_app.nodes.new'
 import { Route as AppNodesNodeIdRouteImport } from './routes/_app.nodes.$nodeId'
 import { Route as AppNetworksNetworkIdRouteImport } from './routes/_app.networks.$networkId'
 import { Route as AppAccountSshKeysRouteImport } from './routes/_app.account.ssh-keys'
@@ -39,6 +41,7 @@ import { Route as AppServersServerIdSettingsRouteImport } from './routes/_app.se
 import { Route as AppServersServerIdSchedulesRouteImport } from './routes/_app.servers.$serverId.schedules'
 import { Route as AppServersServerIdNetworkRouteImport } from './routes/_app.servers.$serverId.network'
 import { Route as AppServersServerIdFilesRouteImport } from './routes/_app.servers.$serverId.files'
+import { Route as AppServersServerIdDatabaseRouteImport } from './routes/_app.servers.$serverId.database'
 import { Route as AppServersServerIdBackupsRouteImport } from './routes/_app.servers.$serverId.backups'
 import { Route as AppServersServerIdActivityRouteImport } from './routes/_app.servers.$serverId.activity'
 import { Route as AppNodesNodeIdStorageRouteImport } from './routes/_app.nodes.$nodeId.storage'
@@ -129,9 +132,19 @@ const AppSettingsActivityRoute = AppSettingsActivityRouteImport.update({
   path: '/activity',
   getParentRoute: () => AppSettingsRoute,
 } as any)
+const AppServersNewRoute = AppServersNewRouteImport.update({
+  id: '/servers/new',
+  path: '/servers/new',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppServersServerIdRoute = AppServersServerIdRouteImport.update({
   id: '/servers/$serverId',
   path: '/servers/$serverId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppNodesNewRoute = AppNodesNewRouteImport.update({
+  id: '/nodes/new',
+  path: '/nodes/new',
   getParentRoute: () => AppRoute,
 } as any)
 const AppNodesNodeIdRoute = AppNodesNodeIdRouteImport.update({
@@ -199,6 +212,12 @@ const AppServersServerIdFilesRoute = AppServersServerIdFilesRouteImport.update({
   path: '/files',
   getParentRoute: () => AppServersServerIdRoute,
 } as any)
+const AppServersServerIdDatabaseRoute =
+  AppServersServerIdDatabaseRouteImport.update({
+    id: '/database',
+    path: '/database',
+    getParentRoute: () => AppServersServerIdRoute,
+  } as any)
 const AppServersServerIdBackupsRoute =
   AppServersServerIdBackupsRouteImport.update({
     id: '/backups',
@@ -240,7 +259,9 @@ export interface FileRoutesByFullPath {
   '/account/ssh-keys': typeof AppAccountSshKeysRoute
   '/networks/$networkId': typeof AppNetworksNetworkIdRoute
   '/nodes/$nodeId': typeof AppNodesNodeIdRouteWithChildren
+  '/nodes/new': typeof AppNodesNewRoute
   '/servers/$serverId': typeof AppServersServerIdRouteWithChildren
+  '/servers/new': typeof AppServersNewRoute
   '/settings/activity': typeof AppSettingsActivityRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/templates/$templateId': typeof AppTemplatesTemplateIdRoute
@@ -255,6 +276,7 @@ export interface FileRoutesByFullPath {
   '/nodes/$nodeId/storage': typeof AppNodesNodeIdStorageRoute
   '/servers/$serverId/activity': typeof AppServersServerIdActivityRoute
   '/servers/$serverId/backups': typeof AppServersServerIdBackupsRoute
+  '/servers/$serverId/database': typeof AppServersServerIdDatabaseRoute
   '/servers/$serverId/files': typeof AppServersServerIdFilesRoute
   '/servers/$serverId/network': typeof AppServersServerIdNetworkRoute
   '/servers/$serverId/schedules': typeof AppServersServerIdSchedulesRoute
@@ -273,6 +295,8 @@ export interface FileRoutesByTo {
   '/account/activity': typeof AppAccountActivityRoute
   '/account/ssh-keys': typeof AppAccountSshKeysRoute
   '/networks/$networkId': typeof AppNetworksNetworkIdRoute
+  '/nodes/new': typeof AppNodesNewRoute
+  '/servers/new': typeof AppServersNewRoute
   '/settings/activity': typeof AppSettingsActivityRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/templates/$templateId': typeof AppTemplatesTemplateIdRoute
@@ -287,6 +311,7 @@ export interface FileRoutesByTo {
   '/nodes/$nodeId/storage': typeof AppNodesNodeIdStorageRoute
   '/servers/$serverId/activity': typeof AppServersServerIdActivityRoute
   '/servers/$serverId/backups': typeof AppServersServerIdBackupsRoute
+  '/servers/$serverId/database': typeof AppServersServerIdDatabaseRoute
   '/servers/$serverId/files': typeof AppServersServerIdFilesRoute
   '/servers/$serverId/network': typeof AppServersServerIdNetworkRoute
   '/servers/$serverId/schedules': typeof AppServersServerIdSchedulesRoute
@@ -310,7 +335,9 @@ export interface FileRoutesById {
   '/_app/account/ssh-keys': typeof AppAccountSshKeysRoute
   '/_app/networks/$networkId': typeof AppNetworksNetworkIdRoute
   '/_app/nodes/$nodeId': typeof AppNodesNodeIdRouteWithChildren
+  '/_app/nodes/new': typeof AppNodesNewRoute
   '/_app/servers/$serverId': typeof AppServersServerIdRouteWithChildren
+  '/_app/servers/new': typeof AppServersNewRoute
   '/_app/settings/activity': typeof AppSettingsActivityRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
   '/_app/templates_/$templateId': typeof AppTemplatesTemplateIdRoute
@@ -325,6 +352,7 @@ export interface FileRoutesById {
   '/_app/nodes/$nodeId/storage': typeof AppNodesNodeIdStorageRoute
   '/_app/servers/$serverId/activity': typeof AppServersServerIdActivityRoute
   '/_app/servers/$serverId/backups': typeof AppServersServerIdBackupsRoute
+  '/_app/servers/$serverId/database': typeof AppServersServerIdDatabaseRoute
   '/_app/servers/$serverId/files': typeof AppServersServerIdFilesRoute
   '/_app/servers/$serverId/network': typeof AppServersServerIdNetworkRoute
   '/_app/servers/$serverId/schedules': typeof AppServersServerIdSchedulesRoute
@@ -348,7 +376,9 @@ export interface FileRouteTypes {
     | '/account/ssh-keys'
     | '/networks/$networkId'
     | '/nodes/$nodeId'
+    | '/nodes/new'
     | '/servers/$serverId'
+    | '/servers/new'
     | '/settings/activity'
     | '/settings/members'
     | '/templates/$templateId'
@@ -363,6 +393,7 @@ export interface FileRouteTypes {
     | '/nodes/$nodeId/storage'
     | '/servers/$serverId/activity'
     | '/servers/$serverId/backups'
+    | '/servers/$serverId/database'
     | '/servers/$serverId/files'
     | '/servers/$serverId/network'
     | '/servers/$serverId/schedules'
@@ -381,6 +412,8 @@ export interface FileRouteTypes {
     | '/account/activity'
     | '/account/ssh-keys'
     | '/networks/$networkId'
+    | '/nodes/new'
+    | '/servers/new'
     | '/settings/activity'
     | '/settings/members'
     | '/templates/$templateId'
@@ -395,6 +428,7 @@ export interface FileRouteTypes {
     | '/nodes/$nodeId/storage'
     | '/servers/$serverId/activity'
     | '/servers/$serverId/backups'
+    | '/servers/$serverId/database'
     | '/servers/$serverId/files'
     | '/servers/$serverId/network'
     | '/servers/$serverId/schedules'
@@ -417,7 +451,9 @@ export interface FileRouteTypes {
     | '/_app/account/ssh-keys'
     | '/_app/networks/$networkId'
     | '/_app/nodes/$nodeId'
+    | '/_app/nodes/new'
     | '/_app/servers/$serverId'
+    | '/_app/servers/new'
     | '/_app/settings/activity'
     | '/_app/settings/members'
     | '/_app/templates_/$templateId'
@@ -432,6 +468,7 @@ export interface FileRouteTypes {
     | '/_app/nodes/$nodeId/storage'
     | '/_app/servers/$serverId/activity'
     | '/_app/servers/$serverId/backups'
+    | '/_app/servers/$serverId/database'
     | '/_app/servers/$serverId/files'
     | '/_app/servers/$serverId/network'
     | '/_app/servers/$serverId/schedules'
@@ -570,11 +607,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsActivityRouteImport
       parentRoute: typeof AppSettingsRoute
     }
+    '/_app/servers/new': {
+      id: '/_app/servers/new'
+      path: '/servers/new'
+      fullPath: '/servers/new'
+      preLoaderRoute: typeof AppServersNewRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/servers/$serverId': {
       id: '/_app/servers/$serverId'
       path: '/servers/$serverId'
       fullPath: '/servers/$serverId'
       preLoaderRoute: typeof AppServersServerIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/nodes/new': {
+      id: '/_app/nodes/new'
+      path: '/nodes/new'
+      fullPath: '/nodes/new'
+      preLoaderRoute: typeof AppNodesNewRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/nodes/$nodeId': {
@@ -659,6 +710,13 @@ declare module '@tanstack/react-router' {
       path: '/files'
       fullPath: '/servers/$serverId/files'
       preLoaderRoute: typeof AppServersServerIdFilesRouteImport
+      parentRoute: typeof AppServersServerIdRoute
+    }
+    '/_app/servers/$serverId/database': {
+      id: '/_app/servers/$serverId/database'
+      path: '/database'
+      fullPath: '/servers/$serverId/database'
+      preLoaderRoute: typeof AppServersServerIdDatabaseRouteImport
       parentRoute: typeof AppServersServerIdRoute
     }
     '/_app/servers/$serverId/backups': {
@@ -752,6 +810,7 @@ const AppNodesNodeIdRouteWithChildren = AppNodesNodeIdRoute._addFileChildren(
 interface AppServersServerIdRouteChildren {
   AppServersServerIdActivityRoute: typeof AppServersServerIdActivityRoute
   AppServersServerIdBackupsRoute: typeof AppServersServerIdBackupsRoute
+  AppServersServerIdDatabaseRoute: typeof AppServersServerIdDatabaseRoute
   AppServersServerIdFilesRoute: typeof AppServersServerIdFilesRoute
   AppServersServerIdNetworkRoute: typeof AppServersServerIdNetworkRoute
   AppServersServerIdSchedulesRoute: typeof AppServersServerIdSchedulesRoute
@@ -763,6 +822,7 @@ interface AppServersServerIdRouteChildren {
 const AppServersServerIdRouteChildren: AppServersServerIdRouteChildren = {
   AppServersServerIdActivityRoute: AppServersServerIdActivityRoute,
   AppServersServerIdBackupsRoute: AppServersServerIdBackupsRoute,
+  AppServersServerIdDatabaseRoute: AppServersServerIdDatabaseRoute,
   AppServersServerIdFilesRoute: AppServersServerIdFilesRoute,
   AppServersServerIdNetworkRoute: AppServersServerIdNetworkRoute,
   AppServersServerIdSchedulesRoute: AppServersServerIdSchedulesRoute,
@@ -781,7 +841,9 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppNetworksNetworkIdRoute: typeof AppNetworksNetworkIdRoute
   AppNodesNodeIdRoute: typeof AppNodesNodeIdRouteWithChildren
+  AppNodesNewRoute: typeof AppNodesNewRoute
   AppServersServerIdRoute: typeof AppServersServerIdRouteWithChildren
+  AppServersNewRoute: typeof AppServersNewRoute
   AppTemplatesTemplateIdRoute: typeof AppTemplatesTemplateIdRoute
   AppTemplatesNewRoute: typeof AppTemplatesNewRoute
   AppNetworksIndexRoute: typeof AppNetworksIndexRoute
@@ -797,7 +859,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppNetworksNetworkIdRoute: AppNetworksNetworkIdRoute,
   AppNodesNodeIdRoute: AppNodesNodeIdRouteWithChildren,
+  AppNodesNewRoute: AppNodesNewRoute,
   AppServersServerIdRoute: AppServersServerIdRouteWithChildren,
+  AppServersNewRoute: AppServersNewRoute,
   AppTemplatesTemplateIdRoute: AppTemplatesTemplateIdRoute,
   AppTemplatesNewRoute: AppTemplatesNewRoute,
   AppNetworksIndexRoute: AppNetworksIndexRoute,

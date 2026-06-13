@@ -151,6 +151,14 @@ export function updateTemplate(id: string, input: TemplateInput) {
 	});
 }
 
+/** Bump the deployed-server count after a server is launched from a template. */
+export function incrementTemplateServerCount(id: string) {
+	replace(id, (current) => ({
+		...current,
+		serverCount: current.serverCount + 1,
+	}));
+}
+
 /** Publish (or re-publish), bumping the version. Caller checks deployBlockers. */
 export function publishTemplate(id: string) {
 	replace(id, (current) => ({

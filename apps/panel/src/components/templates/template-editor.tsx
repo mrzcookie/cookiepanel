@@ -3,6 +3,7 @@ import {
 	Boxes,
 	Circle,
 	CircleCheck,
+	Database,
 	FileCheck,
 	KeyRound,
 	Lock,
@@ -63,6 +64,7 @@ const FEATURE_ICONS: Record<string, ComponentType<{ className?: string }>> = {
 	"minecraft:bukkit-plugins": Plug,
 	"minecraft:mods": Boxes,
 	"steam:gslt": KeyRound,
+	"database:browser": Database,
 };
 
 export function TemplateEditor({
@@ -681,6 +683,18 @@ function AddonsTab({ state, patch }: TabProps) {
 								<div className="text-muted-foreground text-xs">
 									{meta.description}
 								</div>
+								{meta.supports ? (
+									<div className="mt-2 flex flex-wrap gap-1">
+										{meta.supports.map((name) => (
+											<span
+												className="rounded-sm border px-1.5 py-0.5 font-mono text-[0.7rem] text-muted-foreground"
+												key={name}
+											>
+												{name}
+											</span>
+										))}
+									</div>
+								) : null}
 							</div>
 							{on ? (
 								<CircleCheck className="size-5 shrink-0 text-foreground" />

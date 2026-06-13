@@ -1,8 +1,12 @@
 import { useSyncExternalStore } from "react";
 import {
-	ALLOCATIONS,
+	portInUse,
+	releaseAllocation as releaseAllocationById,
+	addAllocation as reserveAllocation,
+	useNodeAllocations,
+} from "@/lib/allocations-store";
+import {
 	type AllocationProtocol,
-	type AllocationRow,
 	DRIVES,
 	FIREWALL,
 	type FirewallRow,
@@ -34,43 +38,29 @@ function createStore<T>(seed: T[]) {
 }
 
 // — Port allocations ——————————————————————————————————————————————————————————
-
-const allocations = createStore(ALLOCATIONS);
+// Allocations live in the shared allocations-store so the node's Networking tab
+// and a server's Network tab read and write one source of truth — a port
+// reserved in either place is visible (and can't be double-bound) in the other.
+// These thin wrappers keep the node-side call shape over that store.
 
 export function useAllocations(nodeId: string) {
-	return allocations.use().filter((row) => row.nodeId === nodeId);
+	return useNodeAllocations(nodeId);
 }
 
-/** Returns false (no-op) when the same binding is already reserved. */
+/** Reserve a free node-side slot (no server yet). False when already in use. */
 export function addAllocation(
 	nodeId: string,
 	input: { ip: string; port: number; protocol: AllocationProtocol }
 ): boolean {
-	const exists = allocations
-		.get()
-		.some(
-			(row) =>
-				row.nodeId === nodeId &&
-				row.ip === input.ip &&
-				row.port === input.port &&
-				row.protocol === input.protocol
-		);
-	if (exists) {
+	if (portInUse(nodeId, input.port, input.protocol)) {
 		return false;
 	}
-	const row: AllocationRow = {
-		id: crypto.randomUUID(),
-		nodeId,
-		serverId: null,
-		serverName: null,
-		...input,
-	};
-	allocations.set([...allocations.get(), row]);
+	reserveAllocation({ nodeId, serverId: null, serverName: null, ...input });
 	return true;
 }
 
 export function releaseAllocation(id: string) {
-	allocations.set(allocations.get().filter((row) => row.id !== id));
+	releaseAllocationById(id);
 }
 
 // — Firewall ——————————————————————————————————————————————————————————————————

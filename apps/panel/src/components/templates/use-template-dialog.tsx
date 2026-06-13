@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Rocket } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { DeployVariableField } from "@/components/servers/deploy-variable-field";
 import { StatusIndicator } from "@/components/status-indicator";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,28 +23,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { formatBytes } from "@/lib/format";
+import { capacityLabel } from "@/lib/deploy";
 import { useNodes } from "@/lib/nodes-store";
 import { nodeStatus } from "@/lib/status";
-import type { NodeRow } from "@/lib/stubs";
-import {
-	controlForVariable,
-	deployVariables,
-	type Template,
-	type TemplateVariable,
-} from "@/lib/templates";
-
-/** A node's hardware in one line, omitting parts not yet reported. */
-function capacityLabel(node: NodeRow): string | null {
-	const parts: string[] = [];
-	if (node.cpuCores != null) {
-		parts.push(`${node.cpuCores} vCPU`);
-	}
-	if (node.memTotalBytes != null) {
-		parts.push(formatBytes(node.memTotalBytes));
-	}
-	return parts.length ? parts.join(" · ") : null;
-}
+import { deployVariables, type Template } from "@/lib/templates";
 
 /** "Use template": pick a node, name the server, fill in settings, deploy. */
 export function UseTemplateDialog({ template }: { template: Template }) {
@@ -195,7 +178,7 @@ export function UseTemplateDialog({ template }: { template: Template }) {
 										Template settings
 									</legend>
 									{variables.map((variable) => (
-										<VariableField
+										<DeployVariableField
 											key={variable.id}
 											onChange={(value) =>
 												setValues((prev) => ({
@@ -241,70 +224,5 @@ export function UseTemplateDialog({ template }: { template: Template }) {
 				)}
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-function VariableField({
-	variable,
-	value,
-	onChange,
-}: {
-	variable: TemplateVariable;
-	value: string;
-	onChange: (value: string) => void;
-}) {
-	const id = `var-${variable.id}`;
-	const descriptionId = variable.description ? `${id}-desc` : undefined;
-	const control = controlForVariable(variable);
-	return (
-		<div className="grid gap-2">
-			<Label htmlFor={id}>{variable.name}</Label>
-			{control.kind === "select" ? (
-				<Select onValueChange={onChange} value={value}>
-					<SelectTrigger
-						aria-describedby={descriptionId}
-						className="w-full"
-						id={id}
-					>
-						<SelectValue placeholder="Choose…" />
-					</SelectTrigger>
-					<SelectContent>
-						{control.options.map((option) => (
-							<SelectItem key={option} value={option}>
-								{option}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-			) : control.kind === "toggle" ? (
-				<Select onValueChange={onChange} value={value || "false"}>
-					<SelectTrigger
-						aria-describedby={descriptionId}
-						className="w-full"
-						id={id}
-					>
-						<SelectValue />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="true">On</SelectItem>
-						<SelectItem value="false">Off</SelectItem>
-					</SelectContent>
-				</Select>
-			) : (
-				<Input
-					aria-describedby={descriptionId}
-					id={id}
-					inputMode={control.kind === "number" ? "numeric" : undefined}
-					onChange={(event) => onChange(event.target.value)}
-					type={control.kind === "secret" ? "password" : "text"}
-					value={value}
-				/>
-			)}
-			{variable.description ? (
-				<p className="text-muted-foreground text-xs" id={descriptionId}>
-					{variable.description}
-				</p>
-			) : null}
-		</div>
 	);
 }

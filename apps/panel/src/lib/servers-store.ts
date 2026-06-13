@@ -124,6 +124,77 @@ export function reinstallServer(id: string) {
 	transition(id, "installing", "running", 2600);
 }
 
+// — Create —————————————————————————————————————————————————————————————————————
+
+export type NewServer = {
+	name: string;
+	templateId: string;
+	templateName: string;
+	imageLabel: string;
+	nodeId: string;
+	nodeName: string;
+	nodeAddress: string;
+	/** Primary published port (its allocation is created alongside by the caller). */
+	port: number;
+	cpuLimitCores: number;
+	memLimitBytes: number;
+	diskLimitBytes: number;
+	/** Player-set values, envVariable → value. Secrets are never stored here. */
+	variables: Record<string, string>;
+};
+
+/**
+ * Deploy a server from a template. It lands `installing` (no live readouts yet),
+ * then converges to `running` on a short delay — standing in for the daemon's
+ * real install pipeline. The caller also reserves the port allocation and bumps
+ * the template's server count, mirroring the eventual provision flow.
+ */
+export function addServer(input: NewServer): ServerRow {
+	const server: ServerRow = {
+		id: crypto.randomUUID(),
+		name: input.name.trim(),
+		templateName: input.templateName,
+		templateId: input.templateId,
+		imageLabel: input.imageLabel,
+		updateAvailable: false,
+		state: "installing",
+		nodeId: input.nodeId,
+		nodeName: input.nodeName,
+		nodeAddress: input.nodeAddress,
+		// Null until the bind exists — the published port appears when it converges
+		// to running (the allocation is reserved separately, by the caller).
+		port: null,
+		cpuPercent: null,
+		memUsedBytes: null,
+		cpuLimitCores: input.cpuLimitCores,
+		memLimitBytes: input.memLimitBytes,
+		diskUsedBytes: null,
+		diskLimitBytes: input.diskLimitBytes,
+		uptimeSeconds: null,
+		createdAt: "Just now",
+		variables: input.variables,
+		lastError: null,
+	};
+	servers = [server, ...servers];
+	emit();
+	// Simulate install → running, binding the published port on the way.
+	clearTimer(server.id);
+	setState(server.id, "installing");
+	timers.set(
+		server.id,
+		setTimeout(() => {
+			timers.delete(server.id);
+			servers = servers.map((current) =>
+				current.id === server.id
+					? patchForState({ ...current, port: input.port }, "running")
+					: current
+			);
+			emit();
+		}, 2600)
+	);
+	return server;
+}
+
 // — Edits ——————————————————————————————————————————————————————————————————————
 
 export function renameServer(id: string, name: string) {

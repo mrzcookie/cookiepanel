@@ -18,6 +18,7 @@ export const TEMPLATE_CATEGORIES = [
 	"FPS",
 	"Voice",
 	"App",
+	"Database",
 	"Other",
 ] as const;
 export type TemplateCategory = (typeof TEMPLATE_CATEGORIES)[number];
@@ -125,7 +126,7 @@ export type TemplateFeature = { key: string };
 /** Plain-language metadata for the capabilities the panel ships a module for. */
 export const FEATURE_METADATA: Record<
 	string,
-	{ label: string; description: string }
+	{ label: string; description: string; supports?: readonly string[] }
 > = {
 	"minecraft:eula": {
 		label: "EULA helper",
@@ -143,7 +144,49 @@ export const FEATURE_METADATA: Record<
 		label: "Steam login token",
 		description: "Set a Game Server Login Token.",
 	},
+	"database:browser": {
+		label: "Browser",
+		description:
+			"Browse and manage the database: its tables or collections, users, and data. Adapts to the database type.",
+		supports: ["PostgreSQL", "MySQL", "MariaDB", "Redis", "MongoDB"],
+	},
 };
+
+// ─── Database Browser add-on ─────────────────────────────────────────────────
+// One add-on for every database. Enabling it (in the template's Add-ons tab)
+// puts a "Browser" tab on every server built from the template; the browser
+// detects the database type and adapts (SQL tables, Redis keys, Mongo docs).
+
+export const DATABASE_BROWSER_FEATURE = "database:browser";
+
+export type DatabaseEngine = "sql" | "redis" | "mongo";
+
+/** Whether a template enables the Browser add-on. */
+export function hasDatabaseBrowser(features: TemplateFeature[]): boolean {
+	return features.some((feature) => feature.key === DATABASE_BROWSER_FEATURE);
+}
+
+/** The Browser tab's label. */
+export const DATABASE_BROWSER_LABEL =
+	FEATURE_METADATA[DATABASE_BROWSER_FEATURE].label;
+
+/**
+ * Detect the database engine from the template's identity so the single Browser
+ * add-on can adapt itself to the database it's managing.
+ */
+export function databaseEngine(template: {
+	name: string;
+	slug: string;
+}): DatabaseEngine {
+	const text = `${template.slug} ${template.name}`.toLowerCase();
+	if (text.includes("redis")) {
+		return "redis";
+	}
+	if (text.includes("mongo")) {
+		return "mongo";
+	}
+	return "sql";
+}
 
 // ─── Data shapes ─────────────────────────────────────────────────────────────
 

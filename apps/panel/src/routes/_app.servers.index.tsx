@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Server } from "lucide-react";
+import { Plus, Server } from "lucide-react";
 import { CopyButton } from "@/components/detail-list";
 import {
 	CardStat,
@@ -10,6 +10,7 @@ import {
 import { ListPage } from "@/components/list-page";
 import { StatusIndicator } from "@/components/status-indicator";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
 	Table,
 	TableBody,
@@ -34,6 +35,14 @@ function Servers() {
 
 	return (
 		<ListPage
+			action={
+				<Button asChild size="sm">
+					<Link to="/servers/new">
+						<Plus />
+						Deploy server
+					</Link>
+				</Button>
+			}
 			createLabel="Deploy server"
 			description="Game and app instances you're running."
 			eyebrow="fleet"

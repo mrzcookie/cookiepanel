@@ -26,3 +26,13 @@ export function formatBytes(bytes: number): string {
 export function pluralize(count: number, noun: string): string {
 	return `${count} ${count === 1 ? noun : `${noun}s`}`;
 }
+
+/**
+ * A whole number with thousands separators: `formatCount(2481900)` → "2,481,900".
+ * Deterministic (not locale-dependent) so SSR and the client agree.
+ */
+export function formatCount(value: number): string {
+	return Math.round(value)
+		.toString()
+		.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}

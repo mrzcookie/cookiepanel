@@ -62,8 +62,9 @@ export function portInUse(
 
 export type NewAllocation = {
 	nodeId: string;
-	serverId: string;
-	serverName: string;
+	/** null when the slot is reserved on a node but not yet held by a server. */
+	serverId: string | null;
+	serverName: string | null;
 	ip: string;
 	port: number;
 	protocol: AllocationProtocol;

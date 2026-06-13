@@ -15,6 +15,8 @@ import {
 } from "@/lib/servers-store";
 import { serverStatus } from "@/lib/status";
 import type { ServerRow } from "@/lib/stubs";
+import { DATABASE_BROWSER_LABEL, hasDatabaseBrowser } from "@/lib/templates";
+import { useTemplate } from "@/lib/templates-store";
 
 export const Route = createFileRoute("/_app/servers/$serverId")({
 	component: ServerDetailLayout,
@@ -130,6 +132,9 @@ function PowerControls({ server }: { server: ServerRow }) {
 }
 
 function ServerChrome({ server }: { server: ServerRow }) {
+	const template = useTemplate(server.templateId);
+	const showBrowser = template ? hasDatabaseBrowser(template.features) : false;
+
 	return (
 		<>
 			<Link
@@ -164,6 +169,15 @@ function ServerChrome({ server }: { server: ServerRow }) {
 					>
 						Console
 					</Link>
+					{showBrowser ? (
+						<Link
+							className={routeTabClassName}
+							params={{ serverId: server.id }}
+							to="/servers/$serverId/database"
+						>
+							{DATABASE_BROWSER_LABEL}
+						</Link>
+					) : null}
 					<Link
 						className={routeTabClassName}
 						params={{ serverId: server.id }}

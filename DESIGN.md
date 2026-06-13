@@ -122,8 +122,6 @@ disabled/loading/error). Vocabulary stays identical screen to screen.
 
 ## Not yet done (deferred polish)
 
-- A `.terminal` onboarding command box with a `$` ok-green prompt for the
-  connect-a-node flow.
 - Eyebrows are wired on the four list pages only; detail headers rely on the
   back-link for context (intentional, to avoid redundant kickers).
 - The semantic washes (`*-wash`) are defined and used on the template install-risk

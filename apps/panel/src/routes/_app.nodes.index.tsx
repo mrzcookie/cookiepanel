@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { HardDrive } from "lucide-react";
+import { HardDrive, Plus } from "lucide-react";
 import {
 	CardStat,
 	EntityCard,
@@ -9,6 +9,7 @@ import {
 import { ListPage } from "@/components/list-page";
 import { StatusIndicator } from "@/components/status-indicator";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
 	Table,
 	TableBody,
@@ -33,6 +34,14 @@ function Nodes() {
 
 	return (
 		<ListPage
+			action={
+				<Button asChild size="sm">
+					<Link to="/nodes/new">
+						<Plus />
+						Connect node
+					</Link>
+				</Button>
+			}
 			createLabel="Connect node"
 			description="The nodes running your servers."
 			eyebrow="infrastructure"
