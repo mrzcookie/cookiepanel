@@ -221,6 +221,12 @@ export type ServerRow = {
 	name: string;
 	/** Friendly template label — NEVER a raw image string. */
 	templateName: string;
+	/** The source template (snapshotted at creation); resolves the variable
+	 * schema + startup command shown on the Startup tab. */
+	templateId: string;
+	/** Friendly runtime label from the template (e.g. "Java 21") — never the
+	 * raw image string. */
+	imageLabel: string;
 	/** The source template has a newer published version. */
 	updateAvailable: boolean;
 	state: ServerState;
@@ -233,7 +239,20 @@ export type ServerRow = {
 	/** Live readouts; null when the server isn't running. */
 	cpuPercent: number | null;
 	memUsedBytes: number | null;
+	/** Allocated ceilings (the server's limits, not the node's). */
+	cpuLimitCores: number;
 	memLimitBytes: number;
+	diskUsedBytes: number | null;
+	diskLimitBytes: number;
+	/** Seconds since the container started; null when not running. */
+	uptimeSeconds: number | null;
+	/** Pre-formatted creation date for the UI-first phase. */
+	createdAt: string;
+	/** Snapshot of the player-set variable values (envVariable → value). Secret
+	 * variables are write-only and never appear here. */
+	variables: Record<string, string>;
+	/** Last failure message, shown when the server is `failed`. */
+	lastError: string | null;
 };
 
 // Server UUIDs, referenced by networks' `serverIds` membership.
@@ -247,12 +266,25 @@ const SERVER_ID = {
 	modTesting: "4a8b9c0d-3e1f-4a4b-8c5d-8e9f0a1b2c3d",
 } as const;
 
+// Template UUIDs a server snapshots at creation. These mirror the ids of the
+// matching records in `TEMPLATES` below; the friendly `templateName` on a server
+// is the label captured at deploy time and can lag the template's current name.
+const TEMPLATE_ID = {
+	minecraftJava: "c4d5e6f7-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
+	valheim: "d5e6f7a8-2b3c-4d4e-9f5a-6b7c8d9e0f1a",
+	palworld: "e6f7a8b9-3c4d-4e5f-8a6b-7c8d9e0f1a2b",
+	rust: "a8b9c0d1-5e6f-4a7b-8c8d-9e0f1a2b3c4d",
+	terraria: "c0d1e2f3-7a8b-4c9d-8e0f-1a2b3c4d5e6f",
+} as const;
+
 export const SERVERS: ServerRow[] = [
 	{
 		id: SERVER_ID.survivalSmp,
 		nodeId: NODE_ID.atlas,
 		name: "Survival SMP",
 		templateName: "Minecraft: Java Edition",
+		templateId: TEMPLATE_ID.minecraftJava,
+		imageLabel: "Java 21",
 		updateAvailable: false,
 		state: "running",
 		nodeName: "atlas-01",
@@ -260,13 +292,26 @@ export const SERVERS: ServerRow[] = [
 		port: 25565,
 		cpuPercent: 38,
 		memUsedBytes: 3.6 * GiB,
+		cpuLimitCores: 4,
 		memLimitBytes: 6 * GiB,
+		diskUsedBytes: 8.2 * GiB,
+		diskLimitBytes: 20 * GiB,
+		uptimeSeconds: 198_400,
+		createdAt: "Mar 14, 2026",
+		variables: {
+			MINECRAFT_VERSION: "1.21.4",
+			DIFFICULTY: "hard",
+			SERVER_MOTD: "Survival SMP — season 4",
+		},
+		lastError: null,
 	},
 	{
 		id: SERVER_ID.creativeBuild,
 		nodeId: NODE_ID.atlas,
 		name: "Creative Build",
 		templateName: "Minecraft: Java Edition",
+		templateId: TEMPLATE_ID.minecraftJava,
+		imageLabel: "Java 21",
 		updateAvailable: true,
 		state: "running",
 		nodeName: "atlas-01",
@@ -274,13 +319,26 @@ export const SERVERS: ServerRow[] = [
 		port: 25566,
 		cpuPercent: 12,
 		memUsedBytes: 2 * GiB,
+		cpuLimitCores: 2,
 		memLimitBytes: 4 * GiB,
+		diskUsedBytes: 3.1 * GiB,
+		diskLimitBytes: 10 * GiB,
+		uptimeSeconds: 86_100,
+		createdAt: "Apr 02, 2026",
+		variables: {
+			MINECRAFT_VERSION: "1.21.1",
+			DIFFICULTY: "peaceful",
+			SERVER_MOTD: "Creative — build server",
+		},
+		lastError: null,
 	},
 	{
 		id: SERVER_ID.midgard,
 		nodeId: NODE_ID.valhalla,
 		name: "Midgard",
 		templateName: "Valheim",
+		templateId: TEMPLATE_ID.valheim,
+		imageLabel: "SteamCMD (Debian)",
 		updateAvailable: false,
 		state: "running",
 		nodeName: "valhalla-eu",
@@ -288,13 +346,25 @@ export const SERVERS: ServerRow[] = [
 		port: 2456,
 		cpuPercent: 64,
 		memUsedBytes: 2.4 * GiB,
+		cpuLimitCores: 2,
 		memLimitBytes: 4 * GiB,
+		diskUsedBytes: 4.5 * GiB,
+		diskLimitBytes: 16 * GiB,
+		uptimeSeconds: 327_900,
+		createdAt: "Feb 20, 2026",
+		variables: {
+			WORLD_NAME: "Midgard",
+			CROSSPLAY: "true",
+		},
+		lastError: null,
 	},
 	{
 		id: SERVER_ID.palworld,
 		nodeId: NODE_ID.valhalla,
 		name: "Palworld Dedicated",
 		templateName: "Palworld",
+		templateId: TEMPLATE_ID.palworld,
+		imageLabel: "SteamCMD (Ubuntu)",
 		updateAvailable: false,
 		state: "installing",
 		nodeName: "valhalla-eu",
@@ -302,13 +372,25 @@ export const SERVERS: ServerRow[] = [
 		port: null,
 		cpuPercent: null,
 		memUsedBytes: null,
+		cpuLimitCores: 4,
 		memLimitBytes: 16 * GiB,
+		diskUsedBytes: null,
+		diskLimitBytes: 40 * GiB,
+		uptimeSeconds: null,
+		createdAt: "Jun 11, 2026",
+		variables: {
+			SERVER_NAME: "Pal Friends",
+			MAX_PLAYERS: "16",
+		},
+		lastError: null,
 	},
 	{
 		id: SERVER_ID.rustMain,
 		nodeId: NODE_ID.orion,
 		name: "Rust Main",
 		templateName: "Rust",
+		templateId: TEMPLATE_ID.rust,
+		imageLabel: "SteamCMD (Debian)",
 		updateAvailable: true,
 		state: "stopped",
 		nodeName: "orion-05",
@@ -316,13 +398,25 @@ export const SERVERS: ServerRow[] = [
 		port: 28015,
 		cpuPercent: null,
 		memUsedBytes: null,
+		cpuLimitCores: 4,
 		memLimitBytes: 8 * GiB,
+		diskUsedBytes: 12 * GiB,
+		diskLimitBytes: 30 * GiB,
+		uptimeSeconds: null,
+		createdAt: "Jan 30, 2026",
+		variables: {
+			HOSTNAME: "Staff Event — Wipe Fridays",
+			WORLD_SIZE: "3500",
+		},
+		lastError: null,
 	},
 	{
 		id: SERVER_ID.terraria,
 		nodeId: NODE_ID.orion,
 		name: "Terraria Co-op",
 		templateName: "Terraria",
+		templateId: TEMPLATE_ID.terraria,
+		imageLabel: "Mono (Debian)",
 		updateAvailable: false,
 		state: "starting",
 		nodeName: "orion-05",
@@ -330,13 +424,25 @@ export const SERVERS: ServerRow[] = [
 		port: 7777,
 		cpuPercent: 9,
 		memUsedBytes: 0.4 * GiB,
+		cpuLimitCores: 1,
 		memLimitBytes: 2 * GiB,
+		diskUsedBytes: 0.6 * GiB,
+		diskLimitBytes: 4 * GiB,
+		uptimeSeconds: null,
+		createdAt: "May 18, 2026",
+		variables: {
+			WORLD_FILE: "expert.wld",
+			MAX_PLAYERS: "8",
+		},
+		lastError: null,
 	},
 	{
 		id: SERVER_ID.modTesting,
 		nodeId: NODE_ID.helios,
 		name: "Mod Testing",
 		templateName: "Minecraft: Java Edition",
+		templateId: TEMPLATE_ID.minecraftJava,
+		imageLabel: "Java 21",
 		updateAvailable: false,
 		state: "failed",
 		nodeName: "helios-03",
@@ -344,7 +450,19 @@ export const SERVERS: ServerRow[] = [
 		port: 25567,
 		cpuPercent: null,
 		memUsedBytes: null,
+		cpuLimitCores: 2,
 		memLimitBytes: 4 * GiB,
+		diskUsedBytes: 1.2 * GiB,
+		diskLimitBytes: 10 * GiB,
+		uptimeSeconds: null,
+		createdAt: "Jun 09, 2026",
+		variables: {
+			MINECRAFT_VERSION: "1.20.4",
+			DIFFICULTY: "normal",
+			SERVER_MOTD: "Mod testing",
+		},
+		lastError:
+			"Install failed: exit code 1 while running the install script (could not download server.jar — upstream returned 404).",
 	},
 ];
 
@@ -1339,6 +1457,12 @@ export const FIREWALL: FirewallRow[] = [
 
 export function serversForNode(nodeId: string) {
 	return SERVERS.filter((server) => server.nodeId === nodeId);
+}
+export function allocationsForServer(serverId: string) {
+	return ALLOCATIONS.filter((allocation) => allocation.serverId === serverId);
+}
+export function networksForServer(serverId: string) {
+	return NETWORKS.filter((network) => network.serverIds.includes(serverId));
 }
 export function drivesForNode(nodeId: string) {
 	return DRIVES.filter((drive) => drive.nodeId === nodeId);

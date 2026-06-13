@@ -39,6 +39,9 @@
 	--color-card: var(--card);
 	--color-foreground: var(--foreground);
 	--color-background: var(--background);
+	/* The console surface is a fixed dark terminal in both themes (xterm reads the
+	   same value into its theme). One token so it lives in a single place. */
+	--color-terminal: #09090b;
 	--radius-sm: calc(var(--radius) * 0.6);
 	--radius-md: calc(var(--radius) * 0.8);
 	--radius-lg: var(--radius);

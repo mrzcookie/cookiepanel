@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { type ComponentType, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { CodeEditor } from "@/components/templates/code-editor";
+import { CodeEditor } from "@/components/code-editor";
 import {
 	type EditorImage,
 	type EditorState,

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Server } from "lucide-react";
 import { CopyButton } from "@/components/detail-list";
 import {
@@ -20,15 +20,17 @@ import {
 } from "@/components/ui/table";
 import { formatBytes } from "@/lib/format";
 import { useListView } from "@/lib/list-view";
+import { useServers } from "@/lib/servers-store";
 import { serverStatus } from "@/lib/status";
-import { SERVERS, type ServerRow } from "@/lib/stubs";
+import type { ServerRow } from "@/lib/stubs";
 
-export const Route = createFileRoute("/_app/servers")({
+export const Route = createFileRoute("/_app/servers/")({
 	component: Servers,
 });
 
 function Servers() {
 	const [view, setView] = useListView("servers");
+	const servers = useServers();
 
 	return (
 		<ListPage
@@ -42,11 +44,11 @@ function Servers() {
 				server.nodeName.toLowerCase().includes(q)
 			}
 			icon={Server}
-			items={SERVERS}
+			items={servers}
 			noun="server"
 			onViewChange={setView}
 			renderCard={(server) => <ServerCard key={server.id} server={server} />}
-			renderTable={(servers) => <ServersTable servers={servers} />}
+			renderTable={(rows) => <ServersTable servers={rows} />}
 			title="Servers"
 			view={view}
 		/>
@@ -64,6 +66,18 @@ function memoryDetail(server: ServerRow) {
 		: `${formatBytes(server.memUsedBytes)} / ${limit}`;
 }
 
+function ServerLink({ server }: { server: ServerRow }) {
+	return (
+		<Link
+			className="hover:underline"
+			params={{ serverId: server.id }}
+			to="/servers/$serverId"
+		>
+			{server.name}
+		</Link>
+	);
+}
+
 function ServerCard({ server }: { server: ServerRow }) {
 	const connect = connectString(server);
 	const memPercent =
@@ -76,7 +90,7 @@ function ServerCard({ server }: { server: ServerRow }) {
 			action={<StatusIndicator status={serverStatus(server.state)} />}
 			icon={Server}
 			subtitle={server.templateName}
-			title={server.name}
+			title={<ServerLink server={server} />}
 			titleSuffix={
 				server.updateAvailable ? (
 					<Badge variant="secondary">Update</Badge>
@@ -142,7 +156,7 @@ function ServersTable({ servers }: { servers: ServerRow[] }) {
 										) : null
 									}
 									icon={Server}
-									title={server.name}
+									title={<ServerLink server={server} />}
 								/>
 							</TableCell>
 							<TableCell className="text-muted-foreground">
