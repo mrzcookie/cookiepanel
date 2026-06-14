@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PageHeader } from "@/components/page-header";
-import { emptyEditorState } from "@/components/templates/editor-types";
+import { PageHeader } from "@/components/shared/page-header";
 import { TemplateEditor } from "@/components/templates/template-editor";
+import { emptyEditorState } from "@/lib/domain/templates-editor";
 
 export const Route = createFileRoute("/_app/templates_/new")({
 	component: NewTemplate,

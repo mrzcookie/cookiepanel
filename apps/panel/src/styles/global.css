@@ -200,13 +200,12 @@
 	}
 }
 
-/* Unlayered (so it beats both the base layer and xterm's own stylesheet): the
-   .xterm root inherits a 1px border-width that our global border-color tints
-   visible. Keep the console surface a seamless inset, no frame. */
+/* Unlayered on purpose: our global `* { @apply border-border }` lives in the
+   base layer, and an unlayered rule outranks any layered one regardless of
+   specificity. That's what keeps the console a seamless inset (no frame) without
+   reaching for !important. */
 .xterm {
-	/* biome-ignore lint/complexity/noImportantStyles: must override xterm's own
-	   unlayered stylesheet, which a layered rule can't beat */
-	border: 0 !important;
+	border: 0;
 }
 
 @layer utilities {

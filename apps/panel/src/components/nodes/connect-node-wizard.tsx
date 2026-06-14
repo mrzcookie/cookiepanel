@@ -2,20 +2,25 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Check, ChevronRight } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { DetailList, DetailRow } from "@/components/detail-list";
-import { PageHeader } from "@/components/page-header";
-import { StatusIndicator } from "@/components/status-indicator";
+import { DetailList, DetailRow } from "@/components/shared/detail-list";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusIndicator } from "@/components/shared/status-indicator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TerminalBlock } from "@/components/wizard/terminal-block";
 import { WizardFrame } from "@/components/wizard/wizard-frame";
 import type { WizardStep } from "@/components/wizard/wizard-stepper";
+import type { NodeRow } from "@/lib/domain/nodes";
 import { formatBytes } from "@/lib/format";
-import { addNode, connectNode, removeNode, useNode } from "@/lib/nodes-store";
 import { slugify } from "@/lib/slug";
 import { nodeStatus } from "@/lib/status";
-import type { NodeRow } from "@/lib/stubs";
+import {
+	addNode,
+	connectNode,
+	removeNode,
+	useNode,
+} from "@/lib/stores/nodes-store";
 import { cn } from "@/lib/utils";
 
 // The connect-a-node wizard, written for someone who has never done this before.
@@ -84,7 +89,7 @@ function recordName(fqdn: string): string {
 		return "@";
 	}
 	const parts = host.split(".");
-	return parts.length > 2 ? parts[0] : "@";
+	return parts.length > 2 ? (parts[0] ?? "@") : "@";
 }
 
 // The DNS pre-flight on the domain step. Optimistic: the heartbeat is the real

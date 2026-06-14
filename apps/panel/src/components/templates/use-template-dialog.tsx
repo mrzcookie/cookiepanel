@@ -3,7 +3,7 @@ import { Rocket } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DeployVariableField } from "@/components/servers/deploy-variable-field";
-import { StatusIndicator } from "@/components/status-indicator";
+import { StatusIndicator } from "@/components/shared/status-indicator";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -23,10 +23,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { capacityLabel } from "@/lib/deploy";
-import { useNodes } from "@/lib/nodes-store";
+import { capacityLabel } from "@/lib/domain/deploy";
+import { deployVariables, type Template } from "@/lib/domain/templates";
 import { nodeStatus } from "@/lib/status";
-import { deployVariables, type Template } from "@/lib/templates";
+import { useNodes } from "@/lib/stores/nodes-store";
 
 /** "Use template": pick a node, name the server, fill in settings, deploy. */
 export function UseTemplateDialog({ template }: { template: Template }) {
@@ -47,8 +47,9 @@ export function UseTemplateDialog({ template }: { template: Template }) {
 
 	// Preselect when there's exactly one node you can actually deploy to.
 	useEffect(() => {
-		if (open && !nodeId && selectableNodes.length === 1) {
-			setNodeId(selectableNodes[0].id);
+		const only = selectableNodes[0];
+		if (open && !nodeId && selectableNodes.length === 1 && only) {
+			setNodeId(only.id);
 		}
 	}, [open, nodeId, selectableNodes]);
 

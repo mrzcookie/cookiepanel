@@ -7,7 +7,7 @@ import {
 	type LucideIcon,
 	ShieldCheck,
 } from "lucide-react";
-import { CopyButton } from "@/components/detail-list";
+import { CopyButton } from "@/components/shared/detail-list";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/home")({

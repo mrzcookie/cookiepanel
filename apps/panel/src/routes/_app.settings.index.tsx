@@ -3,8 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Building2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { DetailList, DetailRow } from "@/components/detail-list";
-import { ImageUploadField } from "@/components/image-upload-field";
+import { DetailList, DetailRow } from "@/components/shared/detail-list";
+import { ImageUploadField } from "@/components/shared/image-upload-field";
 import { Button } from "@/components/ui/button";
 import {
 	Card,

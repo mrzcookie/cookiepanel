@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { DetailList, DetailRow } from "@/components/detail-list";
+import { DetailList, DetailRow } from "@/components/shared/detail-list";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -21,13 +21,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { NodeCaps, NodeRow } from "@/lib/domain/nodes";
 import {
 	removeNode,
 	updateNode,
 	updateNodeCaps,
 	useNode,
-} from "@/lib/nodes-store";
-import type { NodeCaps, NodeRow } from "@/lib/stubs";
+} from "@/lib/stores/nodes-store";
 
 const GiB = 1024 ** 3;
 

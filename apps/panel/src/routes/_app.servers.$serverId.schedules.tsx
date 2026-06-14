@@ -8,8 +8,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { EmptyState } from "@/components/empty-state";
 import { ScheduleWizard } from "@/components/schedules/schedule-wizard";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,15 +36,19 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
+import {
+	frequencyLabel,
+	type Schedule,
+	stepSummary,
+} from "@/lib/domain/schedules";
 import { pluralize } from "@/lib/format";
-import { frequencyLabel, type Schedule, stepSummary } from "@/lib/schedules";
 import {
 	deleteSchedule,
 	runSchedule,
 	toggleSchedule,
 	useServerSchedules,
-} from "@/lib/schedules-store";
-import { useServer } from "@/lib/servers-store";
+} from "@/lib/stores/schedules-store";
+import { useServer } from "@/lib/stores/servers-store";
 
 export const Route = createFileRoute("/_app/servers/$serverId/schedules")({
 	component: ServerSchedulesTab,

@@ -39,8 +39,8 @@ import {
 	STEP_META,
 	stepSummary,
 	stepValid,
-} from "@/lib/schedules";
-import { createSchedule } from "@/lib/schedules-store";
+} from "@/lib/domain/schedules";
+import { createSchedule } from "@/lib/stores/schedules-store";
 
 const STEP_ICON: Record<ScheduleStepKind, typeof Clock> = {
 	command: TerminalSquare,
@@ -100,7 +100,12 @@ export function ScheduleWizard({
 				return current;
 			}
 			const next = [...current];
-			[next[index], next[target]] = [next[target], next[index]];
+			const moved = next[index];
+			const swapped = next[target];
+			if (moved && swapped) {
+				next[index] = swapped;
+				next[target] = moved;
+			}
 			return next;
 		});
 	}

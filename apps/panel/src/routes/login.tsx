@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Cookie, MailCheck } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { AuthDivider, SocialSignIn } from "@/components/social-sign-in";
+import { AuthDivider, SocialSignIn } from "@/components/auth/social-sign-in";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +19,7 @@ function Login() {
 	const valid = EMAIL.test(email.trim());
 
 	return (
-		<div className="flex min-h-svh flex-col items-center justify-center bg-background px-6">
+		<main className="flex min-h-svh flex-col items-center justify-center bg-background px-6">
 			<div className="w-full max-w-sm space-y-6">
 				<Link
 					className="flex items-center justify-center gap-2 font-bold text-base tracking-tight"
@@ -96,6 +96,6 @@ function Login() {
 					</Link>
 				</p>
 			</div>
-		</div>
+		</main>
 	);
 }

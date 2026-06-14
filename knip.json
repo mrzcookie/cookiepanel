@@ -1,0 +1,20 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"ignore": [".claude/**"],
+	"ignoreBinaries": ["make"],
+	"ignoreDependencies": [
+		"@fontsource-variable/hanken-grotesk",
+		"@fontsource-variable/jetbrains-mono",
+		"shadcn",
+		"tailwindcss",
+		"tw-animate-css",
+		"lefthook"
+	],
+	"ignoreWorkspaces": ["apps/daemon"],
+	"workspaces": {
+		"apps/panel": {
+			"entry": ["src/routes/**/*.tsx", "src/components/ui/**"],
+			"project": ["src/**/*.{ts,tsx}", "!src/routeTree.gen.ts"]
+		}
+	}
+}

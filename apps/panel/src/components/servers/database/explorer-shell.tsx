@@ -1,6 +1,6 @@
 import { ArrowLeft, ChevronRight, type LucideIcon } from "lucide-react";
 import { type ReactNode, useRef } from "react";
-import { StatusIndicator } from "@/components/status-indicator";
+import { StatusIndicator } from "@/components/shared/status-indicator";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -11,7 +11,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import type { ServerRow } from "@/lib/stubs";
+import type { ServerRow } from "@/lib/domain/servers";
 
 // Shared chrome for the database browsers (SQL / Redis / Mongo): the connection
 // readout, the bordered data-section shell, row actions, a drill-down
@@ -128,7 +128,7 @@ export function Breadcrumb({
 		<span className="flex items-center gap-1.5">
 			<button
 				className="text-muted-foreground transition-colors hover:text-foreground"
-				onClick={trail[trail.length - 1].onClick}
+				onClick={trail[trail.length - 1]?.onClick}
 				type="button"
 			>
 				<ArrowLeft className="size-4" />

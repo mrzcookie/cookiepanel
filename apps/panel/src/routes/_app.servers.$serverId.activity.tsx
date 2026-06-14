@@ -11,7 +11,10 @@ import {
 	Square,
 	Upload,
 } from "lucide-react";
-import { type ActivityItem, ActivityList } from "@/components/activity-list";
+import {
+	type ActivityItem,
+	ActivityList,
+} from "@/components/shared/activity-list";
 import {
 	Card,
 	CardContent,
@@ -19,8 +22,8 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { useServer } from "@/lib/servers-store";
-import type { ServerRow } from "@/lib/stubs";
+import type { ServerRow } from "@/lib/domain/servers";
+import { useServer } from "@/lib/stores/servers-store";
 
 export const Route = createFileRoute("/_app/servers/$serverId/activity")({
 	component: ServerActivityTab,

@@ -12,7 +12,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { EntityIconChip } from "@/components/entity-card";
+import { EmptyState } from "@/components/shared/empty-state";
+import { EntityIconChip } from "@/components/shared/entity-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,15 +41,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatBytes } from "@/lib/format";
 import {
 	type Backup,
 	createBackup,
 	deleteBackup,
 	toggleBackupLock,
 	useServerBackups,
-} from "@/lib/backups-store";
-import { formatBytes } from "@/lib/format";
-import { useServer } from "@/lib/servers-store";
+} from "@/lib/stores/backups-store";
+import { useServer } from "@/lib/stores/servers-store";
 
 export const Route = createFileRoute("/_app/servers/$serverId/backups")({
 	component: ServerBackupsTab,
@@ -89,9 +90,11 @@ function ServerBackupsTab() {
 			</CardHeader>
 			<CardContent>
 				{backups.length === 0 ? (
-					<p className="text-muted-foreground text-sm">
-						No backups yet. Create one to snapshot this server's data.
-					</p>
+					<EmptyState
+						description="Create a backup to snapshot this server's data volume."
+						icon={Archive}
+						title="No backups yet"
+					/>
 				) : (
 					<ul className="divide-y">
 						{backups.map((backup) => (

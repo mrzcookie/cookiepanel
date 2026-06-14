@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { importTemplate } from "@/lib/templates-store";
+import { importTemplate } from "@/lib/stores/templates-store";
 
 type Mode = "paste" | "url";
 

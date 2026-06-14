@@ -1,7 +1,7 @@
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { ThemeProvider } from "next-themes";
 import { lazy, type ReactNode, Suspense } from "react";
-import { ErrorScreen } from "@/components/error-screen";
+import { ErrorScreen } from "@/components/layout/error-screen";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import appCss from "@/styles/global.css?url";

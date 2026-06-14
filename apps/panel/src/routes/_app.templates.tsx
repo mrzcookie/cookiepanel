@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { LayoutTemplate } from "lucide-react";
 import { useState } from "react";
-import { EntityCard, EntityIdentity } from "@/components/entity-card";
-import { ListPage } from "@/components/list-page";
-import { StatusIndicator } from "@/components/status-indicator";
+import { EntityCard, EntityIdentity } from "@/components/shared/entity-card";
+import { ListPage } from "@/components/shared/list/list-page";
+import { StatusIndicator } from "@/components/shared/status-indicator";
 import { CreateTemplateMenu } from "@/components/templates/create-template-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,15 +15,15 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { pluralize } from "@/lib/format";
-import { useListView } from "@/lib/list-view";
-import { templateStatus } from "@/lib/status";
 import {
 	ORIGIN_LABELS,
 	TEMPLATE_CATEGORIES,
 	type Template,
-} from "@/lib/templates";
-import { useTemplates } from "@/lib/templates-store";
+} from "@/lib/domain/templates";
+import { pluralize } from "@/lib/format";
+import { useListView } from "@/lib/list-view";
+import { templateStatus } from "@/lib/status";
+import { useTemplates } from "@/lib/stores/templates-store";
 
 export const Route = createFileRoute("/_app/templates")({
 	component: Templates,

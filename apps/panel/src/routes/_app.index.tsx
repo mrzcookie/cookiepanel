@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LayoutDashboard } from "lucide-react";
-import { EmptyState } from "@/components/empty-state";
-import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const Route = createFileRoute("/_app/")({
 	component: Overview,

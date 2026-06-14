@@ -1,4 +1,4 @@
-import { CopyButton } from "@/components/detail-list";
+import { CopyButton } from "@/components/shared/detail-list";
 import { cn } from "@/lib/utils";
 
 // The `.terminal` onboarding command box: a deep cool-ink surface with an

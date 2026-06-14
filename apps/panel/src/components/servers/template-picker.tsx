@@ -1,14 +1,18 @@
 import { Check, LayoutTemplate, Search, SearchX } from "lucide-react";
 import { useState } from "react";
-import { EmptyState } from "@/components/empty-state";
-import { EntityIconChip } from "@/components/entity-card";
-import { StatusIndicator } from "@/components/status-indicator";
+import { EmptyState } from "@/components/shared/empty-state";
+import { EntityIconChip } from "@/components/shared/entity-card";
+import { StatusIndicator } from "@/components/shared/status-indicator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+	deployBlockers,
+	isDeployable,
+	type Template,
+} from "@/lib/domain/templates";
 import { pluralize } from "@/lib/format";
 import { templateStatus } from "@/lib/status";
-import { deployBlockers, isDeployable, type Template } from "@/lib/templates";
 import { cn } from "@/lib/utils";
 
 // Why a non-deployable template can't be launched, in one plain line.

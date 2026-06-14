@@ -14,11 +14,13 @@
 		},
 		"types": ["vite/client"],
 		"allowImportingTsExtensions": true,
-		"verbatimModuleSyntax": false,
+		"verbatimModuleSyntax": true,
+		"isolatedModules": true,
 		"noEmit": true,
 
 		/* Linting */
 		"strict": true,
+		"noUncheckedIndexedAccess": true,
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
 		"noFallthroughCasesInSwitch": true,

@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Area, AreaChart, YAxis } from "recharts";
-import { DetailList, DetailRow } from "@/components/detail-list";
-import { CardStat } from "@/components/entity-card";
-import { StatusIndicator } from "@/components/status-indicator";
+import { DetailList, DetailRow } from "@/components/shared/detail-list";
+import { CardStat } from "@/components/shared/entity-card";
+import { StatusIndicator } from "@/components/shared/status-indicator";
 import {
 	Card,
 	CardContent,
@@ -11,10 +11,12 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
+import type { NodeRow } from "@/lib/domain/nodes";
+import type { ServerRow } from "@/lib/domain/servers";
 import { formatBytes } from "@/lib/format";
-import { useNode } from "@/lib/nodes-store";
 import { serverStatus } from "@/lib/status";
-import { type NodeRow, type ServerRow, serversForNode } from "@/lib/stubs";
+import { useNode } from "@/lib/stores/nodes-store";
+import { serversForNode } from "@/lib/stubs";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/nodes/$nodeId/")({

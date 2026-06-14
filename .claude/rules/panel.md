@@ -24,6 +24,11 @@ The whole panel is being built as **pure UI first**:
 When in doubt, model a page on its eventual job (a fleet view, a server detail,
 a template editor) but implement only the view with fake data.
 
+**Folder layout.** Where components and lib modules go (the `ui`/`layout`/`shared`/
+domain split, the `lib/domain` vs `stores` vs `stubs` split, the server import
+boundary, the no-barrels rule) is documented in **`apps/panel/ARCHITECTURE.md`**.
+Read it before adding files so the tree stays sorted.
+
 ## Later: the server layer (target shape)
 
 When the data layer lands, server code lives under **`src/server/**`, which is

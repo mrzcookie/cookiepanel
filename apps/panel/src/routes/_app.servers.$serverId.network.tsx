@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
+import { Network, Plug, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { CopyButton } from "@/components/detail-list";
-import { IsolatedBadge } from "@/components/isolated-badge";
+import { IsolatedBadge } from "@/components/networks/isolated-badge";
+import { CopyButton } from "@/components/shared/detail-list";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,20 +32,20 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import type {
+	AllocationProtocol,
+	AllocationRow,
+	NetworkRow,
+} from "@/lib/domain/networks";
+import type { ServerRow } from "@/lib/domain/servers";
 import {
 	addAllocation,
 	portInUse,
 	releaseAllocation,
 	useServerAllocations,
-} from "@/lib/allocations-store";
-import { useServer } from "@/lib/servers-store";
-import {
-	type AllocationProtocol,
-	type AllocationRow,
-	type NetworkRow,
-	networksForServer,
-	type ServerRow,
-} from "@/lib/stubs";
+} from "@/lib/stores/allocations-store";
+import { useServer } from "@/lib/stores/servers-store";
+import { networksForServer } from "@/lib/stubs";
 
 export const Route = createFileRoute("/_app/servers/$serverId/network")({
 	component: ServerNetworkTab,
@@ -84,9 +85,11 @@ function AllocationsCard({ server }: { server: ServerRow }) {
 			</CardHeader>
 			<CardContent className="space-y-3">
 				{allocations.length === 0 ? (
-					<p className="text-muted-foreground text-sm">
-						No ports are allocated to this server yet.
-					</p>
+					<EmptyState
+						description="Add a port so players can reach this server."
+						icon={Plug}
+						title="No ports yet"
+					/>
 				) : (
 					<ul className="divide-y">
 						{allocations.map((allocation) => (
@@ -294,9 +297,11 @@ function NetworksCard({ server }: { server: ServerRow }) {
 			</CardHeader>
 			<CardContent>
 				{networks.length === 0 ? (
-					<p className="text-muted-foreground text-sm">
-						This server isn't attached to any networks.
-					</p>
+					<EmptyState
+						description="Attach this server from a network's page."
+						icon={Network}
+						title="Not on any networks"
+					/>
 				) : (
 					<ul className="divide-y">
 						{networks.map((network) => (

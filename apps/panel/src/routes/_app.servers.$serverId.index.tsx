@@ -1,7 +1,7 @@
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
-import { DetailList, DetailRow } from "@/components/detail-list";
-import { UsageMeter } from "@/components/entity-card";
+import { DetailList, DetailRow } from "@/components/shared/detail-list";
+import { UsageMeter } from "@/components/shared/entity-card";
 import {
 	Card,
 	CardContent,
@@ -9,12 +9,12 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import type { ServerRow } from "@/lib/domain/servers";
 import { formatBytes } from "@/lib/format";
-import { useServer } from "@/lib/servers-store";
-import type { ServerRow } from "@/lib/stubs";
+import { useServer } from "@/lib/stores/servers-store";
 
 // xterm touches the DOM at import, so the console only loads on the client.
-const ServerConsole = lazy(() => import("@/components/server-console"));
+const ServerConsole = lazy(() => import("@/components/servers/server-console"));
 
 export const Route = createFileRoute("/_app/servers/$serverId/")({
 	component: ServerConsoleTab,

@@ -2,12 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Lock, Network, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { CreateNetworkDialog } from "@/components/create-network-dialog";
-import { EmptyState } from "@/components/empty-state";
-import { EntityIdentity } from "@/components/entity-card";
-import { IsolatedBadge } from "@/components/isolated-badge";
-import { RemoveButton } from "@/components/remove-button";
-import { StatusIndicator } from "@/components/status-indicator";
+import { CreateNetworkDialog } from "@/components/networks/create-network-dialog";
+import { IsolatedBadge } from "@/components/networks/isolated-badge";
+import { EmptyState } from "@/components/shared/empty-state";
+import { EntityIdentity } from "@/components/shared/entity-card";
+import { RemoveButton } from "@/components/shared/remove-button";
+import { StatusIndicator } from "@/components/shared/status-indicator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,7 +45,13 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { useNetworks } from "@/lib/networks-store";
+import type {
+	AllocationProtocol,
+	AllocationRow,
+	NetworkRow,
+} from "@/lib/domain/networks";
+import type { FirewallRow, NodeRow } from "@/lib/domain/nodes";
+import { useNetworks } from "@/lib/stores/networks-store";
 import {
 	addAllocation,
 	addFirewallRule,
@@ -54,15 +60,8 @@ import {
 	setFirewallActive,
 	useAllocations,
 	useFirewall,
-} from "@/lib/node-resources-store";
-import { useNode } from "@/lib/nodes-store";
-import type {
-	AllocationProtocol,
-	AllocationRow,
-	FirewallRow,
-	NetworkRow,
-	NodeRow,
-} from "@/lib/stubs";
+} from "@/lib/stores/node-resources-store";
+import { useNode } from "@/lib/stores/nodes-store";
 
 export const Route = createFileRoute("/_app/nodes/$nodeId/networking")({
 	component: NodeNetworking,

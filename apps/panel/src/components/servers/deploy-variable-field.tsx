@@ -7,7 +7,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { controlForVariable, type TemplateVariable } from "@/lib/templates";
+import {
+	controlForVariable,
+	type TemplateVariable,
+} from "@/lib/domain/templates";
 
 // One player-facing template variable, rendered by its derived control. Shared
 // by the use-template dialog and the create-server wizard so a variable looks

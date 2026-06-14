@@ -1,9 +1,9 @@
 import { HardDrive } from "lucide-react";
-import { EntityIconChip } from "@/components/entity-card";
-import { StatusIndicator } from "@/components/status-indicator";
-import { capacityLabel, isDeployTarget } from "@/lib/deploy";
+import { EntityIconChip } from "@/components/shared/entity-card";
+import { StatusIndicator } from "@/components/shared/status-indicator";
+import { capacityLabel, isDeployTarget } from "@/lib/domain/deploy";
+import type { NodeRow } from "@/lib/domain/nodes";
 import { nodeStatus } from "@/lib/status";
-import type { NodeRow } from "@/lib/stubs";
 import { cn } from "@/lib/utils";
 
 // The step-2 node picker: a radio list of nodes. Only online or unhealthy nodes

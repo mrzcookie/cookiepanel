@@ -2,12 +2,12 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { LayoutTemplate, Plus, Server, SlidersHorizontal } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
-import { DetailList, DetailRow } from "@/components/detail-list";
-import { EmptyState } from "@/components/empty-state";
-import { PageHeader } from "@/components/page-header";
 import { DeployVariableField } from "@/components/servers/deploy-variable-field";
 import { NodePicker } from "@/components/servers/node-picker";
 import { TemplatePicker } from "@/components/servers/template-picker";
+import { DetailList, DetailRow } from "@/components/shared/detail-list";
+import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,23 +20,28 @@ import {
 } from "@/components/ui/select";
 import { WizardFrame } from "@/components/wizard/wizard-frame";
 import type { WizardStep } from "@/components/wizard/wizard-stepper";
-import { addAllocation, portInUse } from "@/lib/allocations-store";
 import {
 	basePortFor,
 	clampInt,
 	GiB,
 	isDeployTarget,
 	serverCaps,
-} from "@/lib/deploy";
+} from "@/lib/domain/deploy";
+import type { AllocationProtocol } from "@/lib/domain/networks";
+import type { NodeRow } from "@/lib/domain/nodes";
+import {
+	deployVariables,
+	isDeployable,
+	type Template,
+} from "@/lib/domain/templates";
 import { formatBytes } from "@/lib/format";
-import { useNodes } from "@/lib/nodes-store";
-import { addServer } from "@/lib/servers-store";
-import type { AllocationProtocol, NodeRow } from "@/lib/stubs";
-import { deployVariables, isDeployable, type Template } from "@/lib/templates";
+import { addAllocation, portInUse } from "@/lib/stores/allocations-store";
+import { useNodes } from "@/lib/stores/nodes-store";
+import { addServer } from "@/lib/stores/servers-store";
 import {
 	incrementTemplateServerCount,
 	useTemplates,
-} from "@/lib/templates-store";
+} from "@/lib/stores/templates-store";
 
 const STEPS: WizardStep[] = [
 	{ id: "template", label: "Template" },
@@ -70,7 +75,7 @@ const HEADINGS = [
 		description: "Here's what we'll create. Go back to change anything.",
 		title: "Review and deploy",
 	},
-];
+] as const;
 
 type Draft = {
 	templateId: string | null;
@@ -343,7 +348,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 		);
 	}
 
-	const heading = HEADINGS[step];
+	const heading = HEADINGS[step] ?? HEADINGS[0];
 
 	let footer: ReactNode;
 	if (step === 4) {

@@ -1,13 +1,13 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { ErrorScreen } from "@/components/error-screen";
-import { PageHeader } from "@/components/page-header";
-import { RouteTabs, routeTabClassName } from "@/components/route-tabs";
-import { StatusIndicator } from "@/components/status-indicator";
+import { ErrorScreen } from "@/components/layout/error-screen";
+import { PageHeader } from "@/components/shared/page-header";
+import { RouteTabs, routeTabClassName } from "@/components/shared/route-tabs";
+import { StatusIndicator } from "@/components/shared/status-indicator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useNode } from "@/lib/nodes-store";
+import type { NodeRow } from "@/lib/domain/nodes";
 import { nodeStatus } from "@/lib/status";
-import type { NodeRow } from "@/lib/stubs";
+import { useNode } from "@/lib/stores/nodes-store";
 
 export const Route = createFileRoute("/_app/nodes/$nodeId")({
 	component: NodeDetailLayout,

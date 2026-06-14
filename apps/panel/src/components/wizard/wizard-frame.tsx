@@ -30,20 +30,19 @@ export function WizardFrame({
 	steps: WizardStep[];
 }) {
 	const headingRef = useRef<HTMLHeadingElement>(null);
-	const mounted = useRef(false);
+	const previousStep = useRef(current);
 
 	// Move focus to the step heading whenever the step CHANGES, so keyboard and
 	// screen-reader users are repositioned at the top of the new step instead of
-	// stranded on a control that just unmounted. We skip the first run so landing
-	// on the page doesn't yank focus past the header into the body. tabIndex={-1}
-	// keeps the heading programmatically focusable without entering the tab order.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: refocus the heading on step change
+	// stranded on a control that just unmounted. Seeding `previousStep` with the
+	// initial step skips the first run, so landing on the page doesn't yank focus
+	// past the header into the body. tabIndex={-1} keeps the heading
+	// programmatically focusable without entering the tab order.
 	useEffect(() => {
-		if (!mounted.current) {
-			mounted.current = true;
-			return;
+		if (previousStep.current !== current) {
+			previousStep.current = current;
+			headingRef.current?.focus();
 		}
-		headingRef.current?.focus();
 	}, [current]);
 
 	return (

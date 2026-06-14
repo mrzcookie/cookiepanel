@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Pencil } from "lucide-react";
-import { ErrorScreen } from "@/components/error-screen";
-import { PageHeader } from "@/components/page-header";
+import { ErrorScreen } from "@/components/layout/error-screen";
+import { PageHeader } from "@/components/shared/page-header";
 import { CustomizeButton } from "@/components/templates/customize-button";
 import { UseTemplateDialog } from "@/components/templates/use-template-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -12,8 +12,8 @@ import {
 	knownFeatures,
 	shownVariables,
 	type Template,
-} from "@/lib/templates";
-import { useTemplate } from "@/lib/templates-store";
+} from "@/lib/domain/templates";
+import { useTemplate } from "@/lib/stores/templates-store";
 
 export const Route = createFileRoute("/_app/templates_/$templateId")({
 	component: TemplateDetail,

@@ -19,11 +19,22 @@ import {
 	Upload,
 	X,
 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+	type ChangeEvent,
+	type DragEvent,
+	type ReactNode,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { toast } from "sonner";
-import { CodeEditor } from "@/components/code-editor";
-import { CopyButton, DetailList, DetailRow } from "@/components/detail-list";
-import { UsageBar } from "@/components/entity-card";
+import { CodeEditor } from "@/components/shared/code-editor";
+import {
+	CopyButton,
+	DetailList,
+	DetailRow,
+} from "@/components/shared/detail-list";
+import { UsageBar } from "@/components/shared/entity-card";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -67,15 +78,6 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import {
-	dismissJob,
-	type FileJob,
-	startArchive,
-	startExtract,
-	startUpload,
-	startUrlPull,
-	useFileJobs,
-} from "@/lib/file-jobs-store";
-import {
 	ARCHIVE_FORMATS,
 	type ArchiveFormat,
 	archiveBaseName,
@@ -94,7 +96,17 @@ import {
 	subtreeBytes,
 	uniqueChildName,
 	validateName,
-} from "@/lib/files";
+} from "@/lib/domain/files";
+import { formatBytes, pluralize } from "@/lib/format";
+import {
+	dismissJob,
+	type FileJob,
+	startArchive,
+	startExtract,
+	startUpload,
+	startUrlPull,
+	useFileJobs,
+} from "@/lib/stores/file-jobs-store";
 import {
 	createDirectory,
 	createFile,
@@ -103,15 +115,14 @@ import {
 	renameNode,
 	useServerFiles,
 	writeFile,
-} from "@/lib/files-store";
-import { formatBytes, pluralize } from "@/lib/format";
-import { useServer } from "@/lib/servers-store";
+} from "@/lib/stores/files-store";
+import { useServer } from "@/lib/stores/servers-store";
 import {
 	closeSftpSession,
 	openSftpSession,
 	type SftpSession,
 	useSftpSession,
-} from "@/lib/sftp-store";
+} from "@/lib/stores/sftp-store";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/servers/$serverId/files")({
@@ -257,7 +268,7 @@ function FileBrowser({
 		}
 	}
 
-	function onUploadInput(event: React.ChangeEvent<HTMLInputElement>) {
+	function onUploadInput(event: ChangeEvent<HTMLInputElement>) {
 		const { files } = event.target;
 		event.target.value = "";
 		if (files && files.length > 0) {
@@ -265,7 +276,7 @@ function FileBrowser({
 		}
 	}
 
-	function dropFiles(event: React.DragEvent, dir: string) {
+	function dropFiles(event: DragEvent, dir: string) {
 		event.preventDefault();
 		setDragActive(false);
 		setDragFolder(null);
@@ -283,7 +294,7 @@ function FileBrowser({
 		leave(targetPath: string) {
 			setDragFolder((current) => (current === targetPath ? null : current));
 		},
-		drop(event: React.DragEvent, targetPath: string) {
+		drop(event: DragEvent, targetPath: string) {
 			event.stopPropagation();
 			dropFiles(event, targetPath);
 		},
@@ -423,7 +434,7 @@ function FileBrowser({
 					/>
 				) : null}
 
-				{/* biome-ignore lint/a11y/noStaticElementInteractions: a file drop zone; the Upload button is the keyboard-accessible equivalent. */}
+				{/* biome-ignore lint/a11y/noStaticElementInteractions: a mouse-only drag-and-drop drop zone (the Upload button is the keyboard-accessible equivalent). No honest ARIA role removes this: every role that silences it — group, region, figure — trips useSemanticElements instead, and presentation/none don't silence it. */}
 				<div
 					className={cn(
 						"rounded-xl transition-colors",
@@ -707,7 +718,7 @@ type FolderDrag = {
 	activePath: string | null;
 	over: (path: string) => void;
 	leave: (path: string) => void;
-	drop: (event: React.DragEvent, path: string) => void;
+	drop: (event: DragEvent, path: string) => void;
 };
 
 function FileRow({
@@ -749,18 +760,18 @@ function FileRow({
 
 	const dirDrag = isDir
 		? {
-				onDragOver(event: React.DragEvent) {
+				onDragOver(event: DragEvent) {
 					if (event.dataTransfer.types.includes("Files")) {
 						event.preventDefault();
 						event.stopPropagation();
 						folderDrag.over(node.path);
 					}
 				},
-				onDragLeave(event: React.DragEvent) {
+				onDragLeave(event: DragEvent) {
 					event.stopPropagation();
 					folderDrag.leave(node.path);
 				},
-				onDrop(event: React.DragEvent) {
+				onDrop(event: DragEvent) {
 					folderDrag.drop(event, node.path);
 				},
 			}

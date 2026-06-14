@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { EmptyState } from "@/components/empty-state";
 import {
 	Breadcrumb,
 	ConfirmDrop,
@@ -20,6 +19,7 @@ import {
 	RowActions,
 	Section,
 } from "@/components/servers/database/explorer-shell";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,7 +49,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { formatBytes, formatCount, pluralize } from "@/lib/format";
+import type { ServerRow } from "@/lib/domain/servers";
 import {
 	COLUMN_KEY_LABEL,
 	grantsLabel,
@@ -61,7 +61,8 @@ import {
 	type SqlDatabase,
 	type SqlTable,
 	type SqlUser,
-} from "@/lib/sql-browser";
+} from "@/lib/domain/sql-browser";
+import { formatBytes, formatCount, pluralize } from "@/lib/format";
 import {
 	addColumn,
 	createDatabase,
@@ -73,8 +74,7 @@ import {
 	dropUser,
 	truncateTable,
 	useSqlData,
-} from "@/lib/sql-browser-store";
-import type { ServerRow } from "@/lib/stubs";
+} from "@/lib/stores/sql-browser-store";
 
 type View = "databases" | "users";
 

@@ -2,7 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { forkTemplate } from "@/lib/templates-store";
+import { forkTemplate } from "@/lib/stores/templates-store";
 
 /**
  * Make an editable copy of a template in the active org. "Customize" rather than

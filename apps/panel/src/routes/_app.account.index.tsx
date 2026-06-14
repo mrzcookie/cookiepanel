@@ -3,9 +3,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { UserRound } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { DetailList, DetailRow } from "@/components/detail-list";
-import { ImageUploadField } from "@/components/image-upload-field";
-import { ThemeSwitcher } from "@/components/theme-switcher";
+import { ThemeSwitcher } from "@/components/layout/theme-switcher";
+import { DetailList, DetailRow } from "@/components/shared/detail-list";
+import { ImageUploadField } from "@/components/shared/image-upload-field";
 import { Button } from "@/components/ui/button";
 import {
 	Card,

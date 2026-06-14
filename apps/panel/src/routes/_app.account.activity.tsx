@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { KeyRound, LogIn, SunMoon, UserRound } from "lucide-react";
-import { type ActivityItem, ActivityList } from "@/components/activity-list";
+import {
+	type ActivityItem,
+	ActivityList,
+} from "@/components/shared/activity-list";
 import {
 	Card,
 	CardContent,

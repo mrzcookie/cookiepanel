@@ -1,7 +1,6 @@
 import { ChevronRight, FileJson, FolderTree, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { EmptyState } from "@/components/empty-state";
 import {
 	Breadcrumb,
 	ConfirmDrop,
@@ -10,6 +9,7 @@ import {
 	RowActions,
 	Section,
 } from "@/components/servers/database/explorer-shell";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -31,14 +31,15 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { formatBytes, formatCount, pluralize } from "@/lib/format";
 import {
 	databaseSize,
 	isValidMongoName,
 	type MongoCollection,
 	type MongoData,
 	type MongoDatabase,
-} from "@/lib/mongo-browser";
+} from "@/lib/domain/mongo-browser";
+import type { ServerRow } from "@/lib/domain/servers";
+import { formatBytes, formatCount, pluralize } from "@/lib/format";
 import {
 	createCollection,
 	createDatabase,
@@ -47,8 +48,7 @@ import {
 	dropDatabase,
 	insertDocument,
 	useMongoData,
-} from "@/lib/mongo-browser-store";
-import type { ServerRow } from "@/lib/stubs";
+} from "@/lib/stores/mongo-browser-store";
 
 function objectId(): string {
 	return crypto.randomUUID().replace(/-/g, "").slice(0, 24);

@@ -20,19 +20,19 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { templateStatus } from "@/lib/status";
 import {
 	deployBlockers,
 	needsInstallAck,
 	type Template,
-} from "@/lib/templates";
+} from "@/lib/domain/templates";
+import { templateStatus } from "@/lib/status";
 import {
 	acknowledgeInstallRisk,
 	archiveTemplate,
 	deleteTemplate,
 	publishTemplate,
 	unpublishTemplate,
-} from "@/lib/templates-store";
+} from "@/lib/stores/templates-store";
 
 /** Lifecycle + danger-zone actions for an owned template. */
 export function TemplateManagement({ template }: { template: Template }) {

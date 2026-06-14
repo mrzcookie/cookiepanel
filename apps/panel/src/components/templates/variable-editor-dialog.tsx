@@ -1,6 +1,5 @@
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
-import type { EditorVariable } from "@/components/templates/editor-types";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -29,12 +28,14 @@ import {
 	VARIABLE_TYPES,
 	type VariableAccess,
 	type VariableType,
-} from "@/lib/templates";
+} from "@/lib/domain/templates";
+import type { EditorVariable } from "@/lib/domain/templates-editor";
 
 const ENV_RE = /^[A-Z][A-Z0-9_]{0,254}$/;
 
 function blank(): EditorVariable {
 	return {
+		id: crypto.randomUUID(),
 		name: "",
 		description: "",
 		envVariable: "",

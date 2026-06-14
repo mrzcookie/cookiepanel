@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { DetailList, DetailRow } from "@/components/detail-list";
+import { DetailList, DetailRow } from "@/components/shared/detail-list";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -21,14 +21,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { ServerRow } from "@/lib/domain/servers";
 import {
 	deleteServer,
 	reinstallServer,
 	renameServer,
 	updateServerLimits,
 	useServer,
-} from "@/lib/servers-store";
-import type { ServerRow } from "@/lib/stubs";
+} from "@/lib/stores/servers-store";
 
 const GiB = 1024 ** 3;
 

@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ErrorScreen } from "@/components/error-screen";
-import { PageHeader } from "@/components/page-header";
-import { templateToState } from "@/components/templates/editor-types";
+import { ErrorScreen } from "@/components/layout/error-screen";
+import { PageHeader } from "@/components/shared/page-header";
 import { TemplateEditor } from "@/components/templates/template-editor";
 import { TemplateManagement } from "@/components/templates/template-management";
 import { Button } from "@/components/ui/button";
-import { isEditable } from "@/lib/templates";
-import { useTemplate } from "@/lib/templates-store";
+import { isEditable } from "@/lib/domain/templates";
+import { templateToState } from "@/lib/domain/templates-editor";
+import { useTemplate } from "@/lib/stores/templates-store";
 
 // Trailing underscore on `$templateId_` opts this route OUT of nesting under the
 // detail route, so `/templates/X/edit` renders the editor, not the detail page.

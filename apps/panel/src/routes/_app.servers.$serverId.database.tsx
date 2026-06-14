@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Database } from "lucide-react";
-import { EmptyState } from "@/components/empty-state";
 import { MongoBrowser } from "@/components/servers/database/mongo-browser";
 import { RedisBrowser } from "@/components/servers/database/redis-browser";
 import { SqlBrowser } from "@/components/servers/database/sql-browser";
-import { useServer } from "@/lib/servers-store";
-import { databaseEngine, hasDatabaseBrowser } from "@/lib/templates";
-import { useTemplate } from "@/lib/templates-store";
+import { EmptyState } from "@/components/shared/empty-state";
+import { databaseEngine, hasDatabaseBrowser } from "@/lib/domain/templates";
+import { useServer } from "@/lib/stores/servers-store";
+import { useTemplate } from "@/lib/stores/templates-store";
 
 export const Route = createFileRoute("/_app/servers/$serverId/database")({
 	component: ServerDatabaseTab,

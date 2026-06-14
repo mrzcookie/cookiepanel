@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Database, HardDrive, Lock, MoreHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { EmptyState } from "@/components/empty-state";
-import { EntityIconChip, UsageBar } from "@/components/entity-card";
+import { EmptyState } from "@/components/shared/empty-state";
+import { EntityIconChip, UsageBar } from "@/components/shared/entity-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +38,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import type { DriveRow } from "@/lib/domain/nodes";
 import { formatBytes, pluralize } from "@/lib/format";
 import {
 	formatDrive,
@@ -45,9 +46,8 @@ import {
 	setDataTarget,
 	unmountDrive,
 	useDrives,
-} from "@/lib/node-resources-store";
-import { useNode } from "@/lib/nodes-store";
-import type { DriveRow } from "@/lib/stubs";
+} from "@/lib/stores/node-resources-store";
+import { useNode } from "@/lib/stores/nodes-store";
 
 const FILESYSTEMS = ["ext4", "xfs", "btrfs"];
 

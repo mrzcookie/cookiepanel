@@ -19,19 +19,19 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import {
-	updateServerRuntime,
-	updateServerVariables,
-	useServer,
-} from "@/lib/servers-store";
-import type { ServerRow } from "@/lib/stubs";
+import type { ServerRow } from "@/lib/domain/servers";
 import {
 	controlForVariable,
 	shownVariables,
 	type Template,
 	type TemplateVariable,
-} from "@/lib/templates";
-import { useTemplate } from "@/lib/templates-store";
+} from "@/lib/domain/templates";
+import {
+	updateServerRuntime,
+	updateServerVariables,
+	useServer,
+} from "@/lib/stores/servers-store";
+import { useTemplate } from "@/lib/stores/templates-store";
 
 export const Route = createFileRoute("/_app/servers/$serverId/startup")({
 	component: ServerStartupTab,
@@ -239,7 +239,7 @@ function VariablesCard({
 		const next = { ...server.variables };
 		for (const variable of template.variables) {
 			if (variable.access === "editable") {
-				next[variable.envVariable] = values[variable.envVariable];
+				next[variable.envVariable] = values[variable.envVariable] ?? "";
 			}
 		}
 		updateServerVariables(server.id, next);

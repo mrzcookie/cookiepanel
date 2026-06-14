@@ -17,13 +17,7 @@ import {
 } from "lucide-react";
 import { type ComponentType, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { CodeEditor } from "@/components/code-editor";
-import {
-	type EditorImage,
-	type EditorState,
-	type EditorVariable,
-	stateToInput,
-} from "@/components/templates/editor-types";
+import { CodeEditor } from "@/components/shared/code-editor";
 import { VariableEditorDialog } from "@/components/templates/variable-editor-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,8 +39,14 @@ import {
 	type StopType,
 	TEMPLATE_CATEGORIES,
 	type TemplateCategory,
-} from "@/lib/templates";
-import { createTemplate, updateTemplate } from "@/lib/templates-store";
+} from "@/lib/domain/templates";
+import {
+	type EditorImage,
+	type EditorState,
+	type EditorVariable,
+	stateToInput,
+} from "@/lib/domain/templates-editor";
+import { createTemplate, updateTemplate } from "@/lib/stores/templates-store";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -264,7 +264,12 @@ function RuntimesTab({ state, patch }: TabProps) {
 		patch({
 			images: [
 				...state.images,
-				{ image: "", isDefault: state.images.length === 0, label: "" },
+				{
+					id: crypto.randomUUID(),
+					image: "",
+					isDefault: state.images.length === 0,
+					label: "",
+				},
 			],
 		});
 	}
@@ -279,8 +284,7 @@ function RuntimesTab({ state, patch }: TabProps) {
 				{state.images.map((image, index) => (
 					<div
 						className="flex flex-wrap items-end gap-2 rounded-lg border bg-card p-3"
-						// biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
-						key={index}
+						key={image.id}
 					>
 						<div className="flex-1 space-y-1.5">
 							<Label className="text-xs" htmlFor={`runtime-label-${index}`}>
@@ -379,8 +383,7 @@ function VariablesTab({ state, patch }: TabProps) {
 					{state.variables.map((variable, index) => (
 						<div
 							className="flex items-center gap-3 bg-card px-4 py-3"
-							// biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
-							key={index}
+							key={variable.id}
 						>
 							<div className="min-w-0 flex-1">
 								<div className="flex items-center gap-2">
@@ -433,8 +436,8 @@ function VariablesTab({ state, patch }: TabProps) {
 function StartupTab({ state, patch }: TabProps) {
 	function updateMarker(index: number, next: DoneMatcher) {
 		patch({
-			doneMarkers: state.doneMarkers.map((marker, i) =>
-				i === index ? next : marker
+			doneMarkers: state.doneMarkers.map((entry, i) =>
+				i === index ? { ...entry, matcher: next } : entry
 			),
 		});
 	}
@@ -492,12 +495,8 @@ function StartupTab({ state, patch }: TabProps) {
 					Lines in the log that mean the server is up. Optional.
 				</p>
 				<div className="space-y-2">
-					{state.doneMarkers.map((marker, index) => (
-						<div
-							className="flex items-center gap-2"
-							// biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
-							key={index}
-						>
+					{state.doneMarkers.map(({ id, matcher }, index) => (
+						<div className="flex items-center gap-2" key={id}>
 							<Select
 								onValueChange={(value) =>
 									updateMarker(
@@ -507,7 +506,7 @@ function StartupTab({ state, patch }: TabProps) {
 											: { kind: "string", value: "" }
 									)
 								}
-								value={marker.kind}
+								value={matcher.kind}
 							>
 								<SelectTrigger
 									aria-label={`Ready signal ${index + 1} match type`}
@@ -527,20 +526,22 @@ function StartupTab({ state, patch }: TabProps) {
 								onChange={(event) =>
 									updateMarker(
 										index,
-										marker.kind === "regex"
+										matcher.kind === "regex"
 											? { kind: "regex", pattern: event.target.value }
 											: { kind: "string", value: event.target.value }
 									)
 								}
-								placeholder={marker.kind === "regex" ? "^Done \\(" : "Done ("}
-								value={marker.kind === "regex" ? marker.pattern : marker.value}
+								placeholder={matcher.kind === "regex" ? "^Done \\(" : "Done ("}
+								value={
+									matcher.kind === "regex" ? matcher.pattern : matcher.value
+								}
 							/>
 							<Button
 								aria-label="Remove signal"
 								onClick={() =>
 									patch({
 										doneMarkers: state.doneMarkers.filter(
-											(_, i) => i !== index
+											(entry) => entry.id !== id
 										),
 									})
 								}
@@ -558,7 +559,10 @@ function StartupTab({ state, patch }: TabProps) {
 						patch({
 							doneMarkers: [
 								...state.doneMarkers,
-								{ kind: "string", value: "" },
+								{
+									id: crypto.randomUUID(),
+									matcher: { kind: "string", value: "" },
+								},
 							],
 						})
 					}

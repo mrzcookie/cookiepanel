@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { DetailList, DetailRow } from "@/components/detail-list";
-import { ErrorScreen } from "@/components/error-screen";
-import { IsolatedBadge } from "@/components/isolated-badge";
-import { PageHeader } from "@/components/page-header";
-import { StatusIndicator } from "@/components/status-indicator";
+import { ErrorScreen } from "@/components/layout/error-screen";
+import { IsolatedBadge } from "@/components/networks/isolated-badge";
+import { DetailList, DetailRow } from "@/components/shared/detail-list";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusIndicator } from "@/components/shared/status-indicator";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -32,6 +32,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import type { NetworkRow } from "@/lib/domain/networks";
+import { serverStatus } from "@/lib/status";
 import {
 	attachableServers,
 	attachedServers,
@@ -40,9 +42,7 @@ import {
 	detachServer,
 	renameNetwork,
 	useNetwork,
-} from "@/lib/networks-store";
-import { serverStatus } from "@/lib/status";
-import type { NetworkRow } from "@/lib/stubs";
+} from "@/lib/stores/networks-store";
 
 export const Route = createFileRoute("/_app/networks/$networkId")({
 	component: NetworkDetail,

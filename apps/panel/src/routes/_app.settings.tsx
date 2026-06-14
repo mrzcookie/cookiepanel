@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { ErrorScreen } from "@/components/error-screen";
-import { PageHeader } from "@/components/page-header";
-import { RouteTabs, routeTabClassName } from "@/components/route-tabs";
+import { ErrorScreen } from "@/components/layout/error-screen";
+import { PageHeader } from "@/components/shared/page-header";
+import { RouteTabs, routeTabClassName } from "@/components/shared/route-tabs";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_app/settings")({

@@ -1,14 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Plus, Server } from "lucide-react";
-import { CopyButton } from "@/components/detail-list";
+import { CopyButton } from "@/components/shared/detail-list";
 import {
 	CardStat,
 	EntityCard,
 	EntityIdentity,
 	UsageMeter,
-} from "@/components/entity-card";
-import { ListPage } from "@/components/list-page";
-import { StatusIndicator } from "@/components/status-indicator";
+} from "@/components/shared/entity-card";
+import { ListPage } from "@/components/shared/list/list-page";
+import { StatusIndicator } from "@/components/shared/status-indicator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,11 +19,11 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import type { ServerRow } from "@/lib/domain/servers";
 import { formatBytes } from "@/lib/format";
 import { useListView } from "@/lib/list-view";
-import { useServers } from "@/lib/servers-store";
 import { serverStatus } from "@/lib/status";
-import type { ServerRow } from "@/lib/stubs";
+import { useServers } from "@/lib/stores/servers-store";
 
 export const Route = createFileRoute("/_app/servers/")({
 	component: Servers,

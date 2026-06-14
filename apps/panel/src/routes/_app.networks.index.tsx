@@ -1,10 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Network } from "lucide-react";
 import { useState } from "react";
-import { CreateNetworkDialog } from "@/components/create-network-dialog";
-import { CardStat, EntityCard, EntityIdentity } from "@/components/entity-card";
-import { IsolatedBadge } from "@/components/isolated-badge";
-import { ListPage } from "@/components/list-page";
+import { CreateNetworkDialog } from "@/components/networks/create-network-dialog";
+import { IsolatedBadge } from "@/components/networks/isolated-badge";
+import {
+	CardStat,
+	EntityCard,
+	EntityIdentity,
+} from "@/components/shared/entity-card";
+import { ListPage } from "@/components/shared/list/list-page";
 import {
 	Table,
 	TableBody,
@@ -13,10 +17,11 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import type { NetworkRow } from "@/lib/domain/networks";
 import { pluralize } from "@/lib/format";
 import { useListView } from "@/lib/list-view";
-import { useNetworks } from "@/lib/networks-store";
-import { type NetworkRow, NODES } from "@/lib/stubs";
+import { useNetworks } from "@/lib/stores/networks-store";
+import { NODES } from "@/lib/stubs";
 
 export const Route = createFileRoute("/_app/networks/")({
 	component: Networks,

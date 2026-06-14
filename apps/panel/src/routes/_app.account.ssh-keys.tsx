@@ -3,8 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { KeyRound } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { EmptyState } from "@/components/empty-state";
-import { RemoveButton } from "@/components/remove-button";
+import { EmptyState } from "@/components/shared/empty-state";
+import { RemoveButton } from "@/components/shared/remove-button";
 import { Button } from "@/components/ui/button";
 import {
 	Card,

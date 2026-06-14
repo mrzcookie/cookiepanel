@@ -1,8 +1,6 @@
 import { ChevronRight, KeyRound, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { DetailList, DetailRow } from "@/components/detail-list";
-import { EmptyState } from "@/components/empty-state";
 import {
 	Breadcrumb,
 	ConfirmDrop,
@@ -11,6 +9,8 @@ import {
 	RowActions,
 	Section,
 } from "@/components/servers/database/explorer-shell";
+import { DetailList, DetailRow } from "@/components/shared/detail-list";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +40,6 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { formatBytes, formatCount } from "@/lib/format";
 import {
 	hitRate,
 	isCollection,
@@ -49,9 +48,14 @@ import {
 	type RedisKey,
 	type RedisType,
 	ttlLabel,
-} from "@/lib/redis-browser";
-import { createKey, deleteKey, useRedisData } from "@/lib/redis-browser-store";
-import type { ServerRow } from "@/lib/stubs";
+} from "@/lib/domain/redis-browser";
+import type { ServerRow } from "@/lib/domain/servers";
+import { formatBytes, formatCount } from "@/lib/format";
+import {
+	createKey,
+	deleteKey,
+	useRedisData,
+} from "@/lib/stores/redis-browser-store";
 
 function sizeLabel(entry: RedisKey): string {
 	return isCollection(entry.type)

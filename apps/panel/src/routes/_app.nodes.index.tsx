@@ -5,9 +5,9 @@ import {
 	EntityCard,
 	EntityIdentity,
 	UsageMeter,
-} from "@/components/entity-card";
-import { ListPage } from "@/components/list-page";
-import { StatusIndicator } from "@/components/status-indicator";
+} from "@/components/shared/entity-card";
+import { ListPage } from "@/components/shared/list/list-page";
+import { StatusIndicator } from "@/components/shared/status-indicator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,11 +18,11 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import type { NodeRow } from "@/lib/domain/nodes";
 import { formatBytes } from "@/lib/format";
 import { useListView } from "@/lib/list-view";
-import { useNodes } from "@/lib/nodes-store";
 import { nodeStatus } from "@/lib/status";
-import type { NodeRow } from "@/lib/stubs";
+import { useNodes } from "@/lib/stores/nodes-store";
 
 export const Route = createFileRoute("/_app/nodes/")({
 	component: Nodes,

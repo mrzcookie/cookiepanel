@@ -5,12 +5,12 @@
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
+		"analyze": "ANALYZE=true vite build",
 		"preview": "vite preview",
 		"start": "node .output/server/index.mjs",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@fontsource-variable/geist": "^5.2.9",
 		"@fontsource-variable/hanken-grotesk": "^5.2.8",
 		"@fontsource-variable/jetbrains-mono": "^5.2.8",
 		"@monaco-editor/react": "^4.7.0",
@@ -47,6 +47,7 @@
 		"@types/react-dom": "^19.2.3",
 		"@vitejs/plugin-react": "^6.0.2",
 		"babel-plugin-react-compiler": "^1.0.0",
+		"rollup-plugin-visualizer": "^7.0.1",
 		"typescript": "^6.0.3",
 		"vite": "^8.0.16"
 	}

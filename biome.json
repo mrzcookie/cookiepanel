@@ -58,6 +58,12 @@
 			"nursery": {
 				"useSortedClasses": "error"
 			},
+			"suspicious": {
+				"noConsole": {
+					"level": "warn",
+					"options": { "allow": ["error", "warn"] }
+				}
+			},
 			"recommended": true
 		}
 	},
