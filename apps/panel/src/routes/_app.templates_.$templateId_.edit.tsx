@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronLeft } from "lucide-react";
 import { ErrorScreen } from "@/components/error-screen";
 import { PageHeader } from "@/components/page-header";
 import { templateToState } from "@/components/templates/editor-types";
@@ -40,16 +39,12 @@ function EditTemplate() {
 
 	return (
 		<>
-			<Link
-				className="-mb-2 inline-flex items-center gap-1 font-mono text-muted-foreground text-xs uppercase tracking-wider transition-colors hover:text-foreground"
-				params={{ templateId: template.id }}
-				to="/templates/$templateId"
-			>
-				<ChevronLeft className="size-4" />
-				{template.name}
-			</Link>
-
 			<PageHeader
+				back={{
+					label: template.name,
+					params: { templateId: template.id },
+					to: "/templates/$templateId",
+				}}
 				description="Edit this template's recipe."
 				title="Edit template"
 			/>

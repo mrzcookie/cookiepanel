@@ -17,7 +17,7 @@ const ITEMS: ActivityItem[] = [
 	{
 		id: "1",
 		icon: LogIn,
-		description: "Signed in from San Francisco, CA",
+		description: "Logged in from San Francisco, CA",
 		time: "2 hours ago",
 	},
 	{
@@ -41,7 +41,7 @@ const ITEMS: ActivityItem[] = [
 	{
 		id: "5",
 		icon: LogIn,
-		description: "Signed in from San Francisco, CA",
+		description: "Logged in from San Francisco, CA",
 		time: "May 12, 2026",
 	},
 ];
@@ -52,7 +52,7 @@ function AccountActivity() {
 			<CardHeader>
 				<CardTitle>Activity</CardTitle>
 				<CardDescription>
-					Recent sign-ins and changes to your account.
+					Recent logins and changes to your account.
 				</CardDescription>
 			</CardHeader>
 			<CardContent>

@@ -74,7 +74,7 @@ function bootSequence(templateName: string) {
 		line("INFO", "Loading configuration and world data"),
 		line("INFO", "Preparing spawn area: 0%"),
 		line("INFO", "Preparing spawn area: 84%"),
-		line("INFO", "Done — players can connect now"),
+		line("INFO", "Done. Players can connect now"),
 	];
 }
 
@@ -197,7 +197,7 @@ export default function ServerConsole({
 			term.writeln(`${DIM}Booting up…${RESET}`);
 		} else if (state === "installing") {
 			term.writeln(
-				`${DIM}Running the install script in an isolated container…${RESET}`
+				`${DIM}Setting up your server in an isolated sandbox…${RESET}`
 			);
 			term.writeln(`${DIM}This can take a few minutes the first time.${RESET}`);
 		} else if (state === "failed") {

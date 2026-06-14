@@ -227,6 +227,18 @@ export function updateServerVariables(
 	emit();
 }
 
+/**
+ * Switch a server to a different runtime from its template's image list. Stores
+ * the friendly label (never a raw image string); the daemon would recreate the
+ * container on the new image, applied on the next restart.
+ */
+export function updateServerRuntime(id: string, imageLabel: string) {
+	servers = servers.map((server) =>
+		server.id === id ? { ...server, imageLabel } : server
+	);
+	emit();
+}
+
 export function deleteServer(id: string) {
 	clearTimer(id);
 	servers = servers.filter((server) => server.id !== id);

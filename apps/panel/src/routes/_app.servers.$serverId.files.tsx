@@ -1310,7 +1310,7 @@ function SftpDialog({
 
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>
-			<DialogContent>
+			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
 					<DialogTitle>SFTP session</DialogTitle>
 					<DialogDescription>
@@ -1345,13 +1345,13 @@ function SftpCredentials({ session }: { session: SftpSession }) {
 	return (
 		<div className="space-y-3 py-2">
 			<DetailList>
-				<DetailRow copyable label="Host" value={session.host} />
+				<DetailRow copyable label="Host" value={session.host} wrap />
 				<DetailRow label="Port" value={String(session.port)} />
-				<DetailRow copyable label="Username" value={session.username} />
-				<DetailRow copyable label="Password" value={session.password} />
+				<DetailRow copyable label="Username" value={session.username} wrap />
+				<DetailRow copyable label="Password" value={session.password} wrap />
 			</DetailList>
-			<div className="flex items-center gap-1 rounded-lg bg-muted/50 px-3 py-2">
-				<span className="min-w-0 flex-1 truncate font-mono text-xs">
+			<div className="flex items-start gap-1 rounded-lg bg-muted/50 px-3 py-2">
+				<span className="min-w-0 flex-1 break-all font-mono text-xs">
 					{command}
 				</span>
 				<CopyButton label="SFTP command" value={command} />

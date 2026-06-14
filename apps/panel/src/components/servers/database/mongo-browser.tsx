@@ -159,10 +159,10 @@ function DatabaseList({
 										{database.name}
 									</button>
 								</TableCell>
-								<TableCell className="text-right text-muted-foreground tabular-nums">
+								<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
 									{database.collections.length}
 								</TableCell>
-								<TableCell className="text-right text-muted-foreground tabular-nums">
+								<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
 									{formatBytes(databaseSize(database))}
 								</TableCell>
 								<TableCell className="text-right">
@@ -277,13 +277,13 @@ function CollectionList({
 										{collection.name}
 									</button>
 								</TableCell>
-								<TableCell className="text-right text-muted-foreground tabular-nums">
+								<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
 									{formatCount(collection.documents)}
 								</TableCell>
-								<TableCell className="text-right text-muted-foreground tabular-nums">
+								<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
 									{formatBytes(collection.sizeBytes)}
 								</TableCell>
-								<TableCell className="text-right text-muted-foreground tabular-nums">
+								<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
 									{collection.indexes}
 								</TableCell>
 								<TableCell className="text-right">

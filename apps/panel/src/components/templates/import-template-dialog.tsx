@@ -74,7 +74,7 @@ export function ImportTemplateDialog({
 		if (mode === "paste") {
 			const name = nameFromJson(json);
 			if (!name) {
-				toast.error("That doesn't look like valid egg JSON.");
+				toast.error("That doesn't look like valid template JSON.");
 				return;
 			}
 			const created = importTemplate(name);
@@ -114,8 +114,8 @@ export function ImportTemplateDialog({
 				<DialogHeader>
 					<DialogTitle>Import a template</DialogTitle>
 					<DialogDescription>
-						Bring in a Pterodactyl or Pelican egg (.json). It lands as a draft
-						you can review and publish.
+						Bring in a Pterodactyl or Pelican template export (.json). It lands
+						as a draft you can review and publish.
 					</DialogDescription>
 				</DialogHeader>
 
@@ -137,7 +137,7 @@ export function ImportTemplateDialog({
 					{mode === "paste" ? (
 						<div className="grid gap-2">
 							<div className="flex items-center justify-between">
-								<Label htmlFor="import-json">Egg JSON</Label>
+								<Label htmlFor="import-json">Template JSON</Label>
 								<Button
 									onClick={() => fileInput.current?.click()}
 									size="sm"
@@ -165,15 +165,15 @@ export function ImportTemplateDialog({
 						</div>
 					) : (
 						<div className="grid gap-2">
-							<Label htmlFor="import-url">Egg URL</Label>
+							<Label htmlFor="import-url">Template URL</Label>
 							<Input
 								id="import-url"
 								onChange={(event) => setUrl(event.target.value)}
-								placeholder="https://raw.githubusercontent.com/.../egg-paper.json"
+								placeholder="https://raw.githubusercontent.com/.../paper.json"
 								value={url}
 							/>
 							<p className="text-muted-foreground text-xs">
-								Must be an https link to a raw egg JSON file.
+								Must be an https link to a raw template JSON file.
 							</p>
 						</div>
 					)}

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { ChevronLeft, Play, RotateCw, Square } from "lucide-react";
+import { Play, RotateCw, Square } from "lucide-react";
 import { toast } from "sonner";
 import { ErrorScreen } from "@/components/error-screen";
 import { PageHeader } from "@/components/page-header";
@@ -137,17 +137,10 @@ function ServerChrome({ server }: { server: ServerRow }) {
 
 	return (
 		<>
-			<Link
-				className="-mb-2 inline-flex items-center gap-1 font-mono text-muted-foreground text-xs uppercase tracking-wider transition-colors hover:text-foreground"
-				to="/servers"
-			>
-				<ChevronLeft className="size-4" />
-				Servers
-			</Link>
-
 			<div className="space-y-4">
 				<PageHeader
 					actions={<PowerControls server={server} />}
+					back={{ label: "Servers", to: "/servers" }}
 					border={false}
 					description={`${server.templateName} · ${server.nodeName}`}
 					title={

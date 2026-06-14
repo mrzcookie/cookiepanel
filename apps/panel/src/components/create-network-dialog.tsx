@@ -90,8 +90,8 @@ export function CreateNetworkDialog({
 						<DialogTitle>Create a network</DialogTitle>
 						<DialogDescription>
 							{node
-								? `Add a Docker network on ${node.name} for servers to share.`
-								: "Add a Docker network on one of your nodes for servers to share."}
+								? `Add a network on ${node.name} for servers to share.`
+								: "Add a network on one of your nodes for servers to share."}
 						</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-4 py-4">

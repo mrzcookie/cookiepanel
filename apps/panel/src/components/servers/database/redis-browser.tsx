@@ -216,7 +216,7 @@ function KeyList({
 									<TableCell className="text-right font-mono text-muted-foreground text-xs tabular-nums">
 										{ttlLabel(entry.ttlSeconds)}
 									</TableCell>
-									<TableCell className="text-right text-muted-foreground tabular-nums">
+									<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
 										{sizeLabel(entry)}
 									</TableCell>
 									<TableCell className="text-right">

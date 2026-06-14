@@ -19,7 +19,11 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { updateServerVariables, useServer } from "@/lib/servers-store";
+import {
+	updateServerRuntime,
+	updateServerVariables,
+	useServer,
+} from "@/lib/servers-store";
 import type { ServerRow } from "@/lib/stubs";
 import {
 	controlForVariable,
@@ -72,33 +76,97 @@ function RuntimeCard({
 	server: ServerRow;
 	template: Template | undefined;
 }) {
+	const runtimes = template?.images ?? [];
+	const switchable = runtimes.length > 1;
+	const [runtime, setRuntime] = useState(server.imageLabel);
+
+	// Re-seed when the stored runtime changes (e.g. after a save) so a stale draft
+	// can't shadow the persisted value.
+	useEffect(() => {
+		setRuntime(server.imageLabel);
+	}, [server.imageLabel]);
+
+	const changed = runtime !== server.imageLabel;
+
+	function save() {
+		updateServerRuntime(server.id, runtime);
+		toast.success("Runtime saved. Restart the server to apply it.");
+	}
+
 	return (
 		<Card>
 			<CardHeader>
 				<CardTitle>Runtime</CardTitle>
 				<CardDescription>
-					The template and runtime this server was deployed from.
+					The template and runtime this server runs on.
+					{switchable
+						? " Switching runtime takes effect on the next restart."
+						: ""}
 				</CardDescription>
 			</CardHeader>
-			<CardContent>
+			<CardContent className={switchable ? "space-y-5" : undefined}>
 				<div className="grid gap-4 sm:grid-cols-3">
 					<Field label="Template" value={server.templateName} />
-					<Field label="Runtime" value={server.imageLabel} />
+					{switchable ? (
+						<div className="space-y-1.5">
+							<Label className="text-muted-foreground" htmlFor="server-runtime">
+								Runtime
+							</Label>
+							<Select onValueChange={setRuntime} value={runtime}>
+								<SelectTrigger className="w-full" id="server-runtime">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{runtimes.map((image) => (
+										<SelectItem key={image.id} value={image.label}>
+											{image.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					) : (
+						<Field label="Runtime" mono value={server.imageLabel} />
+					)}
 					<Field
 						label="Template version"
+						mono
 						value={template ? `v${template.version}` : "—"}
 					/>
 				</div>
+				{switchable ? (
+					<div className="flex justify-end border-t pt-4">
+						<Button disabled={!changed} onClick={save}>
+							Save
+						</Button>
+					</div>
+				) : null}
 			</CardContent>
 		</Card>
 	);
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({
+	label,
+	mono,
+	value,
+}: {
+	label: string;
+	mono?: boolean;
+	value: string;
+}) {
 	return (
-		<div className="space-y-1">
-			<div className="text-muted-foreground text-xs">{label}</div>
-			<div className="font-medium text-sm">{value}</div>
+		<div className="space-y-1.5">
+			<div className="font-mono text-muted-foreground text-xs uppercase tracking-wide">
+				{label}
+			</div>
+			<div
+				className={
+					mono ? "font-mono text-sm tabular-nums" : "font-medium text-sm"
+				}
+			>
+				{value}
+			</div>
 		</div>
 	);
 }

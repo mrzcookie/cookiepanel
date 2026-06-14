@@ -305,7 +305,7 @@ export const SERVERS: ServerRow[] = [
 		variables: {
 			MINECRAFT_VERSION: "1.21.4",
 			DIFFICULTY: "hard",
-			SERVER_MOTD: "Survival SMP — season 4",
+			SERVER_MOTD: "Survival SMP, season 4",
 		},
 		lastError: null,
 	},
@@ -332,7 +332,7 @@ export const SERVERS: ServerRow[] = [
 		variables: {
 			MINECRAFT_VERSION: "1.21.1",
 			DIFFICULTY: "peaceful",
-			SERVER_MOTD: "Creative — build server",
+			SERVER_MOTD: "Creative build server",
 		},
 		lastError: null,
 	},
@@ -409,7 +409,7 @@ export const SERVERS: ServerRow[] = [
 		uptimeSeconds: null,
 		createdAt: "Jan 30, 2026",
 		variables: {
-			HOSTNAME: "Staff Event — Wipe Fridays",
+			HOSTNAME: "Staff Event - Wipe Fridays",
 			WORLD_SIZE: "3500",
 		},
 		lastError: null,
@@ -466,7 +466,7 @@ export const SERVERS: ServerRow[] = [
 			SERVER_MOTD: "Mod testing",
 		},
 		lastError:
-			"Install failed: exit code 1 while running the install script (could not download server.jar — upstream returned 404).",
+			"Install failed: exit code 1 while running the install script (could not download server.jar: upstream returned 404).",
 	},
 	{
 		id: "1a2b3c4d-0001-4a00-8a00-000000005432",
@@ -677,7 +677,7 @@ export const TEMPLATES: Template[] = [
 		slug: "minecraft-java-edition",
 		summary: "Vanilla Java server with auto EULA and tuned JVM flags.",
 		description:
-			"The official Mojang Java server, ready to play. Picks sane JVM flags for the memory you give it, accepts the EULA on first start, and exposes the settings most groups change — difficulty, gamemode, and the message of the day.",
+			"The official Mojang Java server, ready to play. Picks sane JVM flags for the memory you give it, accepts the EULA on first start, and exposes the settings most groups change: difficulty, gamemode, and the message of the day.",
 		category: "Minecraft",
 		official: true,
 		origin: "official",
@@ -970,7 +970,7 @@ export const TEMPLATES: Template[] = [
 	},
 	{
 		id: "a8b9c0d1-5e6f-4a7b-8c8d-9e0f1a2b3c4d",
-		name: "Rust — Staff Event",
+		name: "Rust - Staff Event",
 		slug: "rust-staff-event",
 		summary: "Forked Rust build with our plugin pack and weekly wipe schedule.",
 		description:
@@ -997,7 +997,7 @@ export const TEMPLATES: Template[] = [
 				name: "Server name",
 				description: "Shown in the Rust server browser.",
 				envVariable: "HOSTNAME",
-				defaultValue: "Staff Event — Wipe Fridays",
+				defaultValue: "Staff Event - Wipe Fridays",
 				type: "text",
 				required: true,
 				options: [],
@@ -1044,7 +1044,7 @@ export const TEMPLATES: Template[] = [
 		slug: "minecraft-modded-forge",
 		summary: "Forge loader sized for large modpacks; community-curated pack.",
 		description:
-			"A Forge server tuned for heavy modpacks — extra heap headroom and a longer startup window. Imported from a community egg; review it before publishing more widely.",
+			"A Forge server tuned for heavy modpacks, with extra heap headroom and a longer startup window. Imported from a community template; review it before publishing more widely.",
 		category: "Minecraft",
 		official: false,
 		origin: "import",
@@ -1103,7 +1103,7 @@ export const TEMPLATES: Template[] = [
 		slug: "terraria-tshock",
 		summary: "TShock server with REST admin; in review before publishing.",
 		description:
-			"A TShock-powered Terraria server with the REST admin API. Still a draft — the startup flags are being finalized.",
+			"A TShock-powered Terraria server with the REST admin API. Still a draft; the startup flags are being finalized.",
 		category: "Sandbox",
 		official: false,
 		origin: "scratch",

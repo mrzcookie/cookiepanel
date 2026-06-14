@@ -1,10 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { LayoutTemplate } from "lucide-react";
+import { useState } from "react";
 import { EntityCard, EntityIdentity } from "@/components/entity-card";
 import { ListPage } from "@/components/list-page";
 import { StatusIndicator } from "@/components/status-indicator";
 import { CreateTemplateMenu } from "@/components/templates/create-template-menu";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
 	Table,
 	TableBody,
@@ -16,7 +18,11 @@ import {
 import { pluralize } from "@/lib/format";
 import { useListView } from "@/lib/list-view";
 import { templateStatus } from "@/lib/status";
-import { ORIGIN_LABELS, type Template } from "@/lib/templates";
+import {
+	ORIGIN_LABELS,
+	TEMPLATE_CATEGORIES,
+	type Template,
+} from "@/lib/templates";
 import { useTemplates } from "@/lib/templates-store";
 
 export const Route = createFileRoute("/_app/templates")({
@@ -31,6 +37,7 @@ const STATUS_RANK: Record<Template["status"], number> = {
 
 function Templates() {
 	const [view, setView] = useListView("templates");
+	const [category, setCategory] = useState("All");
 	const templates = useTemplates();
 
 	// Curated library first: official, then by lifecycle, then alphabetical.
@@ -40,6 +47,20 @@ function Templates() {
 			STATUS_RANK[a.status] - STATUS_RANK[b.status] ||
 			a.name.localeCompare(b.name)
 	);
+
+	// Categories actually present in the catalog, in canonical order, after "All".
+	const categories = [
+		"All",
+		...TEMPLATE_CATEGORIES.filter((option) =>
+			templates.some((template) => template.category === option)
+		),
+	];
+	// Fall back to All if the active category emptied out (e.g. last one deleted).
+	const active = categories.includes(category) ? category : "All";
+	const visible =
+		active === "All"
+			? sorted
+			: sorted.filter((template) => template.category === active);
 
 	return (
 		<ListPage
@@ -54,8 +75,15 @@ function Templates() {
 				template.category.toLowerCase().includes(q) ||
 				template.summary.toLowerCase().includes(q)
 			}
+			filters={
+				<CategoryFilter
+					active={active}
+					categories={categories}
+					onChange={setCategory}
+				/>
+			}
 			icon={LayoutTemplate}
-			items={sorted}
+			items={visible}
 			noun="template"
 			onViewChange={setView}
 			renderCard={(template) => (
@@ -65,6 +93,34 @@ function Templates() {
 			title="Templates"
 			view={view}
 		/>
+	);
+}
+
+// Inline category chips for the list toolbar, mirroring the deploy template
+// picker: ghost by default, secondary when active.
+function CategoryFilter({
+	active,
+	categories,
+	onChange,
+}: {
+	active: string;
+	categories: string[];
+	onChange: (category: string) => void;
+}) {
+	return (
+		<div className="flex flex-wrap gap-1.5">
+			{categories.map((option) => (
+				<Button
+					aria-pressed={active === option}
+					key={option}
+					onClick={() => onChange(option)}
+					size="sm"
+					variant={active === option ? "secondary" : "ghost"}
+				>
+					{option}
+				</Button>
+			))}
+		</div>
 	);
 }
 

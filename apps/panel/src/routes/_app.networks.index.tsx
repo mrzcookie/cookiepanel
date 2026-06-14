@@ -35,7 +35,7 @@ function Networks() {
 		<>
 			<ListPage
 				createLabel="Create network"
-				description="Docker networks across your fleet: how servers reach each other and the outside world."
+				description="Networks across your fleet: how servers reach each other and the outside world."
 				eyebrow="networking"
 				emptyDescription="Networks group servers on a node and control their connectivity. Connect a node to get started."
 				emptyTitle="No networks yet"

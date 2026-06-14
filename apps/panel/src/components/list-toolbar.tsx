@@ -1,13 +1,16 @@
 import { Search } from "lucide-react";
+import type { ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { ViewToggle } from "@/components/view-toggle";
 import { pluralize } from "@/lib/format";
 import type { ListView } from "@/lib/list-view";
 
-// The row under the page header: search (left), live result count + view toggle
-// (right). Wraps gracefully on narrow widths. `noun` is singular ("node").
+// The row under the page header: search (left), optional inline filters, live
+// result count + view toggle (right). Wraps gracefully on narrow widths. `noun`
+// is singular ("node").
 export function ListToolbar({
 	count,
+	filters,
 	noun,
 	onQueryChange,
 	onViewChange,
@@ -15,6 +18,8 @@ export function ListToolbar({
 	view,
 }: {
 	count: number;
+	/** Inline filter controls (e.g. category chips), shown next to the search. */
+	filters?: ReactNode;
 	noun: string;
 	onQueryChange: (value: string) => void;
 	onViewChange: (view: ListView) => void;
@@ -38,9 +43,10 @@ export function ListToolbar({
 					value={query}
 				/>
 			</div>
+			{filters}
 			<p
 				aria-live="polite"
-				className="ml-auto text-muted-foreground text-sm tabular-nums"
+				className="ml-auto font-mono text-muted-foreground text-sm tabular-nums"
 			>
 				{pluralize(count, noun)}
 			</p>

@@ -296,10 +296,10 @@ function DatabaseList({
 								<TableCell className="font-mono text-muted-foreground text-xs">
 									{database.charset}
 								</TableCell>
-								<TableCell className="text-right text-muted-foreground tabular-nums">
+								<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
 									{database.tables.length}
 								</TableCell>
-								<TableCell className="text-right text-muted-foreground tabular-nums">
+								<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
 									{formatBytes(databaseSize(database))}
 								</TableCell>
 								<TableCell className="text-right">
@@ -409,13 +409,13 @@ function TableList({
 										{table.name}
 									</button>
 								</TableCell>
-								<TableCell className="text-right text-muted-foreground tabular-nums">
+								<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
 									{formatCount(table.rows)}
 								</TableCell>
-								<TableCell className="text-right text-muted-foreground tabular-nums">
+								<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
 									{formatBytes(table.sizeBytes)}
 								</TableCell>
-								<TableCell className="text-right text-muted-foreground tabular-nums">
+								<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
 									{table.columns.length}
 								</TableCell>
 								<TableCell className="text-right">
@@ -534,7 +534,7 @@ function TableStructure({
 							<TableCell className="font-mono text-muted-foreground text-xs">
 								{column.type}
 							</TableCell>
-							<TableCell className="text-muted-foreground text-xs">
+							<TableCell className="font-mono text-muted-foreground text-xs">
 								{column.nullable ? "YES" : "NO"}
 							</TableCell>
 							<TableCell>

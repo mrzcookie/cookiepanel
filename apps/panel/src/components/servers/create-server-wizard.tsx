@@ -1,11 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import {
-	ChevronLeft,
-	LayoutTemplate,
-	Plus,
-	Server,
-	SlidersHorizontal,
-} from "lucide-react";
+import { LayoutTemplate, Plus, Server, SlidersHorizontal } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { DetailList, DetailRow } from "@/components/detail-list";
@@ -388,17 +382,9 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 
 	return (
 		<>
-			<Link
-				className="-mb-2 inline-flex items-center gap-1 font-mono text-muted-foreground text-xs uppercase tracking-wider transition-colors hover:text-foreground"
-				to="/servers"
-			>
-				<ChevronLeft className="size-4" />
-				Servers
-			</Link>
-
 			<PageHeader
+				back={{ label: "Servers", to: "/servers" }}
 				description="Pick a template, choose where it runs, and we'll install and start it for you."
-				eyebrow="deploy"
 				title="Create a server"
 			/>
 

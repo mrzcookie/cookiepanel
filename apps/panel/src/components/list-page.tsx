@@ -21,6 +21,7 @@ export function ListPage<T>({
 	emptyTitle,
 	eyebrow,
 	filter,
+	filters,
 	icon: Icon,
 	items,
 	noun,
@@ -40,6 +41,8 @@ export function ListPage<T>({
 	emptyDescription: string;
 	emptyTitle: string;
 	filter: (item: T, query: string) => boolean;
+	/** Inline filter controls shown in the toolbar next to the search. */
+	filters?: ReactNode;
 	icon: LucideIcon;
 	items: T[];
 	noun: string;
@@ -60,7 +63,7 @@ export function ListPage<T>({
 		: items;
 
 	const cta = action ?? (
-		<Button onClick={onCreate ?? (() => toast.info("Coming soon…"))} size="sm">
+		<Button onClick={onCreate ?? (() => toast.info("Coming soon."))} size="sm">
 			<Plus />
 			{createLabel}
 		</Button>
@@ -85,6 +88,7 @@ export function ListPage<T>({
 				<>
 					<ListToolbar
 						count={filtered.length}
+						filters={filters}
 						noun={noun}
 						onQueryChange={setQuery}
 						onViewChange={onViewChange}
@@ -102,7 +106,7 @@ export function ListPage<T>({
 									Clear search
 								</Button>
 							}
-							description={`No ${noun}s match “${trimmed}.”`}
+							description={`No ${noun}s match “${trimmed}”.`}
 							icon={SearchX}
 							title={`No matching ${noun}s`}
 						/>

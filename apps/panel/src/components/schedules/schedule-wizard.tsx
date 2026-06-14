@@ -27,6 +27,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { WizardStepper } from "@/components/wizard/wizard-stepper";
 import {
 	DAYS,
 	frequencyLabel,
@@ -40,7 +41,6 @@ import {
 	stepValid,
 } from "@/lib/schedules";
 import { createSchedule } from "@/lib/schedules-store";
-import { cn } from "@/lib/utils";
 
 const STEP_ICON: Record<ScheduleStepKind, typeof Clock> = {
 	command: TerminalSquare,
@@ -52,6 +52,8 @@ const STEP_ICON: Record<ScheduleStepKind, typeof Clock> = {
 const STEP_ORDER: ScheduleStepKind[] = ["command", "wait", "power", "backup"];
 
 const PAGES = ["Schedule", "Steps", "Review"] as const;
+
+const STEPPER_STEPS = PAGES.map((label) => ({ id: label, label }));
 
 export function ScheduleWizard({
 	onOpenChange,
@@ -120,11 +122,11 @@ export function ScheduleWizard({
 				<DialogHeader>
 					<DialogTitle>New schedule</DialogTitle>
 					<DialogDescription>
-						Step {page + 1} of {PAGES.length} · {PAGES[page]}
+						Run commands, backups, and power actions on a schedule.
 					</DialogDescription>
 				</DialogHeader>
 
-				<Stepper page={page} />
+				<WizardStepper current={page} steps={STEPPER_STEPS} />
 
 				<div className="py-2">
 					{page === 0 ? (
@@ -184,38 +186,6 @@ export function ScheduleWizard({
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-function Stepper({ page }: { page: number }) {
-	return (
-		<ol className="flex items-center gap-2">
-			{PAGES.map((label, index) => (
-				<li className="flex flex-1 items-center gap-2" key={label}>
-					<span
-						className={cn(
-							"flex size-6 shrink-0 items-center justify-center rounded-full font-medium text-xs",
-							index <= page
-								? "bg-primary text-primary-foreground"
-								: "bg-muted text-muted-foreground"
-						)}
-					>
-						{index + 1}
-					</span>
-					<span
-						className={cn(
-							"text-sm",
-							index === page ? "font-medium" : "text-muted-foreground"
-						)}
-					>
-						{label}
-					</span>
-					{index < PAGES.length - 1 ? (
-						<span className="h-px flex-1 bg-border" />
-					) : null}
-				</li>
-			))}
-		</ol>
 	);
 }
 
@@ -387,7 +357,7 @@ function StepEditor({
 
 	return (
 		<li className="flex items-center gap-3 rounded-lg border p-3">
-			<span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted font-medium text-muted-foreground text-xs">
+			<span className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-muted font-mono text-[0.7rem] text-muted-foreground tabular-nums">
 				{index + 1}
 			</span>
 			<Icon className="size-4 shrink-0 text-muted-foreground" />
@@ -515,7 +485,7 @@ function ReviewPage({
 				<ol className="space-y-2">
 					{steps.map((step, index) => (
 						<li className="flex items-center gap-3 text-sm" key={step.id}>
-							<span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted font-medium text-muted-foreground text-xs">
+							<span className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-muted font-mono text-[0.7rem] text-muted-foreground tabular-nums">
 								{index + 1}
 							</span>
 							{stepSummary(step)}

@@ -120,8 +120,8 @@ function NetworksCard({
 			<CardHeader>
 				<CardTitle>Networks</CardTitle>
 				<CardDescription>
-					Docker networks on {node.name}. Servers attach to a network to reach
-					each other.
+					Networks on {node.name}. Servers attach to a network to reach each
+					other.
 				</CardDescription>
 				<CardAction>
 					<Button onClick={() => setOpen(true)} size="sm">

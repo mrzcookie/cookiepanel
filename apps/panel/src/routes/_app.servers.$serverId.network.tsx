@@ -288,8 +288,8 @@ function NetworksCard({ server }: { server: ServerRow }) {
 			<CardHeader>
 				<CardTitle>Networks</CardTitle>
 				<CardDescription>
-					Docker networks this server is attached to. Attach or detach from a
-					network's page.
+					Networks this server is attached to. Attach or detach from a network's
+					page.
 				</CardDescription>
 			</CardHeader>
 			<CardContent>

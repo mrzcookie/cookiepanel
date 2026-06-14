@@ -54,7 +54,7 @@ function Landing() {
 				</span>
 				<nav className="flex items-center gap-2">
 					<Button asChild size="sm" variant="ghost">
-						<Link to="/login">Sign in</Link>
+						<Link to="/login">Log in</Link>
 					</Button>
 					<Button asChild size="sm">
 						<Link to="/onboarding">Get started</Link>
@@ -81,7 +81,7 @@ function Landing() {
 							<Link to="/onboarding">Get started</Link>
 						</Button>
 						<Button asChild variant="outline">
-							<Link to="/login">Sign in</Link>
+							<Link to="/login">Log in</Link>
 						</Button>
 					</div>
 				</section>

@@ -1,5 +1,4 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { ChevronLeft } from "lucide-react";
 import { ErrorScreen } from "@/components/error-screen";
 import { PageHeader } from "@/components/page-header";
 import { RouteTabs, routeTabClassName } from "@/components/route-tabs";
@@ -55,16 +54,9 @@ function NodeDetailLayout() {
 function NodeChrome({ node }: { node: NodeRow }) {
 	return (
 		<>
-			<Link
-				className="-mb-2 inline-flex items-center gap-1 font-mono text-muted-foreground text-xs uppercase tracking-wider transition-colors hover:text-foreground"
-				to="/nodes"
-			>
-				<ChevronLeft className="size-4" />
-				Nodes
-			</Link>
-
 			<div className="space-y-4">
 				<PageHeader
+					back={{ label: "Nodes", to: "/nodes" }}
 					border={false}
 					description={`${node.fqdn}:${node.daemonPort}`}
 					title={

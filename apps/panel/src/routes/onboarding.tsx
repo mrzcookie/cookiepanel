@@ -38,13 +38,13 @@ function Onboarding() {
 						Create your account
 					</h1>
 					<p className="text-muted-foreground text-sm">
-						Sign up with a provider, or with your email and a name for your
+						Continue with a provider, or use your email and a name for your
 						first organization.
 					</p>
 				</div>
 
 				<SocialSignIn />
-				<AuthDivider label="or sign up with email" />
+				<AuthDivider label="or continue with email" />
 
 				<form
 					className="space-y-4"
@@ -84,7 +84,7 @@ function Onboarding() {
 				<p className="text-center text-muted-foreground text-sm">
 					Already have an account?{" "}
 					<Link className="text-primary hover:underline" to="/login">
-						Sign in
+						Log in
 					</Link>
 				</p>
 			</div>

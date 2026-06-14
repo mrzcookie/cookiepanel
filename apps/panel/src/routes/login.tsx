@@ -31,11 +31,11 @@ function Login() {
 
 				<div className="space-y-1.5 text-center">
 					<div className="font-mono text-[0.7rem] text-muted-foreground uppercase tracking-[0.18em]">
-						{"// sign in"}
+						{"// log in"}
 					</div>
 					<h1 className="font-bold text-2xl tracking-tight">Welcome back</h1>
 					<p className="text-muted-foreground text-sm">
-						Continue with a provider, or get a one-time sign-in link by email.
+						Continue with a provider, or get a one-time login link by email.
 					</p>
 				</div>
 
@@ -44,7 +44,7 @@ function Login() {
 						<MailCheck className="mx-auto size-5 text-ok" />
 						<p className="font-medium text-sm">Check your inbox</p>
 						<p className="text-muted-foreground text-sm">
-							A sign-in link is on its way to{" "}
+							A login link is on its way to{" "}
 							<span className="font-mono">{email.trim()}</span>.
 						</p>
 						<Button
@@ -68,7 +68,7 @@ function Login() {
 									return;
 								}
 								setSent(true);
-								toast.success("Sign-in link sent.");
+								toast.success("Login link sent.");
 							}}
 						>
 							<div className="grid gap-2">

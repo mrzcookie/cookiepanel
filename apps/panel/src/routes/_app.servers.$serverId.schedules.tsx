@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/empty-state";
 import { ScheduleWizard } from "@/components/schedules/schedule-wizard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -76,19 +77,17 @@ function ServerSchedulesTab() {
 			</CardHeader>
 			<CardContent>
 				{schedules.length === 0 ? (
-					<div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center">
-						<CalendarClock className="size-6 text-muted-foreground" />
-						<div className="space-y-1">
-							<p className="font-medium text-sm">No schedules yet</p>
-							<p className="text-muted-foreground text-sm">
-								Build a multi-step automation: restart, back up, and more.
-							</p>
-						</div>
-						<Button onClick={() => setWizardOpen(true)} size="sm">
-							<Plus />
-							New schedule
-						</Button>
-					</div>
+					<EmptyState
+						action={
+							<Button onClick={() => setWizardOpen(true)} size="sm">
+								<Plus />
+								New schedule
+							</Button>
+						}
+						description="Build a multi-step automation: restart, back up, and more."
+						icon={CalendarClock}
+						title="No schedules yet"
+					/>
 				) : (
 					<ul className="divide-y">
 						{schedules.map((schedule) => (

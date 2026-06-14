@@ -77,7 +77,7 @@ export function UseTemplateDialog({ template }: { template: Template }) {
 		}
 		const node = nodes.find((candidate) => candidate.id === nodeId);
 		toast.success(
-			`Setting up “${name.trim()}” on ${node?.name ?? "the node"}…`
+			`Setting up “${name.trim()}” on ${node?.name ?? "the node"}.`
 		);
 		setOpen(false);
 	}

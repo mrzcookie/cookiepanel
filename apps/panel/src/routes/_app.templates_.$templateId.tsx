@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronLeft, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { ErrorScreen } from "@/components/error-screen";
 import { PageHeader } from "@/components/page-header";
 import { CustomizeButton } from "@/components/templates/customize-button";
@@ -49,14 +49,6 @@ function TemplateView({ template }: { template: Template }) {
 
 	return (
 		<>
-			<Link
-				className="-mb-2 inline-flex items-center gap-1 font-mono text-muted-foreground text-xs uppercase tracking-wider transition-colors hover:text-foreground"
-				to="/templates"
-			>
-				<ChevronLeft className="size-4" />
-				Templates
-			</Link>
-
 			<PageHeader
 				actions={
 					<>
@@ -75,6 +67,7 @@ function TemplateView({ template }: { template: Template }) {
 						{deployable ? <UseTemplateDialog template={template} /> : null}
 					</>
 				}
+				back={{ label: "Templates", to: "/templates" }}
 				description={`${template.category} · v${template.version}`}
 				title={
 					<span className="flex items-center gap-2.5">

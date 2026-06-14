@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DetailList, DetailRow } from "@/components/detail-list";
@@ -86,14 +85,6 @@ function NetworkManage({ network }: { network: NetworkRow }) {
 
 	return (
 		<>
-			<Link
-				className="-mb-2 inline-flex items-center gap-1 font-mono text-muted-foreground text-xs uppercase tracking-wider transition-colors hover:text-foreground"
-				to="/networks"
-			>
-				<ChevronLeft className="size-4" />
-				Networks
-			</Link>
-
 			<PageHeader
 				actions={
 					editable ? (
@@ -111,6 +102,7 @@ function NetworkManage({ network }: { network: NetworkRow }) {
 						</>
 					) : null
 				}
+				back={{ label: "Networks", to: "/networks" }}
 				description={`${network.driver} · ${network.nodeName}`}
 				title={
 					<span className="flex items-center gap-2">
