@@ -1,4 +1,5 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
+import { PastDueBanner } from "@/components/billing/past-due-banner";
 import { AppShell } from "@/components/layout/app-shell";
 import { ErrorScreen } from "@/components/layout/error-screen";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ export const Route = createFileRoute("/_app")({
 function AppLayout() {
 	return (
 		<AppShell>
+			<PastDueBanner />
 			<Outlet />
 		</AppShell>
 	);

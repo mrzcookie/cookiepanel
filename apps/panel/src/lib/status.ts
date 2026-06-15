@@ -40,9 +40,30 @@ const TEMPLATE_STATUS: Record<string, StatusMeta> = {
 	archived: { label: "Archived", tone: "muted" },
 };
 
+// The org's billing lifecycle. "Trial" is the free-first-node grant; a paid plan
+// can still be in trial. "Past due" is the dunning grace window; "Canceled" means
+// the plan is set to end (access holds until the period closes).
+const BILLING_STATUS: Record<string, StatusMeta> = {
+	none: { label: "No plan", tone: "muted" },
+	trialing: { label: "Trial", tone: "pending" },
+	active: { label: "Active", tone: "online" },
+	past_due: { label: "Past due", tone: "error" },
+	canceled: { label: "Canceled", tone: "muted" },
+};
+
+const INVOICE_STATUS: Record<string, StatusMeta> = {
+	paid: { label: "Paid", tone: "online" },
+	open: { label: "Open", tone: "pending" },
+	void: { label: "Void", tone: "muted" },
+};
+
 export const nodeStatus = (status: string): StatusMeta =>
 	NODE_STATUS[status] ?? FALLBACK;
 export const serverStatus = (status: string): StatusMeta =>
 	SERVER_STATUS[status] ?? FALLBACK;
 export const templateStatus = (status: string): StatusMeta =>
 	TEMPLATE_STATUS[status] ?? FALLBACK;
+export const billingStatus = (status: string): StatusMeta =>
+	BILLING_STATUS[status] ?? FALLBACK;
+export const invoiceStatus = (status: string): StatusMeta =>
+	INVOICE_STATUS[status] ?? FALLBACK;

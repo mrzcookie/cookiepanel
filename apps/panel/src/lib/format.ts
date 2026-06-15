@@ -36,3 +36,19 @@ export function formatCount(value: number): string {
 		.toString()
 		.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
+
+/**
+ * USD from a cent amount, thousands-separated, dropping the cents when whole:
+ * `formatMoney(1000)` → "$10", `formatMoney(1250)` → "$12.50". Deterministic
+ * (not locale-dependent) so SSR and the client agree. Prices are stored in cents
+ * to mirror Polar (and to avoid float drift).
+ */
+export function formatMoney(cents: number): string {
+	const dollars = cents / 100;
+	const fixed = Number.isInteger(dollars)
+		? String(dollars)
+		: dollars.toFixed(2);
+	const [whole = "0", fraction] = fixed.split(".");
+	const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+	return `$${fraction ? `${grouped}.${fraction}` : grouped}`;
+}

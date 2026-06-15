@@ -43,6 +43,9 @@ function SettingsLayout() {
 					<Link className={routeTabClassName} to="/settings/members">
 						Members
 					</Link>
+					<Link className={routeTabClassName} to="/settings/billing">
+						Billing
+					</Link>
 					<Link className={routeTabClassName} to="/settings/activity">
 						Activity
 					</Link>

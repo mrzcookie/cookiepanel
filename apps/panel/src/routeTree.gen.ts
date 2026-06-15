@@ -25,6 +25,7 @@ import { Route as AppAccountIndexRouteImport } from './routes/_app.account.index
 import { Route as AppTemplatesNewRouteImport } from './routes/_app.templates_.new'
 import { Route as AppTemplatesTemplateIdRouteImport } from './routes/_app.templates_.$templateId'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app.settings.members'
+import { Route as AppSettingsBillingRouteImport } from './routes/_app.settings.billing'
 import { Route as AppSettingsActivityRouteImport } from './routes/_app.settings.activity'
 import { Route as AppServersNewRouteImport } from './routes/_app.servers.new'
 import { Route as AppServersServerIdRouteImport } from './routes/_app.servers.$serverId'
@@ -125,6 +126,11 @@ const AppTemplatesTemplateIdRoute = AppTemplatesTemplateIdRouteImport.update({
 const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
   id: '/members',
   path: '/members',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsBillingRoute = AppSettingsBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => AppSettingsRoute,
 } as any)
 const AppSettingsActivityRoute = AppSettingsActivityRouteImport.update({
@@ -263,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/servers/$serverId': typeof AppServersServerIdRouteWithChildren
   '/servers/new': typeof AppServersNewRoute
   '/settings/activity': typeof AppSettingsActivityRoute
+  '/settings/billing': typeof AppSettingsBillingRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/templates/$templateId': typeof AppTemplatesTemplateIdRoute
   '/templates/new': typeof AppTemplatesNewRoute
@@ -298,6 +305,7 @@ export interface FileRoutesByTo {
   '/nodes/new': typeof AppNodesNewRoute
   '/servers/new': typeof AppServersNewRoute
   '/settings/activity': typeof AppSettingsActivityRoute
+  '/settings/billing': typeof AppSettingsBillingRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/templates/$templateId': typeof AppTemplatesTemplateIdRoute
   '/templates/new': typeof AppTemplatesNewRoute
@@ -339,6 +347,7 @@ export interface FileRoutesById {
   '/_app/servers/$serverId': typeof AppServersServerIdRouteWithChildren
   '/_app/servers/new': typeof AppServersNewRoute
   '/_app/settings/activity': typeof AppSettingsActivityRoute
+  '/_app/settings/billing': typeof AppSettingsBillingRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
   '/_app/templates_/$templateId': typeof AppTemplatesTemplateIdRoute
   '/_app/templates_/new': typeof AppTemplatesNewRoute
@@ -380,6 +389,7 @@ export interface FileRouteTypes {
     | '/servers/$serverId'
     | '/servers/new'
     | '/settings/activity'
+    | '/settings/billing'
     | '/settings/members'
     | '/templates/$templateId'
     | '/templates/new'
@@ -415,6 +425,7 @@ export interface FileRouteTypes {
     | '/nodes/new'
     | '/servers/new'
     | '/settings/activity'
+    | '/settings/billing'
     | '/settings/members'
     | '/templates/$templateId'
     | '/templates/new'
@@ -455,6 +466,7 @@ export interface FileRouteTypes {
     | '/_app/servers/$serverId'
     | '/_app/servers/new'
     | '/_app/settings/activity'
+    | '/_app/settings/billing'
     | '/_app/settings/members'
     | '/_app/templates_/$templateId'
     | '/_app/templates_/new'
@@ -598,6 +610,13 @@ declare module '@tanstack/react-router' {
       path: '/members'
       fullPath: '/settings/members'
       preLoaderRoute: typeof AppSettingsMembersRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/billing': {
+      id: '/_app/settings/billing'
+      path: '/billing'
+      fullPath: '/settings/billing'
+      preLoaderRoute: typeof AppSettingsBillingRouteImport
       parentRoute: typeof AppSettingsRoute
     }
     '/_app/settings/activity': {
@@ -775,12 +794,14 @@ const AppAccountRouteWithChildren = AppAccountRoute._addFileChildren(
 
 interface AppSettingsRouteChildren {
   AppSettingsActivityRoute: typeof AppSettingsActivityRoute
+  AppSettingsBillingRoute: typeof AppSettingsBillingRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
 
 const AppSettingsRouteChildren: AppSettingsRouteChildren = {
   AppSettingsActivityRoute: AppSettingsActivityRoute,
+  AppSettingsBillingRoute: AppSettingsBillingRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
