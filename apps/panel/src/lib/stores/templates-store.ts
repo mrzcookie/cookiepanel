@@ -58,8 +58,15 @@ function replace(id: string, next: (current: Template) => Template) {
 
 // — Mutations —————————————————————————————————————————————————————————————————
 
-/** Create a new draft template in the active org from editor input. */
-export function createTemplate(input: TemplateInput): Template {
+/**
+ * Create a new draft template from editor input. `official` mints a
+ * platform-owned template (the admin library); the default is an org-owned one.
+ */
+export function createTemplate(
+	input: TemplateInput,
+	opts?: { official?: boolean }
+): Template {
+	const official = opts?.official ?? false;
 	const template: Template = {
 		id: crypto.randomUUID(),
 		name: input.name.trim(),
@@ -68,8 +75,8 @@ export function createTemplate(input: TemplateInput): Template {
 		description: input.description,
 		category: input.category,
 		iconUrl: input.iconUrl,
-		official: false,
-		origin: "scratch",
+		official,
+		origin: official ? "official" : "scratch",
 		status: "draft",
 		version: 1,
 		serverCount: 0,
@@ -186,24 +193,30 @@ export function forkTemplate(id: string): Template | null {
  * import parses a Pterodactyl/Pelican egg; here we only lift a name if one is
  * obvious, so the flow (import → land a draft → open the editor) is exercised.
  */
-export function importTemplate(name: string): Template {
-	return createTemplate({
-		name: name.trim() || "Imported template",
-		summary: "",
-		description: "",
-		category: "Other",
-		iconUrl: null,
-		images: [],
-		variables: [],
-		startupCommand: "",
-		stopType: "command",
-		stopValue: "stop",
-		doneMarkers: [],
-		installScript: "",
-		installContainerImage: "",
-		installEntrypoint: "bash",
-		features: [],
-	});
+export function importTemplate(
+	name: string,
+	opts?: { official?: boolean }
+): Template {
+	return createTemplate(
+		{
+			name: name.trim() || "Imported template",
+			summary: "",
+			description: "",
+			category: "Other",
+			iconUrl: null,
+			images: [],
+			variables: [],
+			startupCommand: "",
+			stopType: "command",
+			stopValue: "stop",
+			doneMarkers: [],
+			installScript: "",
+			installContainerImage: "",
+			installEntrypoint: "bash",
+			features: [],
+		},
+		opts
+	);
 }
 
 /**

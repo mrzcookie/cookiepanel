@@ -25,8 +25,9 @@ const CONTACT = { name: CURRENT_USER.name, email: CURRENT_USER.email };
 
 // A brand-new / unbilled org: no plan, no nodes. Shared frozen reference so the
 // `useBilling` selector keeps a stable identity for orgs without a seed (e.g. an
-// org created at runtime) and never churns renders.
-const EMPTY_STATE: BillingState = {
+// org created at runtime) and never churns renders. Exported so cross-org views
+// (admin billing) can fall back to it for an org with no billing record yet.
+export const EMPTY_STATE: BillingState = {
 	status: "none",
 	nodeCount: 0,
 	pricePerNodeCents: NODE_PRICE_CENTS,
@@ -136,6 +137,12 @@ const store = createStore<Record<string, BillingState>>(SEED);
  * the snapshot identity and miss an org switch). */
 export function useBilling(orgId: string): BillingState {
 	return store.use()[orgId] ?? EMPTY_STATE;
+}
+
+/** Every org's billing, keyed by org id — the platform-wide (admin) view. The
+ * caller joins it with the org list and falls back to EMPTY_STATE per org. */
+export function useAllBilling(): Record<string, BillingState> {
+	return store.use();
 }
 
 function patch(orgId: string, changes: Partial<BillingState>) {

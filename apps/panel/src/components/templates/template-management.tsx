@@ -33,9 +33,16 @@ import {
 	publishTemplate,
 	unpublishTemplate,
 } from "@/lib/stores/templates-store";
+import type { TemplateScope } from "@/lib/templates-scope";
 
 /** Lifecycle + danger-zone actions for an owned template. */
-export function TemplateManagement({ template }: { template: Template }) {
+export function TemplateManagement({
+	template,
+	scope,
+}: {
+	template: Template;
+	scope: TemplateScope;
+}) {
 	const navigate = useNavigate();
 	const [archiveOpen, setArchiveOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
@@ -109,7 +116,7 @@ export function TemplateManagement({ template }: { template: Template }) {
 			return;
 		}
 		toast.success("Template deleted.");
-		navigate({ to: "/templates" });
+		navigate({ to: scope.listPath as never });
 	}
 
 	return (

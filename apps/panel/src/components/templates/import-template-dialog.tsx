@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { importTemplate } from "@/lib/stores/templates-store";
+import type { TemplateScope } from "@/lib/templates-scope";
 
 type Mode = "paste" | "url";
 
@@ -45,9 +46,11 @@ function nameFromUrl(url: string): string {
 export function ImportTemplateDialog({
 	open,
 	onOpenChange,
+	scope,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	scope: TemplateScope;
 }) {
 	const navigate = useNavigate();
 	const fileInput = useRef<HTMLInputElement>(null);
@@ -77,7 +80,7 @@ export function ImportTemplateDialog({
 				toast.error("That doesn't look like valid template JSON.");
 				return;
 			}
-			const created = importTemplate(name);
+			const created = importTemplate(name, { official: scope.official });
 			finish(created.id);
 		} else {
 			const trimmed = url.trim();
@@ -85,7 +88,9 @@ export function ImportTemplateDialog({
 				toast.error("Enter a URL.");
 				return;
 			}
-			const created = importTemplate(nameFromUrl(trimmed));
+			const created = importTemplate(nameFromUrl(trimmed), {
+				official: scope.official,
+			});
 			finish(created.id);
 		}
 	}
@@ -94,7 +99,7 @@ export function ImportTemplateDialog({
 		toast.success("Imported as a draft. Review it before publishing.");
 		onOpenChange(false);
 		reset();
-		navigate({ params: { templateId }, to: "/templates/$templateId/edit" });
+		navigate({ params: { templateId }, to: scope.editPath } as never);
 	}
 
 	const canSubmit =

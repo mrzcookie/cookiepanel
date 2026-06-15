@@ -9,9 +9,10 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { TemplateScope } from "@/lib/templates-scope";
 
 /** The list-page primary action: create from scratch, or import an egg. */
-export function CreateTemplateMenu() {
+export function CreateTemplateMenu({ scope }: { scope: TemplateScope }) {
 	const [importOpen, setImportOpen] = useState(false);
 	return (
 		<>
@@ -24,7 +25,7 @@ export function CreateTemplateMenu() {
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end">
 					<DropdownMenuItem asChild>
-						<Link to="/templates/new">
+						<Link to={scope.newPath as never}>
 							<SquarePen className="size-4" /> Create from scratch
 						</Link>
 					</DropdownMenuItem>
@@ -33,7 +34,11 @@ export function CreateTemplateMenu() {
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
-			<ImportTemplateDialog onOpenChange={setImportOpen} open={importOpen} />
+			<ImportTemplateDialog
+				onOpenChange={setImportOpen}
+				open={importOpen}
+				scope={scope}
+			/>
 		</>
 	);
 }

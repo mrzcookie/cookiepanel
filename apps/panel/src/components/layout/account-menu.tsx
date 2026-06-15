@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { LogOut, UserRound } from "lucide-react";
+import { LogOut, Shield, UserRound } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +10,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CURRENT_USER } from "@/lib/stubs";
+import { CURRENT_USER, IS_ADMIN } from "@/lib/stubs";
 
 export function AccountMenu() {
 	return (
@@ -43,6 +43,16 @@ export function AccountMenu() {
 						Account
 					</Link>
 				</DropdownMenuItem>
+				{/* The admin console — shown only to admins. Gating is a stub flag
+				    today; it becomes a server-verified capability with auth. */}
+				{IS_ADMIN ? (
+					<DropdownMenuItem asChild>
+						<Link to="/admin">
+							<Shield />
+							Admin
+						</Link>
+					</DropdownMenuItem>
+				) : null}
 				<DropdownMenuSeparator />
 				{/* Inert until auth lands. */}
 				<DropdownMenuItem>

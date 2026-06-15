@@ -49,6 +49,7 @@ import {
 	stateToInput,
 } from "@/lib/domain/templates-editor";
 import { createTemplate, updateTemplate } from "@/lib/stores/templates-store";
+import type { TemplateScope } from "@/lib/templates-scope";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -73,10 +74,13 @@ export function TemplateEditor({
 	mode,
 	templateId,
 	initial,
+	scope,
 }: {
 	mode: "create" | "edit";
 	templateId?: string;
 	initial: EditorState;
+	/** Which surface owns this editor — org catalog or admin official library. */
+	scope: TemplateScope;
 }) {
 	const navigate = useNavigate();
 	const [state, setState] = useState<EditorState>(initial);
@@ -102,12 +106,12 @@ export function TemplateEditor({
 		}
 		const input = stateToInput(state);
 		if (mode === "create") {
-			const created = createTemplate(input);
+			const created = createTemplate(input, { official: scope.official });
 			toast.success(`Created “${created.name}”.`);
 			navigate({
 				params: { templateId: created.id },
-				to: "/templates/$templateId/edit",
-			});
+				to: scope.editPath,
+			} as never);
 		} else if (templateId) {
 			updateTemplate(templateId, input);
 			toast.success("Changes saved.");
@@ -168,11 +172,14 @@ export function TemplateEditor({
 			<div className="flex items-center justify-end gap-2 border-t pt-4">
 				<Button asChild variant="ghost">
 					{mode === "edit" && templateId ? (
-						<Link params={{ templateId }} to="/templates/$templateId">
+						<Link
+							params={{ templateId } as never}
+							to={scope.detailPath as never}
+						>
 							Cancel
 						</Link>
 					) : (
-						<Link to="/templates">Cancel</Link>
+						<Link to={scope.listPath as never}>Cancel</Link>
 					)}
 				</Button>
 				<Button onClick={save}>
