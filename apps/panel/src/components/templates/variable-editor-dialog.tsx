@@ -229,22 +229,20 @@ export function VariableEditorDialog({
 								}
 								value={variable.access}
 							>
-								<SelectTrigger className="h-auto w-full" id="var-access">
+								<SelectTrigger className="w-full" id="var-access">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
 									{VARIABLE_ACCESSES.map((access) => (
 										<SelectItem key={access} value={access}>
-											<div className="flex flex-col gap-0.5">
-												<span>{VARIABLE_ACCESS_LABELS[access]}</span>
-												<span className="text-muted-foreground text-xs">
-													{VARIABLE_ACCESS_HINTS[access]}
-												</span>
-											</div>
+											{VARIABLE_ACCESS_LABELS[access]}
 										</SelectItem>
 									))}
 								</SelectContent>
 							</Select>
+							<p className="text-muted-foreground text-xs">
+								{VARIABLE_ACCESS_HINTS[variable.access]}
+							</p>
 						</div>
 					</div>
 				</div>

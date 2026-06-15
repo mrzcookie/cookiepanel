@@ -32,7 +32,6 @@ import { Route as AppServersServerIdRouteImport } from './routes/_app.servers.$s
 import { Route as AppNodesNewRouteImport } from './routes/_app.nodes.new'
 import { Route as AppNodesNodeIdRouteImport } from './routes/_app.nodes.$nodeId'
 import { Route as AppNetworksNetworkIdRouteImport } from './routes/_app.networks.$networkId'
-import { Route as AppAccountSshKeysRouteImport } from './routes/_app.account.ssh-keys'
 import { Route as AppAccountActivityRouteImport } from './routes/_app.account.activity'
 import { Route as AppServersServerIdIndexRouteImport } from './routes/_app.servers.$serverId.index'
 import { Route as AppNodesNodeIdIndexRouteImport } from './routes/_app.nodes.$nodeId.index'
@@ -163,11 +162,6 @@ const AppNetworksNetworkIdRoute = AppNetworksNetworkIdRouteImport.update({
   path: '/networks/$networkId',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAccountSshKeysRoute = AppAccountSshKeysRouteImport.update({
-  id: '/ssh-keys',
-  path: '/ssh-keys',
-  getParentRoute: () => AppAccountRoute,
-} as any)
 const AppAccountActivityRoute = AppAccountActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
@@ -262,7 +256,6 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AppSettingsRouteWithChildren
   '/templates': typeof AppTemplatesRoute
   '/account/activity': typeof AppAccountActivityRoute
-  '/account/ssh-keys': typeof AppAccountSshKeysRoute
   '/networks/$networkId': typeof AppNetworksNetworkIdRoute
   '/nodes/$nodeId': typeof AppNodesNodeIdRouteWithChildren
   '/nodes/new': typeof AppNodesNewRoute
@@ -300,7 +293,6 @@ export interface FileRoutesByTo {
   '/templates': typeof AppTemplatesRoute
   '/': typeof AppIndexRoute
   '/account/activity': typeof AppAccountActivityRoute
-  '/account/ssh-keys': typeof AppAccountSshKeysRoute
   '/networks/$networkId': typeof AppNetworksNetworkIdRoute
   '/nodes/new': typeof AppNodesNewRoute
   '/servers/new': typeof AppServersNewRoute
@@ -340,7 +332,6 @@ export interface FileRoutesById {
   '/_app/templates': typeof AppTemplatesRoute
   '/_app/': typeof AppIndexRoute
   '/_app/account/activity': typeof AppAccountActivityRoute
-  '/_app/account/ssh-keys': typeof AppAccountSshKeysRoute
   '/_app/networks/$networkId': typeof AppNetworksNetworkIdRoute
   '/_app/nodes/$nodeId': typeof AppNodesNodeIdRouteWithChildren
   '/_app/nodes/new': typeof AppNodesNewRoute
@@ -382,7 +373,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/templates'
     | '/account/activity'
-    | '/account/ssh-keys'
     | '/networks/$networkId'
     | '/nodes/$nodeId'
     | '/nodes/new'
@@ -420,7 +410,6 @@ export interface FileRouteTypes {
     | '/templates'
     | '/'
     | '/account/activity'
-    | '/account/ssh-keys'
     | '/networks/$networkId'
     | '/nodes/new'
     | '/servers/new'
@@ -459,7 +448,6 @@ export interface FileRouteTypes {
     | '/_app/templates'
     | '/_app/'
     | '/_app/account/activity'
-    | '/_app/account/ssh-keys'
     | '/_app/networks/$networkId'
     | '/_app/nodes/$nodeId'
     | '/_app/nodes/new'
@@ -661,13 +649,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppNetworksNetworkIdRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/account/ssh-keys': {
-      id: '/_app/account/ssh-keys'
-      path: '/ssh-keys'
-      fullPath: '/account/ssh-keys'
-      preLoaderRoute: typeof AppAccountSshKeysRouteImport
-      parentRoute: typeof AppAccountRoute
-    }
     '/_app/account/activity': {
       id: '/_app/account/activity'
       path: '/activity'
@@ -778,13 +759,11 @@ declare module '@tanstack/react-router' {
 
 interface AppAccountRouteChildren {
   AppAccountActivityRoute: typeof AppAccountActivityRoute
-  AppAccountSshKeysRoute: typeof AppAccountSshKeysRoute
   AppAccountIndexRoute: typeof AppAccountIndexRoute
 }
 
 const AppAccountRouteChildren: AppAccountRouteChildren = {
   AppAccountActivityRoute: AppAccountActivityRoute,
-  AppAccountSshKeysRoute: AppAccountSshKeysRoute,
   AppAccountIndexRoute: AppAccountIndexRoute,
 }
 

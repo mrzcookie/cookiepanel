@@ -43,6 +43,7 @@ export type EditorState = {
 	summary: string;
 	description: string;
 	category: TemplateCategory;
+	iconUrl: string | null;
 	images: EditorImage[];
 	variables: EditorVariable[];
 	startupCommand: string;
@@ -61,6 +62,7 @@ export function emptyEditorState(): EditorState {
 		summary: "",
 		description: "",
 		category: "Other",
+		iconUrl: null,
 		images: [],
 		variables: [],
 		startupCommand: "",
@@ -81,6 +83,7 @@ export function templateToState(template: Template): EditorState {
 		summary: template.summary,
 		description: template.description,
 		category: template.category,
+		iconUrl: template.iconUrl,
 		images: template.images.map((image) => ({
 			id: image.id,
 			label: image.label,
@@ -119,6 +122,7 @@ export function stateToInput(state: EditorState): TemplateInput {
 		summary: state.summary.trim(),
 		description: state.description,
 		category: state.category,
+		iconUrl: state.iconUrl,
 		startupCommand: state.startupCommand,
 		stopType: state.stopType,
 		stopValue: state.stopValue,

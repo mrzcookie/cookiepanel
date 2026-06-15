@@ -84,7 +84,7 @@ The panel and daemon don't share a CA or a network (see `architecture.md`):
 
 Users pick **Templates**, never raw Docker image strings. The image string and
 its digest are **server-only**; the client sees a friendly label. Official
-(platform-owned) templates are read-only to tenants. Publishing a template whose
-install script runs as root requires an explicit owner risk-acknowledgement, and
-editing the script voids it. This keeps untrusted image/script choices behind a
-curated, auditable boundary.
+(platform-owned) templates are read-only to tenants. A template's install script
+runs as root on the box, so the daemon isolates it in a resource-bounded
+throwaway container with a hard timeout (see `daemon.md`). This keeps untrusted
+image/script choices behind a curated, auditable boundary.

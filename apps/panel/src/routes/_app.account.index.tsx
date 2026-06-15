@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { UserRound } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -15,6 +15,15 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CURRENT_USER } from "@/lib/stubs";
@@ -139,6 +148,58 @@ function AccountGeneral() {
 					</DetailList>
 				</CardContent>
 			</Card>
+			<DeleteAccountCard />
 		</div>
+	);
+}
+
+function DeleteAccountCard() {
+	const navigate = useNavigate();
+	const [deleteOpen, setDeleteOpen] = useState(false);
+
+	function remove() {
+		setDeleteOpen(false);
+		toast.success("Account deleted.");
+		navigate({ to: "/login" });
+	}
+
+	return (
+		<Card className="border-destructive/40">
+			<CardHeader>
+				<CardTitle className="text-destructive">Delete account</CardTitle>
+				<CardDescription>
+					Permanently delete your account and remove you from every
+					organization. Organizations you solely own must be deleted or
+					transferred first. This can't be undone.
+				</CardDescription>
+			</CardHeader>
+			<CardFooter>
+				<Button onClick={() => setDeleteOpen(true)} variant="destructive">
+					Delete account
+				</Button>
+			</CardFooter>
+
+			<Dialog onOpenChange={setDeleteOpen} open={deleteOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Delete your account?</DialogTitle>
+						<DialogDescription>
+							This permanently deletes your account and removes you from every
+							organization. This can't be undone.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<DialogClose asChild>
+							<Button type="button" variant="outline">
+								Cancel
+							</Button>
+						</DialogClose>
+						<Button onClick={remove} variant="destructive">
+							Delete account
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</Card>
 	);
 }

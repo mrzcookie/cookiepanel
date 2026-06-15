@@ -572,6 +572,7 @@ export const TEMPLATES: Template[] = [
 		id: "c4d5e6f7-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
 		name: "Minecraft: Java Edition",
 		slug: "minecraft-java-edition",
+		iconUrl: null,
 		summary: "Vanilla Java server with auto EULA and tuned JVM flags.",
 		description:
 			"The official Mojang Java server, ready to play. Picks sane JVM flags for the memory you give it, accepts the EULA on first start, and exposes the settings most groups change: difficulty, gamemode, and the message of the day.",
@@ -652,13 +653,13 @@ export const TEMPLATES: Template[] = [
 			'#!/bin/bash\n# Download the requested Minecraft server jar into /mnt/server.\napt-get update && apt-get install -y curl jq\ncd /mnt/server\necho "Fetching Minecraft server {{MINECRAFT_VERSION}}..."\ncurl -sSL -o {{SERVER_JARFILE}} https://launcher.example/minecraft/{{MINECRAFT_VERSION}}/server.jar\necho "eula=true" > eula.txt\n',
 		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
 		installEntrypoint: "bash",
-		installRiskAcked: true,
 		features: [{ key: "minecraft:eula" }, { key: "minecraft:bukkit-plugins" }],
 	},
 	{
 		id: "d5e6f7a8-2b3c-4d4e-9f5a-6b7c8d9e0f1a",
 		name: "Valheim Dedicated",
 		slug: "valheim-dedicated",
+		iconUrl: null,
 		summary: "Dedicated Valheim world with crossplay and world backups.",
 		description:
 			"A dedicated Valheim world over SteamCMD. Crossplay is on by default; set a world name and a join password and you're ready.",
@@ -722,13 +723,13 @@ export const TEMPLATES: Template[] = [
 			"#!/bin/bash\n# Install the Valheim dedicated server via SteamCMD.\nsteamcmd +force_install_dir /mnt/server +login anonymous +app_update 896660 validate +quit\n",
 		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
 		installEntrypoint: "bash",
-		installRiskAcked: true,
 		features: [],
 	},
 	{
 		id: "e6f7a8b9-3c4d-4e5f-8a6b-7c8d9e0f1a2b",
 		name: "Palworld",
 		slug: "palworld",
+		iconUrl: null,
 		summary: "Palworld dedicated server with configurable rates and caps.",
 		description:
 			"A Palworld dedicated server. Tune the capture and breeding rates and the player cap; everything else uses Pocketpair's defaults.",
@@ -792,13 +793,13 @@ export const TEMPLATES: Template[] = [
 			"#!/bin/bash\nsteamcmd +force_install_dir /mnt/server +login anonymous +app_update 2394010 validate +quit\n",
 		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
 		installEntrypoint: "bash",
-		installRiskAcked: true,
 		features: [{ key: "steam:gslt" }],
 	},
 	{
 		id: "f7a8b9c0-4d5e-4f6a-9b7c-8d9e0f1a2b3c",
 		name: "Factorio Headless",
 		slug: "factorio-headless",
+		iconUrl: null,
 		summary: "Headless Factorio with mod-portal sync and autosave rotation.",
 		description:
 			"A headless Factorio server with rotating autosaves. Point it at a mod-portal token to keep mods in sync across restarts.",
@@ -862,13 +863,13 @@ export const TEMPLATES: Template[] = [
 			"#!/bin/bash\n# Pull the latest stable Factorio headless build into /mnt/server.\ncurl -sSL https://factorio.example/get-download/stable/headless/linux64 | tar -xJ -C /mnt/server --strip-components=1\n",
 		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
 		installEntrypoint: "bash",
-		installRiskAcked: true,
 		features: [],
 	},
 	{
 		id: "a8b9c0d1-5e6f-4a7b-8c8d-9e0f1a2b3c4d",
 		name: "Rust - Staff Event",
 		slug: "rust-staff-event",
+		iconUrl: null,
 		summary: "Forked Rust build with our plugin pack and weekly wipe schedule.",
 		description:
 			"Our internal Rust build for staff events: the oxide plugin pack baked in and a weekly wipe. Customized from the official Rust template.",
@@ -932,13 +933,13 @@ export const TEMPLATES: Template[] = [
 			"#!/bin/bash\nsteamcmd +force_install_dir /mnt/server +login anonymous +app_update 258550 validate +quit\n# Drop in our staff plugin pack.\ncp -r /tmp/oxide-pack/* /mnt/server/oxide/plugins/\n",
 		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
 		installEntrypoint: "bash",
-		installRiskAcked: true,
 		features: [],
 	},
 	{
 		id: "b9c0d1e2-6f7a-4b8c-9d9e-0f1a2b3c4d5e",
 		name: "Minecraft: Modded (Forge)",
 		slug: "minecraft-modded-forge",
+		iconUrl: null,
 		summary: "Forge loader sized for large modpacks; community-curated pack.",
 		description:
 			"A Forge server tuned for heavy modpacks, with extra heap headroom and a longer startup window. Imported from a community template; review it before publishing more widely.",
@@ -991,13 +992,13 @@ export const TEMPLATES: Template[] = [
 			'#!/bin/bash\ncd /mnt/server\ncurl -sSL -o forge-installer.jar "https://maven.example/forge/{{FORGE_VERSION}}/installer.jar"\njava -jar forge-installer.jar --installServer\necho "eula=true" > eula.txt\n',
 		installContainerImage: "ghcr.io/pterodactyl/installers:java",
 		installEntrypoint: "bash",
-		installRiskAcked: false,
 		features: [{ key: "minecraft:mods" }],
 	},
 	{
 		id: "c0d1e2f3-7a8b-4c9d-8e0f-1a2b3c4d5e6f",
 		name: "Terraria (TShock)",
 		slug: "terraria-tshock",
+		iconUrl: null,
 		summary: "TShock server with REST admin; in review before publishing.",
 		description:
 			"A TShock-powered Terraria server with the REST admin API. Still a draft; the startup flags are being finalized.",
@@ -1049,13 +1050,13 @@ export const TEMPLATES: Template[] = [
 		installScript: "",
 		installContainerImage: "",
 		installEntrypoint: "bash",
-		installRiskAcked: false,
 		features: [],
 	},
 	{
 		id: "d1e2f3a4-8b9c-4d0e-9f1a-2b3c4d5e6f70",
 		name: "CS:GO Competitive",
 		slug: "csgo-competitive",
+		iconUrl: null,
 		summary: "Legacy competitive config; superseded by our CS2 template.",
 		description:
 			"The old competitive CS:GO config. Archived now that CS2 has replaced it; kept so existing servers still resolve their template.",
@@ -1108,13 +1109,13 @@ export const TEMPLATES: Template[] = [
 			"#!/bin/bash\nsteamcmd +force_install_dir /mnt/server +login anonymous +app_update 740 validate +quit\n",
 		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
 		installEntrypoint: "bash",
-		installRiskAcked: true,
 		features: [{ key: "steam:gslt" }],
 	},
 	{
 		id: "e2f3a4b5-9c0d-4e1f-8a2b-3c4d5e6f7081",
 		name: "PostgreSQL",
 		slug: "postgresql",
+		iconUrl: null,
 		summary: "Postgres relational database, managed from the SQL Browser.",
 		description:
 			"The official PostgreSQL database. Set a superuser password and it's ready. Turn on the SQL Browser add-on to create databases, users, and tables from the panel.",
@@ -1165,13 +1166,13 @@ export const TEMPLATES: Template[] = [
 		installScript: "",
 		installContainerImage: "",
 		installEntrypoint: "bash",
-		installRiskAcked: false,
 		features: [{ key: "database:browser" }],
 	},
 	{
 		id: "f3a4b5c6-0d1e-4f2a-9b3c-4d5e6f708192",
 		name: "MySQL",
 		slug: "mysql",
+		iconUrl: null,
 		summary: "MySQL relational database, managed from the SQL Browser.",
 		description:
 			"The official MySQL database. Set the root password and it's ready. Turn on the SQL Browser add-on to create databases, users, and tables from the panel.",
@@ -1217,13 +1218,13 @@ export const TEMPLATES: Template[] = [
 		installScript: "",
 		installContainerImage: "",
 		installEntrypoint: "bash",
-		installRiskAcked: false,
 		features: [{ key: "database:browser" }],
 	},
 	{
 		id: "a4b5c6d7-1e2f-4a3b-8c4d-5e6f708192a3",
 		name: "MariaDB",
 		slug: "mariadb",
+		iconUrl: null,
 		summary: "MariaDB, a drop-in MySQL replacement, from the SQL Browser.",
 		description:
 			"MariaDB, the community-developed MySQL fork. Set the root password and it's ready. Turn on the SQL Browser add-on to create databases, users, and tables from the panel.",
@@ -1269,13 +1270,13 @@ export const TEMPLATES: Template[] = [
 		installScript: "",
 		installContainerImage: "",
 		installEntrypoint: "bash",
-		installRiskAcked: false,
 		features: [{ key: "database:browser" }],
 	},
 	{
 		id: "b5c6d7e8-2f3a-4b4c-9d5e-6f708192a3b4",
 		name: "Redis",
 		slug: "redis",
+		iconUrl: null,
 		summary: "In-memory key-value store for caching, sessions, and queues.",
 		description:
 			"Redis, an in-memory data store. Set a password and a memory limit; it's tuned to evict the least-recently-used keys when full. A fast fit for caches, sessions, and lightweight queues.",
@@ -1333,13 +1334,13 @@ export const TEMPLATES: Template[] = [
 		installScript: "",
 		installContainerImage: "",
 		installEntrypoint: "bash",
-		installRiskAcked: false,
 		features: [{ key: "database:browser" }],
 	},
 	{
 		id: "c6d7e8f9-3a4b-4c5d-8e6f-708192a3b4c5",
 		name: "MongoDB",
 		slug: "mongodb",
+		iconUrl: null,
 		summary: "Document database for flexible, JSON-like data.",
 		description:
 			"MongoDB, a document database. Set a root username and password and it's ready; authentication is on by default. Turn on the Document Browser add-on to browse databases, collections, and documents from the panel.",
@@ -1396,7 +1397,6 @@ export const TEMPLATES: Template[] = [
 		installScript: "",
 		installContainerImage: "",
 		installEntrypoint: "bash",
-		installRiskAcked: false,
 		features: [{ key: "database:browser" }],
 	},
 ];

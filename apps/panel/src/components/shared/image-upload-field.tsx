@@ -15,13 +15,22 @@ export function ImageUploadField({
 	icon: Icon,
 	label,
 	shape,
+	value,
+	onChange,
 }: {
 	icon: LucideIcon;
 	label: string;
 	shape: "circle" | "square";
+	/** Controlled image (data URL). Omit for an uncontrolled preview-only field. */
+	value?: string | null;
+	/** Called with the new data URL (or null when removed) in controlled mode. */
+	onChange?: (dataUrl: string | null) => void;
 }) {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [preview, setPreview] = useState<string | null>(null);
+	// Controlled when a value prop is passed; otherwise track an internal preview.
+	const controlled = value !== undefined;
+	const current = controlled ? value : preview;
 	const square = shape === "square";
 	const hintId = useId();
 
@@ -44,11 +53,23 @@ export function ImageUploadField({
 		reader.onerror = () => toast.error("Couldn't read that image.");
 		reader.onload = () => {
 			if (typeof reader.result === "string") {
-				setPreview(reader.result);
+				if (controlled) {
+					onChange?.(reader.result);
+				} else {
+					setPreview(reader.result);
+				}
 				toast.success("Image updated.");
 			}
 		};
 		reader.readAsDataURL(file);
+	}
+
+	function remove() {
+		if (controlled) {
+			onChange?.(null);
+		} else {
+			setPreview(null);
+		}
 	}
 
 	return (
@@ -56,11 +77,11 @@ export function ImageUploadField({
 			<Avatar
 				className={cn("size-16", square && "rounded-md after:rounded-md")}
 			>
-				{preview ? (
+				{current ? (
 					<AvatarImage
 						alt={label.replace(/^Upload\s+/i, "")}
 						className={square ? "rounded-md" : undefined}
-						src={preview}
+						src={current}
 					/>
 				) : null}
 				<AvatarFallback className={square ? "rounded-md" : undefined}>
@@ -68,15 +89,22 @@ export function ImageUploadField({
 				</AvatarFallback>
 			</Avatar>
 			<div className="space-y-2">
-				<Button
-					aria-describedby={hintId}
-					onClick={() => inputRef.current?.click()}
-					size="sm"
-					type="button"
-					variant="outline"
-				>
-					{label}
-				</Button>
+				<div className="flex items-center gap-2">
+					<Button
+						aria-describedby={hintId}
+						onClick={() => inputRef.current?.click()}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						{label}
+					</Button>
+					{current ? (
+						<Button onClick={remove} size="sm" type="button" variant="ghost">
+							Remove
+						</Button>
+					) : null}
+				</div>
 				<p className="text-muted-foreground text-xs" id={hintId}>
 					{IMAGE_UPLOAD_HINT}
 				</p>

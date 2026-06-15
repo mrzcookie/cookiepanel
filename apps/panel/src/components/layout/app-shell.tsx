@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { CommandMenu } from "@/components/layout/command-menu";
+import { NotificationsPanel } from "@/components/layout/notifications-panel";
 import {
 	SidebarInset,
 	SidebarProvider,
@@ -18,9 +20,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 			</a>
 			<AppSidebar />
 			<SidebarInset>
-				<header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+				<header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
 					<SidebarTrigger className="-ml-1" />
+					<CommandMenu />
 					<div className="ml-auto flex items-center gap-2">
+						<NotificationsPanel />
 						<AccountMenu />
 					</div>
 				</header>

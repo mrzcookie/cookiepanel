@@ -5,6 +5,7 @@ import {
 	CircleCheck,
 	Database,
 	FileCheck,
+	Image as ImageIcon,
 	KeyRound,
 	Lock,
 	Pencil,
@@ -18,6 +19,7 @@ import {
 import { type ComponentType, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CodeEditor } from "@/components/shared/code-editor";
+import { ImageUploadField } from "@/components/shared/image-upload-field";
 import { VariableEditorDialog } from "@/components/templates/variable-editor-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -190,6 +192,16 @@ function OverviewTab({ state, patch }: TabProps) {
 	return (
 		<div className="max-w-2xl space-y-4">
 			<div className="grid gap-2">
+				<Label>Icon</Label>
+				<ImageUploadField
+					icon={ImageIcon}
+					label="Upload icon"
+					onChange={(iconUrl) => patch({ iconUrl })}
+					shape="square"
+					value={state.iconUrl}
+				/>
+			</div>
+			<div className="grid gap-2">
 				<Label htmlFor="tpl-name">Name</Label>
 				<Input
 					id="tpl-name"
@@ -277,8 +289,8 @@ function RuntimesTab({ state, patch }: TabProps) {
 	return (
 		<div className="max-w-3xl space-y-4">
 			<p className="text-muted-foreground text-sm">
-				The runtimes players can pick. Give each a friendly label; the image
-				reference is the advanced detail behind it.
+				The runtimes players can pick. Give each a friendly label and the
+				container image it runs.
 			</p>
 			<div className="space-y-3">
 				{state.images.map((image, index) => (
@@ -300,11 +312,8 @@ function RuntimesTab({ state, patch }: TabProps) {
 							/>
 						</div>
 						<div className="flex-[2] space-y-1.5">
-							<Label
-								className="text-muted-foreground text-xs"
-								htmlFor={`runtime-image-${index}`}
-							>
-								Image (advanced)
+							<Label className="text-xs" htmlFor={`runtime-image-${index}`}>
+								Image
 							</Label>
 							<Input
 								className="font-mono text-xs"
@@ -631,10 +640,6 @@ function InstallTab({ state, patch }: TabProps) {
 					onChange={(value) => patch({ installScript: value })}
 					value={state.installScript}
 				/>
-				<p className="text-muted-foreground text-xs">
-					A non-empty install script must be acknowledged in Publish before the
-					template can deploy.
-				</p>
 			</div>
 		</div>
 	);
@@ -659,52 +664,51 @@ function AddonsTab({ state, patch }: TabProps) {
 	);
 
 	return (
-		<div className="max-w-2xl space-y-4">
+		<div className="max-w-3xl space-y-4">
 			<p className="text-muted-foreground text-sm">
 				Extra tools players get for servers built from this template. Turn on
 				the ones that apply.
 			</p>
-			<div className="divide-y overflow-hidden rounded-lg border">
+			<div className="grid gap-3 sm:grid-cols-2">
 				{Object.entries(FEATURE_METADATA).map(([key, meta]) => {
 					const Icon = FEATURE_ICONS[key] ?? Puzzle;
 					const on = activeKeys.has(key);
 					return (
 						<button
 							aria-pressed={on}
-							className="flex w-full items-center gap-3 bg-card px-4 py-3 text-left transition-colors hover:bg-accent"
+							className={cn(
+								"flex flex-col gap-3 rounded-xl bg-card p-4 text-left transition-colors",
+								on
+									? "ring-2 ring-primary"
+									: "ring-1 ring-foreground/10 hover:bg-muted/40"
+							)}
 							key={key}
 							onClick={() => toggle(key)}
 							type="button"
 						>
-							<Icon
-								className={cn(
-									"size-4 shrink-0",
-									on ? "text-foreground" : "text-muted-foreground"
-								)}
-							/>
-							<div className="min-w-0 flex-1">
-								<div className="font-medium text-sm">{meta.label}</div>
-								<div className="text-muted-foreground text-xs">
-									{meta.description}
-								</div>
-								{meta.supports ? (
-									<div className="mt-2 flex flex-wrap gap-1">
-										{meta.supports.map((name) => (
-											<span
-												className="rounded-sm border px-1.5 py-0.5 font-mono text-[0.7rem] text-muted-foreground"
-												key={name}
-											>
-												{name}
-											</span>
-										))}
+							<div className="flex items-start gap-3">
+								<span
+									className={cn(
+										"flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors",
+										on
+											? "bg-brand-wash text-brand"
+											: "bg-muted text-muted-foreground"
+									)}
+								>
+									<Icon className="size-4.5" strokeWidth={1.75} />
+								</span>
+								<div className="min-w-0 flex-1">
+									<div className="font-medium text-sm">{meta.label}</div>
+									<div className="mt-0.5 text-muted-foreground text-xs">
+										{meta.description}
 									</div>
-								) : null}
+								</div>
+								{on ? (
+									<CircleCheck className="size-5 shrink-0 text-primary" />
+								) : (
+									<Circle className="size-5 shrink-0 text-muted-foreground/30" />
+								)}
 							</div>
-							{on ? (
-								<CircleCheck className="size-5 shrink-0 text-foreground" />
-							) : (
-								<Circle className="size-5 shrink-0 text-muted-foreground/30" />
-							)}
 						</button>
 					);
 				})}

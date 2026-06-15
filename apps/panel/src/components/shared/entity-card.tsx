@@ -12,6 +12,7 @@ export function EntityCard({
 	children,
 	footer,
 	icon,
+	imageUrl,
 	subtitle,
 	subtitleMono,
 	title,
@@ -22,6 +23,8 @@ export function EntityCard({
 	children: ReactNode;
 	footer?: ReactNode;
 	icon: LucideIcon;
+	/** A logo/icon image to show in the chip; falls back to `icon` when null. */
+	imageUrl?: string | null;
 	subtitle?: ReactNode;
 	subtitleMono?: boolean;
 	title: ReactNode;
@@ -31,7 +34,7 @@ export function EntityCard({
 	return (
 		<Card className="min-h-44 gap-3">
 			<div className="flex items-start gap-3 px-4">
-				<EntityIconChip icon={icon} />
+				<EntityIconChip icon={icon} imageUrl={imageUrl} />
 				<div className="grid min-w-0 flex-1 gap-0.5">
 					<div className="flex min-w-0 items-center gap-2">
 						<span className="truncate font-heading font-medium text-base leading-snug">
@@ -68,22 +71,28 @@ export function EntityCard({
 // so the entity glyph matches in both views.
 export function EntityIconChip({
 	icon: Icon,
+	imageUrl,
 	size = "md",
 }: {
 	icon: LucideIcon;
+	imageUrl?: string | null;
 	size?: "md" | "sm";
 }) {
 	return (
 		<span
 			className={cn(
-				"flex shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground",
+				"flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted text-muted-foreground",
 				size === "md" ? "size-9" : "size-8"
 			)}
 		>
-			<Icon
-				className={size === "md" ? "size-4.5" : "size-4"}
-				strokeWidth={1.75}
-			/>
+			{imageUrl ? (
+				<img alt="" className="size-full object-cover" src={imageUrl} />
+			) : (
+				<Icon
+					className={size === "md" ? "size-4.5" : "size-4"}
+					strokeWidth={1.75}
+				/>
+			)}
 		</span>
 	);
 }
@@ -93,19 +102,21 @@ export function EntityIconChip({
 export function EntityIdentity({
 	badge,
 	icon,
+	imageUrl,
 	subtitle,
 	subtitleMono,
 	title,
 }: {
 	badge?: ReactNode;
 	icon: LucideIcon;
+	imageUrl?: string | null;
 	subtitle?: ReactNode;
 	subtitleMono?: boolean;
 	title: ReactNode;
 }) {
 	return (
 		<div className="flex items-center gap-3">
-			<EntityIconChip icon={icon} size="sm" />
+			<EntityIconChip icon={icon} imageUrl={imageUrl} size="sm" />
 			<div className="min-w-0">
 				<div className="flex items-center gap-2">
 					<span className="truncate font-medium">{title}</span>

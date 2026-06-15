@@ -1,7 +1,12 @@
 import { useNavigate } from "@tanstack/react-router";
-import { Download, ShieldCheck } from "lucide-react";
+import { Download } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import {
+	DangerRow,
+	DangerRows,
+	DangerZoneCard,
+} from "@/components/shared/danger-zone";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,14 +25,9 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import {
-	deployBlockers,
-	needsInstallAck,
-	type Template,
-} from "@/lib/domain/templates";
+import { deployBlockers, type Template } from "@/lib/domain/templates";
 import { templateStatus } from "@/lib/status";
 import {
-	acknowledgeInstallRisk,
 	archiveTemplate,
 	deleteTemplate,
 	publishTemplate,
@@ -129,28 +129,6 @@ export function TemplateManagement({ template }: { template: Template }) {
 					</Badge>
 				</CardHeader>
 				<CardContent className="space-y-4">
-					{needsInstallAck(template) ? (
-						<div className="space-y-2 rounded-lg border border-warn/40 bg-warn-wash/40 p-3 text-sm">
-							<p className="flex items-center gap-2 font-medium">
-								<ShieldCheck className="size-4 text-warn" />
-								This template runs an install script
-							</p>
-							<p className="text-muted-foreground">
-								It runs once, in a locked-down sandbox, only when you first set
-								up a server. Acknowledge it to enable deploying.
-							</p>
-							<Button
-								onClick={() => {
-									acknowledgeInstallRisk(template.id);
-									toast.success("Install script acknowledged.");
-								}}
-								size="sm"
-							>
-								I understand, enable it
-							</Button>
-						</div>
-					) : null}
-
 					{blockers.length > 0 ? (
 						<ul className="space-y-1 text-muted-foreground text-sm">
 							{blockers.map((blocker) => (
@@ -189,45 +167,55 @@ export function TemplateManagement({ template }: { template: Template }) {
 				</CardContent>
 			</Card>
 
-			<Card className="border-destructive/40">
-				<CardHeader>
-					<CardTitle className="text-destructive">Danger zone</CardTitle>
-					<CardDescription>
-						Take this template out of the catalog, or remove it entirely.
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<div className="flex flex-wrap items-center gap-2">
-						{template.status === "archived" ? (
+			<DangerZoneCard description="Take this template out of the catalog, or remove it entirely.">
+				<DangerRows>
+					{template.status === "archived" ? (
+						<DangerRow
+							action={
+								<Button
+									onClick={() => {
+										unpublishTemplate(template.id);
+										toast.success("Restored to draft.");
+									}}
+									size="sm"
+									variant="outline"
+								>
+									Restore
+								</Button>
+							}
+							description="Bring this template back as a draft so you can edit and publish it again."
+							title="Restore template"
+						/>
+					) : (
+						<DangerRow
+							action={
+								<Button
+									onClick={() => setArchiveOpen(true)}
+									size="sm"
+									variant="outline"
+								>
+									Archive
+								</Button>
+							}
+							description="Take it out of the catalog so no new servers can be created from it. Existing servers are unaffected."
+							title="Archive template"
+						/>
+					)}
+					<DangerRow
+						action={
 							<Button
-								onClick={() => {
-									unpublishTemplate(template.id);
-									toast.success("Restored to draft.");
-								}}
+								onClick={() => setDeleteOpen(true)}
 								size="sm"
-								variant="outline"
+								variant="destructive"
 							>
-								Restore
+								Delete template
 							</Button>
-						) : (
-							<Button
-								onClick={() => setArchiveOpen(true)}
-								size="sm"
-								variant="outline"
-							>
-								Archive
-							</Button>
-						)}
-						<Button
-							onClick={() => setDeleteOpen(true)}
-							size="sm"
-							variant="destructive"
-						>
-							Delete template
-						</Button>
-					</div>
-				</CardContent>
-			</Card>
+						}
+						description="Permanently remove this template. Servers already created from it keep running on their saved copy."
+						title="Delete template"
+					/>
+				</DangerRows>
+			</DangerZoneCard>
 
 			<Dialog onOpenChange={setArchiveOpen} open={archiveOpen}>
 				<DialogContent>

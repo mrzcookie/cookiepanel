@@ -126,7 +126,7 @@ export type TemplateFeature = { key: string };
 /** Plain-language metadata for the capabilities the panel ships a module for. */
 export const FEATURE_METADATA: Record<
 	string,
-	{ label: string; description: string; supports?: readonly string[] }
+	{ label: string; description: string }
 > = {
 	"minecraft:eula": {
 		label: "EULA helper",
@@ -147,8 +147,7 @@ export const FEATURE_METADATA: Record<
 	"database:browser": {
 		label: "Browser",
 		description:
-			"Browse and manage the database: its tables or collections, users, and data. Adapts to the database type.",
-		supports: ["PostgreSQL", "MySQL", "MariaDB", "Redis", "MongoDB"],
+			"Browse and manage the database — its tables or collections, users, and data. Works with PostgreSQL, MySQL, MariaDB, Redis, and MongoDB.",
 	},
 };
 
@@ -221,6 +220,9 @@ export type Template = {
 	summary: string;
 	description: string;
 	category: TemplateCategory;
+	/** Logo/icon for the catalog. A data URL in the UI-first phase (an S3 key
+	 *  later); null falls back to the generic template glyph. */
+	iconUrl: string | null;
 	/** Derived from ownership: official = platform-owned, read-only to orgs. */
 	official: boolean;
 	origin: TemplateOrigin;
@@ -244,8 +246,6 @@ export type Template = {
 	installScript: string;
 	installContainerImage: string;
 	installEntrypoint: InstallEntrypoint;
-	/** A non-empty install script must be acknowledged before it can deploy. */
-	installRiskAcked: boolean;
 	features: TemplateFeature[];
 };
 
@@ -259,6 +259,7 @@ export type TemplateInput = {
 	summary: string;
 	description: string;
 	category: TemplateCategory;
+	iconUrl: string | null;
 	images: Omit<TemplateImage, "id">[];
 	variables: Omit<TemplateVariable, "id">[];
 	startupCommand: string;
@@ -291,9 +292,6 @@ export function deployBlockers(template: Template): string[] {
 	if (!template.startupCommand.trim()) {
 		blockers.push("Set a startup command.");
 	}
-	if (template.installScript.trim() && !template.installRiskAcked) {
-		blockers.push("Acknowledge the install script before deploying.");
-	}
 	return blockers;
 }
 
@@ -302,11 +300,6 @@ export function isDeployable(template: Template): boolean {
 	return (
 		template.status === "published" && deployBlockers(template).length === 0
 	);
-}
-
-/** True when a non-empty install script still needs the owner's acknowledgement. */
-export function needsInstallAck(template: Template): boolean {
-	return Boolean(template.installScript.trim()) && !template.installRiskAcked;
 }
 
 /** Only the variables a player fills in when deploying (editable + secret). */

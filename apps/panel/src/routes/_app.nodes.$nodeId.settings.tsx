@@ -1,6 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { type ReactNode, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import {
+	DangerRow,
+	DangerRows,
+	DangerZoneCard,
+} from "@/components/shared/danger-zone";
 import { DetailList, DetailRow } from "@/components/shared/detail-list";
 import { Button } from "@/components/ui/button";
 import {
@@ -315,96 +320,87 @@ function DangerZone({ node }: { node: NodeRow }) {
 	}
 
 	return (
-		<Card className="border-destructive/40">
-			<CardHeader>
-				<CardTitle className="text-destructive">Danger zone</CardTitle>
-				<CardDescription>
-					Maintenance and removal for this node. Some actions need the node to
-					be online.
-				</CardDescription>
-			</CardHeader>
-			<CardContent>
-				{reachable ? null : (
-					<p className="pb-2 text-muted-foreground text-sm">
-						{node.status === "pending"
-							? "This node hasn't connected yet, so maintenance actions are unavailable."
-							: "This node is offline, so maintenance actions are unavailable."}
-					</p>
-				)}
-				<div className="divide-y">
-					{node.updateAvailable ? (
-						<DangerRow
-							action={
-								<Button
-									disabled={!reachable}
-									onClick={() => toast.success("Updating the daemon…")}
-									size="sm"
-									variant="outline"
-								>
-									Update
-								</Button>
-							}
-							description={`Install the latest daemon. cookied ${node.daemonVersion} is behind.`}
-							title="Update daemon"
-						/>
-					) : null}
+		<DangerZoneCard description="Maintenance and removal for this node. Some actions need the node to be online.">
+			{reachable ? null : (
+				<p className="pb-2 text-muted-foreground text-sm">
+					{node.status === "pending"
+						? "This node hasn't connected yet, so maintenance actions are unavailable."
+						: "This node is offline, so maintenance actions are unavailable."}
+				</p>
+			)}
+			<DangerRows>
+				{node.updateAvailable ? (
 					<DangerRow
 						action={
 							<Button
 								disabled={!reachable}
-								onClick={() => toast.success("Restarting the daemon…")}
+								onClick={() => toast.success("Updating the daemon…")}
 								size="sm"
 								variant="outline"
 							>
-								Restart
+								Update
 							</Button>
 						}
-						description="Restart the node's agent. Your servers aren't affected."
-						title="Restart daemon"
+						description={`Install the latest daemon. cookied ${node.daemonVersion} is behind.`}
+						title="Update daemon"
 					/>
-					<DangerRow
-						action={
-							<Button
-								disabled={!reachable}
-								onClick={() => toast.success("Rebooting the node…")}
-								size="sm"
-								variant="outline"
-							>
-								Reboot
-							</Button>
-						}
-						description="Restart the whole node. Servers go offline until it's back."
-						title="Reboot node"
-					/>
-					<DangerRow
-						action={
-							<Button
-								disabled={!reachable}
-								onClick={() => toast.success("Pruning unused data…")}
-								size="sm"
-								variant="outline"
-							>
-								Prune
-							</Button>
-						}
-						description="Free disk by clearing cached data no server is using."
-						title="Prune unused data"
-					/>
-					<DangerRow
-						action={
-							<Button
-								onClick={() => setRemoveOpen(true)}
-								size="sm"
-								variant="destructive"
-							>
-								Remove
-							</Button>
-						}
-						description="Disconnect this node from your org. Its servers and data stay on the node."
-						title="Remove node"
-					/>
-				</div>
-			</CardContent>
+				) : null}
+				<DangerRow
+					action={
+						<Button
+							disabled={!reachable}
+							onClick={() => toast.success("Restarting the daemon…")}
+							size="sm"
+							variant="outline"
+						>
+							Restart
+						</Button>
+					}
+					description="Restart the node's agent. Your servers aren't affected."
+					title="Restart daemon"
+				/>
+				<DangerRow
+					action={
+						<Button
+							disabled={!reachable}
+							onClick={() => toast.success("Rebooting the node…")}
+							size="sm"
+							variant="outline"
+						>
+							Reboot
+						</Button>
+					}
+					description="Restart the whole node. Servers go offline until it's back."
+					title="Reboot node"
+				/>
+				<DangerRow
+					action={
+						<Button
+							disabled={!reachable}
+							onClick={() => toast.success("Pruning unused data…")}
+							size="sm"
+							variant="outline"
+						>
+							Prune
+						</Button>
+					}
+					description="Free disk by clearing cached data no server is using."
+					title="Prune unused data"
+				/>
+				<DangerRow
+					action={
+						<Button
+							onClick={() => setRemoveOpen(true)}
+							size="sm"
+							variant="destructive"
+						>
+							Remove
+						</Button>
+					}
+					description="Disconnect this node from your org. Its servers and data stay on the node."
+					title="Remove node"
+				/>
+			</DangerRows>
 
 			<Dialog onOpenChange={setRemoveOpen} open={removeOpen}>
 				<DialogContent>
@@ -428,26 +424,6 @@ function DangerZone({ node }: { node: NodeRow }) {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
-		</Card>
-	);
-}
-
-function DangerRow({
-	action,
-	description,
-	title,
-}: {
-	action: ReactNode;
-	description: string;
-	title: string;
-}) {
-	return (
-		<div className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
-			<div className="min-w-0">
-				<div className="font-medium text-sm">{title}</div>
-				<div className="text-muted-foreground text-xs">{description}</div>
-			</div>
-			<div className="shrink-0">{action}</div>
-		</div>
+		</DangerZoneCard>
 	);
 }

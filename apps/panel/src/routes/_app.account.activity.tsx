@@ -26,7 +26,7 @@ const ITEMS: ActivityItem[] = [
 	{
 		id: "2",
 		icon: KeyRound,
-		description: "Added SSH key “MacBook Pro”",
+		description: "Started an SFTP session for “survival”",
 		time: "Yesterday",
 	},
 	{

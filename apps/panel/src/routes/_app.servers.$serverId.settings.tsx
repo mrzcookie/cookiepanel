@@ -1,6 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { type ReactNode, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import {
+	DangerRow,
+	DangerRows,
+	DangerZoneCard,
+} from "@/components/shared/danger-zone";
 import { DetailList, DetailRow } from "@/components/shared/detail-list";
 import { Button } from "@/components/ui/button";
 import {
@@ -247,43 +252,35 @@ function DangerZone({ server }: { server: ServerRow }) {
 	}
 
 	return (
-		<Card className="border-destructive/40">
-			<CardHeader>
-				<CardTitle className="text-destructive">Danger zone</CardTitle>
-				<CardDescription>
-					Destructive actions for this server. These can't be undone.
-				</CardDescription>
-			</CardHeader>
-			<CardContent>
-				<div className="divide-y">
-					<DangerRow
-						action={
-							<Button
-								onClick={() => setReinstallOpen(true)}
-								size="sm"
-								variant="outline"
-							>
-								Reinstall
-							</Button>
-						}
-						description="Re-run the template's install script. The data volume is kept, but installed files are replaced."
-						title="Reinstall server"
-					/>
-					<DangerRow
-						action={
-							<Button
-								onClick={() => setDeleteOpen(true)}
-								size="sm"
-								variant="destructive"
-							>
-								Delete
-							</Button>
-						}
-						description="Permanently remove this server and its data from the node."
-						title="Delete server"
-					/>
-				</div>
-			</CardContent>
+		<DangerZoneCard description="Destructive actions for this server. These can't be undone.">
+			<DangerRows>
+				<DangerRow
+					action={
+						<Button
+							onClick={() => setReinstallOpen(true)}
+							size="sm"
+							variant="outline"
+						>
+							Reinstall
+						</Button>
+					}
+					description="Re-run the template's install script. The data volume is kept, but installed files are replaced."
+					title="Reinstall server"
+				/>
+				<DangerRow
+					action={
+						<Button
+							onClick={() => setDeleteOpen(true)}
+							size="sm"
+							variant="destructive"
+						>
+							Delete
+						</Button>
+					}
+					description="Permanently remove this server and its data from the node."
+					title="Delete server"
+				/>
+			</DangerRows>
 
 			<Dialog onOpenChange={setReinstallOpen} open={reinstallOpen}>
 				<DialogContent>
@@ -327,26 +324,6 @@ function DangerZone({ server }: { server: ServerRow }) {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
-		</Card>
-	);
-}
-
-function DangerRow({
-	action,
-	description,
-	title,
-}: {
-	action: ReactNode;
-	description: string;
-	title: string;
-}) {
-	return (
-		<div className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
-			<div className="min-w-0">
-				<div className="font-medium text-sm">{title}</div>
-				<div className="text-muted-foreground text-xs">{description}</div>
-			</div>
-			<div className="shrink-0">{action}</div>
-		</div>
+		</DangerZoneCard>
 	);
 }

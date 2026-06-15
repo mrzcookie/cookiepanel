@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Pencil } from "lucide-react";
+import { Archive, FilePen, LayoutTemplate, Pencil } from "lucide-react";
 import { ErrorScreen } from "@/components/layout/error-screen";
+import { EntityIconChip } from "@/components/shared/entity-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { CustomizeButton } from "@/components/templates/customize-button";
 import { UseTemplateDialog } from "@/components/templates/use-template-dialog";
@@ -71,6 +72,7 @@ function TemplateView({ template }: { template: Template }) {
 				description={`${template.category} · v${template.version}`}
 				title={
 					<span className="flex items-center gap-2.5">
+						<EntityIconChip icon={LayoutTemplate} imageUrl={template.iconUrl} />
 						{template.name}
 						{template.official ? (
 							<Badge variant="secondary">Official</Badge>
@@ -79,16 +81,13 @@ function TemplateView({ template }: { template: Template }) {
 				}
 			/>
 
-			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-sm">
-				{template.status !== "published" ? (
-					<Badge variant="outline">
-						{template.status === "draft" ? "Draft" : "Archived"}
-					</Badge>
-				) : null}
-				{template.parentName ? (
-					<span>Based on {template.parentName}</span>
-				) : null}
-			</div>
+			<StatusNotice template={template} />
+
+			{template.parentName ? (
+				<p className="text-muted-foreground text-sm">
+					Based on {template.parentName}
+				</p>
+			) : null}
 
 			{template.summary ? (
 				<p className="max-w-2xl text-foreground/90">{template.summary}</p>
@@ -105,6 +104,42 @@ function TemplateView({ template }: { template: Template }) {
 			<Variables template={template} />
 		</>
 	);
+}
+
+// A published template is the normal case and needs no callout. Draft and
+// archived are the exceptions — surface them prominently and say what the state
+// means for the reader, not just a badge tucked below everything.
+function StatusNotice({ template }: { template: Template }) {
+	if (template.status === "draft") {
+		return (
+			<div className="flex items-start gap-3 rounded-lg border border-warn/40 bg-warn-wash/40 p-4">
+				<FilePen className="mt-0.5 size-5 shrink-0 text-warn" />
+				<div className="space-y-1">
+					<p className="font-medium text-sm">Draft — not published</p>
+					<p className="text-muted-foreground text-sm">
+						{isEditable(template)
+							? "You can't deploy servers from this template yet. Finish setting it up and publish it from the editor to start launching servers."
+							: "You can't deploy servers from this template until it's published."}
+					</p>
+				</div>
+			</div>
+		);
+	}
+	if (template.status === "archived") {
+		return (
+			<div className="flex items-start gap-3 rounded-lg border bg-muted/50 p-4">
+				<Archive className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+				<div className="space-y-1">
+					<p className="font-medium text-sm">Archived</p>
+					<p className="text-muted-foreground text-sm">
+						This template is hidden from the catalog and can't be used for new
+						servers. Servers already deployed from it keep running.
+					</p>
+				</div>
+			</div>
+		);
+	}
+	return null;
 }
 
 function Features({ template }: { template: Template }) {

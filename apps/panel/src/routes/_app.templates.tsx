@@ -150,11 +150,16 @@ function TemplateCard({ template }: { template: Template }) {
 			action={template.official ? <OfficialBadge /> : null}
 			footer={
 				<>
-					<StatusIndicator status={templateStatus(template.status)} />
 					<span className="shrink-0">{usageLabel(template.serverCount)}</span>
+					{/* Published is the normal state — only flag the exceptions
+					    (draft / archived) so the grid isn't a wall of "Published". */}
+					{template.status === "published" ? null : (
+						<StatusIndicator status={templateStatus(template.status)} />
+					)}
 				</>
 			}
 			icon={LayoutTemplate}
+			imageUrl={template.iconUrl}
 			subtitle={`${template.category} · v${template.version}`}
 			title={<TemplateLink template={template} />}
 		>
@@ -184,6 +189,7 @@ function TemplatesTable({ templates }: { templates: Template[] }) {
 							<EntityIdentity
 								badge={template.official ? <OfficialBadge /> : null}
 								icon={LayoutTemplate}
+								imageUrl={template.iconUrl}
 								subtitle={template.category}
 								title={<TemplateLink template={template} />}
 							/>

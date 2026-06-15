@@ -108,9 +108,9 @@ is the panel's first and richest DB-backed entity.
 - Runtime config: a `startupCommand` with `{{VAR}}` tokens, stop signal, "done"
   markers, config-file templates.
 - Install spec: an optional `installScript` (+ container image + entrypoint).
-  Because a non-empty install script runs as root on the box, publishing one
-  requires a one-time owner **risk-acknowledgement**; editing the script voids
-  the ack and reverts the template to draft.
+  The script runs as root on the box, so the daemon isolates it — it runs once
+  in a resource-bounded throwaway container with a hard timeout, never on the
+  host (see `daemon.md`).
 
 Two child collections hang off a Template:
 

@@ -67,6 +67,7 @@ export function createTemplate(input: TemplateInput): Template {
 		summary: input.summary.trim(),
 		description: input.description,
 		category: input.category,
+		iconUrl: input.iconUrl,
 		official: false,
 		origin: "scratch",
 		status: "draft",
@@ -83,50 +84,34 @@ export function createTemplate(input: TemplateInput): Template {
 		installScript: input.installScript,
 		installContainerImage: input.installContainerImage,
 		installEntrypoint: input.installEntrypoint,
-		installRiskAcked: false,
 		features: input.features,
 	};
 	store.set([template, ...store.get()]);
 	return template;
 }
 
-/**
- * Apply editor input to an existing template. Changing the install script voids
- * its acknowledgement; if the new script still needs one, a published template
- * drops back to draft (it must be re-acknowledged), mirroring the server rule.
- */
+/** Apply editor input to an existing template. */
 export function updateTemplate(id: string, input: TemplateInput) {
-	replace(id, (current) => {
-		// The acknowledgement is bound to specific script content, so any change to
-		// the script clears it (whether the script was edited, added, or removed).
-		const scriptChanged = input.installScript !== current.installScript;
-		const installRiskAcked = scriptChanged ? false : current.installRiskAcked;
-		// A published template drops back to draft only if it now needs a fresh ack
-		// (the new script is non-empty and no longer acknowledged).
-		const needsReAck = Boolean(input.installScript.trim()) && !installRiskAcked;
-		return {
-			...current,
-			name: input.name.trim(),
-			slug: slugify(input.name) || current.slug,
-			summary: input.summary.trim(),
-			description: input.description,
-			category: input.category,
-			images: withIds(input.images),
-			variables: variablesWithIds(input.variables),
-			startupCommand: input.startupCommand,
-			stopType: input.stopType,
-			stopValue: input.stopValue,
-			doneMarkers: input.doneMarkers,
-			installScript: input.installScript,
-			installContainerImage: input.installContainerImage,
-			installEntrypoint: input.installEntrypoint,
-			installRiskAcked,
-			status:
-				needsReAck && current.status === "published" ? "draft" : current.status,
-			updatedAt: "Just now",
-			features: input.features,
-		};
-	});
+	replace(id, (current) => ({
+		...current,
+		name: input.name.trim(),
+		slug: slugify(input.name) || current.slug,
+		summary: input.summary.trim(),
+		description: input.description,
+		category: input.category,
+		iconUrl: input.iconUrl,
+		images: withIds(input.images),
+		variables: variablesWithIds(input.variables),
+		startupCommand: input.startupCommand,
+		stopType: input.stopType,
+		stopValue: input.stopValue,
+		doneMarkers: input.doneMarkers,
+		installScript: input.installScript,
+		installContainerImage: input.installContainerImage,
+		installEntrypoint: input.installEntrypoint,
+		updatedAt: "Just now",
+		features: input.features,
+	}));
 }
 
 /** Bump the deployed-server count after a server is launched from a template. */
@@ -164,10 +149,6 @@ export function archiveTemplate(id: string) {
 	}));
 }
 
-export function acknowledgeInstallRisk(id: string) {
-	replace(id, (current) => ({ ...current, installRiskAcked: true }));
-}
-
 /**
  * Make an editable copy in the active org. User-facing copy calls this
  * "customize"; lineage is recorded as "Based on X".
@@ -195,8 +176,6 @@ export function forkTemplate(id: string): Template | null {
 			...variable,
 			id: crypto.randomUUID(),
 		})),
-		// A fork starts unacknowledged: the new owner re-accepts the script.
-		installRiskAcked: false,
 	};
 	store.set([copy, ...store.get()]);
 	return copy;
@@ -213,6 +192,7 @@ export function importTemplate(name: string): Template {
 		summary: "",
 		description: "",
 		category: "Other",
+		iconUrl: null,
 		images: [],
 		variables: [],
 		startupCommand: "",

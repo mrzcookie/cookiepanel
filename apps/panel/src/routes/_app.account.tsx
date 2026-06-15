@@ -40,9 +40,6 @@ function AccountLayout() {
 					>
 						General
 					</Link>
-					<Link className={routeTabClassName} to="/account/ssh-keys">
-						SSH keys
-					</Link>
 					<Link className={routeTabClassName} to="/account/activity">
 						Activity
 					</Link>
