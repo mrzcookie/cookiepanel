@@ -1,3 +1,4 @@
+import type { FileJob } from "@/lib/domain/file-jobs";
 import { isTextExtension, joinPath } from "@/lib/domain/files";
 import { createStore } from "@/lib/store";
 import { addNodes, uploadFile } from "@/lib/stores/files-store";
@@ -7,25 +8,6 @@ import { addNodes, uploadFile } from "@/lib/stores/files-store";
 // jobs. A stand-in for the daemon's real jobs — progress is simulated, and a
 // job mutates the file tree (via files-store) when it finishes, then auto-clears
 // a few seconds later. Client-only: jobs start from a user action, never SSR.
-
-export type FileJobKind = "upload" | "url" | "archive" | "extract";
-export type FileJobStatus = "active" | "completed" | "failed";
-
-export type FileJob = {
-	id: string;
-	serverId: string;
-	kind: FileJobKind;
-	/** The file / archive / output-folder name. */
-	name: string;
-	dir: string;
-	/** Source URL for a `url` pull, else null. */
-	source: string | null;
-	status: FileJobStatus;
-	/** 0–100. */
-	progress: number;
-	sizeBytes: number;
-	error: string | null;
-};
 
 const store = createStore<FileJob[]>([]);
 const timers = new Map<string, ReturnType<typeof setInterval>>();

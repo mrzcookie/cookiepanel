@@ -1,3 +1,4 @@
+import type { SftpSession } from "@/lib/domain/sftp";
 import { createStore } from "@/lib/store";
 
 // Ephemeral per-server SFTP sessions. Opening one mints a fresh, single-use
@@ -5,15 +6,6 @@ import { createStore } from "@/lib/store";
 // rooted at the server's volume); closing it revokes them. New session → new
 // credentials, every time. A stub for the real per-session SFTP flow; the
 // secrets here are throwaway placeholders, generated client-side on demand.
-
-export type SftpSession = {
-	id: string;
-	serverId: string;
-	host: string;
-	port: number;
-	username: string;
-	password: string;
-};
 
 const store = createStore<Record<string, SftpSession>>({});
 

@@ -77,6 +77,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import type { FileJob } from "@/lib/domain/file-jobs";
 import {
 	ARCHIVE_FORMATS,
 	type ArchiveFormat,
@@ -97,10 +98,10 @@ import {
 	uniqueChildName,
 	validateName,
 } from "@/lib/domain/files";
+import type { SftpSession } from "@/lib/domain/sftp";
 import { formatBytes, pluralize } from "@/lib/format";
 import {
 	dismissJob,
-	type FileJob,
 	startArchive,
 	startExtract,
 	startUpload,
@@ -120,7 +121,6 @@ import { useServer } from "@/lib/stores/servers-store";
 import {
 	closeSftpSession,
 	openSftpSession,
-	type SftpSession,
 	useSftpSession,
 } from "@/lib/stores/sftp-store";
 import { cn } from "@/lib/utils";
@@ -1421,7 +1421,7 @@ function sizeLabel(nodes: FileNode[], node: FileNode): ReactNode {
 		const count = countChildren(nodes, node.path);
 		return count === 0 ? "empty" : pluralize(count, "item");
 	}
-	return node.size === 0 ? "0 B" : formatBytes(node.size);
+	return formatBytes(node.size);
 }
 
 function download(node: FileNode) {

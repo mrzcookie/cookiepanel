@@ -1,7 +1,8 @@
 import type { NetworkDriver, NetworkRow } from "@/lib/domain/networks";
 import type { ServerRow } from "@/lib/domain/servers";
 import { createStore } from "@/lib/store";
-import { NETWORKS, SERVERS } from "@/lib/stubs";
+import { useServers } from "@/lib/stores/servers-store";
+import { NETWORKS } from "@/lib/stubs";
 
 // Mutable client-side stub store for networks — a stand-in for the data layer.
 // The networks list and a network's detail page are separate routes, so they
@@ -78,18 +79,22 @@ export function detachServer(networkId: string, serverId: string) {
 	);
 }
 
-const serverById = new Map(SERVERS.map((server) => [server.id, server]));
+// Server membership reads the live servers store (not the frozen seed), so the
+// attach picker and the attached list reflect runtime create / rename / delete.
+// These are hooks (they subscribe via useServers) — call them from a component.
 
-/** The servers attached to a network, resolved to rows. */
-export function attachedServers(network: NetworkRow): ServerRow[] {
+/** The servers attached to a network, resolved to live rows. */
+export function useAttachedServers(network: NetworkRow): ServerRow[] {
+	const servers = useServers();
+	const byId = new Map(servers.map((server) => [server.id, server]));
 	return network.serverIds
-		.map((id) => serverById.get(id))
+		.map((id) => byId.get(id))
 		.filter((server): server is ServerRow => server !== undefined);
 }
 
 /** Servers on the same node that aren't attached yet — the attach picker. */
-export function attachableServers(network: NetworkRow): ServerRow[] {
-	return SERVERS.filter(
+export function useAttachableServers(network: NetworkRow): ServerRow[] {
+	return useServers().filter(
 		(server) =>
 			server.nodeName === network.nodeName &&
 			!network.serverIds.includes(server.id)

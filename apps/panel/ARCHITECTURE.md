@@ -51,19 +51,28 @@ knows about routing/session/theme) → `layout/`. A shadcn primitive → `ui/`.
 
 ```
 domain/   client-safe domain TYPES + pure helpers, by entity (nodes, servers,
-          networks, templates, deploy, files, schedules, *-browser, ...). No state.
-          This is the durable layer: it survives the data-layer rewrite and is what
-          src/server will import. NEVER put mutable state or stub data here.
+          networks, templates, deploy, files, schedules, backups, file-jobs, sftp,
+          billing, admin, *-browser, ...). No state. This is the durable layer: it
+          survives the data-layer rewrite and is what src/server will import. NEVER
+          put mutable state or stub data here.
 stores/   the UI-first stub stores (one per entity). Mutable useSyncExternalStore
           state built on the shared createStore factory. THROWN AWAY wholesale when
-          the real data layer lands — treat them as scaffolding.
-stubs/    seed DATA only (index.ts: NODES, SERVERS, TEMPLATES, ...). The stores read
-          from here. No type declarations (those live in domain/).
+          the real data layer lands — treat them as scaffolding. Durable record types
+          live in domain/ (the store imports them); a store keeps an inline type only
+          when it's presentational (icon-bearing, e.g. notifications) or an auth-layer
+          placeholder (orgs).
+stubs/    seed DATA only — no type declarations (those live in domain/). The shared
+          org/fleet dataset is index.ts (NODES, SERVERS, TEMPLATES, ...; imported as
+          @/lib/stubs); surface-specific seed files sit alongside it, e.g. admin.ts
+          (the platform /admin dataset), deep-imported as @/lib/stubs/admin.
 store.ts  createStore<T>(seed) — the tiny factory every store uses (get/set/use, plus
           a useWith selector hook for subscribing to a slice).
-utils.ts status.ts format.ts slug.ts list-view.ts nav.ts
-          cross-cutting pure leaf helpers — kept flat at the root (high fan-out;
-          no domain coupling). utils.ts (cn) is the shadcn convention; don't move it.
+utils.ts status.ts format.ts slug.ts list-view.ts nav.ts admin-nav.ts
+          templates-scope.ts
+          cross-cutting pure leaf helpers — kept flat at the root (high fan-out; no
+          domain coupling). nav.ts/admin-nav.ts are the app vs admin nav config;
+          templates-scope.ts is a UI-surface descriptor (org vs admin templates).
+          utils.ts (cn) is the shadcn convention; don't move it.
 ```
 
 ### The server import boundary (honor it now)
@@ -112,7 +121,8 @@ Rules that matter:
 - **No barrel `index.ts` files.** Deep imports keep TanStack Start's per-route
   code-splitting tight (a barrel pulls a whole folder into every route that touches
   one symbol). The one exception is `lib/stubs/index.ts` — the folder entrypoint, so
-  callers still write `@/lib/stubs`.
+  callers still write `@/lib/stubs`; its sibling seed files (e.g. `stubs/admin.ts`)
+  are deep-imported by path like everything else.
 - **Don't scatter manual memoization.** The React Compiler is on
   (`vite.config.ts`); let it memoize. Reach for a store selector (`useWith`) before
   `useMemo`/`useCallback`.

@@ -1,7 +1,8 @@
 // SQL Browser domain types + pure, client-safe helpers. The SQL Browser is the
-// panel module unlocked by the `database:sql-browser` add-on: a lightweight
-// phpMyAdmin for creating databases and users and managing tables. Types only —
-// the mutable stub data lives in `sql-browser-store.ts`.
+// panel module unlocked by the single `database:browser` add-on (one add-on for
+// every engine, resolved via databaseEngine()): a lightweight phpMyAdmin for
+// creating databases and users and managing tables. Types only — the mutable
+// stub data lives in `sql-browser-store.ts`.
 
 /** A column's role in its table (primary key / unique / indexed / plain). */
 export type SqlColumnKey = "pk" | "unique" | "index" | "";

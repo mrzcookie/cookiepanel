@@ -1,6 +1,7 @@
-// MongoDB "Document Browser" domain types + pure helpers. The add-on unlocked by
-// `database:mongo-browser`: browse databases, collections, and documents, and
-// create/drop them. Types only — stub data lives in `mongo-browser-store.ts`.
+// MongoDB "Document Browser" domain types + pure helpers. The Mongo face of the
+// single `database:browser` add-on (engine resolved via databaseEngine()):
+// browse databases, collections, and documents, and create/drop them. Types
+// only — stub data lives in `mongo-browser-store.ts`.
 
 export type MongoDocument = {
 	/** The document `_id`. */

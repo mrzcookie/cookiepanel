@@ -41,9 +41,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { Backup } from "@/lib/domain/backups";
 import { formatBytes } from "@/lib/format";
 import {
-	type Backup,
 	createBackup,
 	deleteBackup,
 	toggleBackupLock,

@@ -1,3 +1,4 @@
+import type { Backup } from "@/lib/domain/backups";
 import { createStore } from "@/lib/store";
 import { SERVERS } from "@/lib/stubs";
 
@@ -6,20 +7,6 @@ import { SERVERS } from "@/lib/stubs";
 // Seeded with a couple per server; creating one simulates progress then lands a
 // completed snapshot. Seed ids are deterministic so SSR and the first client
 // render agree; runtime backups use crypto ids. Replaced when the daemon lands.
-
-export type BackupStatus = "creating" | "completed" | "failed";
-
-export type Backup = {
-	id: string;
-	serverId: string;
-	name: string;
-	/** Pre-formatted creation time for the UI-first phase. */
-	createdAt: string;
-	sizeBytes: number;
-	status: BackupStatus;
-	/** Locked backups are kept past retention and can't be deleted. */
-	locked: boolean;
-};
 
 const GiB = 1024 ** 3;
 

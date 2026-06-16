@@ -76,7 +76,11 @@ export function emptyEditorState(): EditorState {
 	};
 }
 
-/** Hydrate the editor from an existing template. */
+/**
+ * Hydrate the editor from an existing template. Mints a fresh id per done-marker
+ * (DoneMatcher has no stable id) so the editor can key/edit/remove rows — so this
+ * transform is intentionally non-deterministic, the one impurity in domain/.
+ */
 export function templateToState(template: Template): EditorState {
 	return {
 		name: template.name,

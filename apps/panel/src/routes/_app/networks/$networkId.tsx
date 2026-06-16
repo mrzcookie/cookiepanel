@@ -35,12 +35,12 @@ import {
 import type { NetworkRow } from "@/lib/domain/networks";
 import { serverStatus } from "@/lib/status";
 import {
-	attachableServers,
-	attachedServers,
 	attachServer,
 	deleteNetwork,
 	detachServer,
 	renameNetwork,
+	useAttachableServers,
+	useAttachedServers,
 	useNetwork,
 } from "@/lib/stores/networks-store";
 
@@ -151,8 +151,8 @@ function NetworkManage({ network }: { network: NetworkRow }) {
 }
 
 function NetworkServers({ network }: { network: NetworkRow }) {
-	const attached = attachedServers(network);
-	const attachable = attachableServers(network);
+	const attached = useAttachedServers(network);
+	const attachable = useAttachableServers(network);
 	const [toAttach, setToAttach] = useState("");
 
 	function attach() {

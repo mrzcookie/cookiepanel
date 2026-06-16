@@ -1,6 +1,7 @@
 {
 	"$schema": "https://unpkg.com/knip@6/schema.json",
 	"ignore": [".claude/**"],
+	"ignoreExportsUsedInFile": true,
 	"ignoreBinaries": ["make"],
 	"ignoreDependencies": [
 		"@fontsource-variable/hanken-grotesk",

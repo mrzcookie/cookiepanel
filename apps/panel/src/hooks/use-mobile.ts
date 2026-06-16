@@ -1,19 +1,27 @@
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 const MOBILE_BREAKPOINT = 768;
 
-export function useIsMobile() {
-	const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
+// Returns true when the viewport is narrower than `breakpoint`.
+export function useIsMobile(breakpoint: number = MOBILE_BREAKPOINT): boolean {
+	const query = `(max-width: ${breakpoint - 1}px)`;
 
-	useEffect(() => {
-		const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-		const onChange = () => {
-			setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-		};
-		mql.addEventListener("change", onChange);
-		setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-		return () => mql.removeEventListener("change", onChange);
-	}, []);
+	const subscribe = useCallback(
+		(onChange: () => void) => {
+			const mql = window.matchMedia(query);
+			mql.addEventListener("change", onChange);
+			return () => mql.removeEventListener("change", onChange);
+		},
+		[query]
+	);
 
-	return !!isMobile;
+	const getSnapshot = useCallback(
+		() => window.matchMedia(query).matches,
+		[query]
+	);
+
+	// No viewport on the server, so default to desktop.
+	const getServerSnapshot = () => false;
+
+	return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }

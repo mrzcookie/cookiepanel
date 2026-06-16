@@ -1,7 +1,7 @@
-// Redis "Key Browser" domain types + pure helpers. The add-on unlocked by
-// `database:redis-browser`: browse the keyspace, inspect a key's type / TTL /
-// value, and create or delete keys. Types only — stub data lives in
-// `redis-browser-store.ts`.
+// Redis "Key Browser" domain types + pure helpers. The Redis face of the single
+// `database:browser` add-on (engine resolved via databaseEngine()): browse the
+// keyspace, inspect a key's type / TTL / value, and create or delete keys. Types
+// only — stub data lives in `redis-browser-store.ts`.
 
 export const REDIS_TYPES = [
 	"string",

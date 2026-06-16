@@ -7,11 +7,12 @@ const BYTE_UNITS = ["B", "KB", "MB", "GB", "TB", "PB"] as const;
  * Human-friendly bytes (binary base, decimal-style labels — what a non-admin
  * expects to see). Whole numbers below TB drop their decimals; TB and up keep
  * one. `formatBytes(64 * 1024 ** 3)` → "64 GB", `formatBytes(2 * 1024 ** 4)` →
- * "2.0 TB".
+ * "2.0 TB". Zero (and any non-finite input) reads "0 B" — the helper is reused
+ * at byte scale (table/key sizes), so a zero must not render as "0 GB".
  */
 export function formatBytes(bytes: number): string {
-	if (bytes <= 0) {
-		return "0 GB";
+	if (!Number.isFinite(bytes) || bytes <= 0) {
+		return "0 B";
 	}
 	const exponent = Math.min(
 		Math.floor(Math.log(bytes) / Math.log(1024)),
@@ -39,16 +40,19 @@ export function formatCount(value: number): string {
 
 /**
  * USD from a cent amount, thousands-separated, dropping the cents when whole:
- * `formatMoney(1000)` → "$10", `formatMoney(1250)` → "$12.50". Deterministic
- * (not locale-dependent) so SSR and the client agree. Prices are stored in cents
- * to mirror Polar (and to avoid float drift).
+ * `formatMoney(1000)` → "$10", `formatMoney(1250)` → "$12.50",
+ * `formatMoney(-1250)` → "-$12.50" (the sign sits outside the "$", for
+ * credits/refunds). Deterministic (not locale-dependent) so SSR and the client
+ * agree. Prices are stored in cents to mirror Polar (and to avoid float drift).
  */
 export function formatMoney(cents: number): string {
-	const dollars = cents / 100;
+	const negative = cents < 0;
+	const dollars = Math.abs(cents) / 100;
 	const fixed = Number.isInteger(dollars)
 		? String(dollars)
 		: dollars.toFixed(2);
 	const [whole = "0", fraction] = fixed.split(".");
 	const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-	return `$${fraction ? `${grouped}.${fraction}` : grouped}`;
+	const body = fraction ? `${grouped}.${fraction}` : grouped;
+	return `${negative ? "-" : ""}$${body}`;
 }
