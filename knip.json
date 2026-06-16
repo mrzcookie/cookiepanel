@@ -14,7 +14,11 @@
 	"ignoreWorkspaces": ["apps/daemon"],
 	"workspaces": {
 		"apps/panel": {
-			"entry": ["src/routes/**/*.tsx", "src/components/ui/**"],
+			"entry": [
+				"src/routes/**/*.tsx",
+				"src/components/ui/**",
+				"src/server/env.ts"
+			],
 			"project": ["src/**/*.{ts,tsx}", "!src/routeTree.gen.ts"]
 		}
 	}

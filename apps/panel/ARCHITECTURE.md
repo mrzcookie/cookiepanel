@@ -17,8 +17,9 @@ src/
                login, onboarding) stay flat. See "routes/" below.
   components/  UI (presentational). See below.
   lib/         client-safe domain types, pure helpers, and the stub stores. See below.
-  server/      server-only code (DB, auth, daemon client). Lands in a later phase;
-               does not exist yet.
+  server/      server-only code (DB, auth, server functions). env.ts (t3-env +
+               zod) is the validated, server-only env entry. Built feature by
+               feature; the daemon client is still a later phase.
   styles/      global.css (Tailwind v4 + tokens).
 ```
 
@@ -53,11 +54,11 @@ knows about routing/session/theme) → `layout/`. A shadcn primitive → `ui/`.
 domain/   client-safe domain TYPES + pure helpers, by entity (nodes, servers,
           networks, templates, deploy, files, schedules, backups, file-jobs, sftp,
           billing, admin, *-browser, ...). No state. This is the durable layer: it
-          survives the data-layer rewrite and is what src/server will import. NEVER
-          put mutable state or stub data here.
+          survives the data-layer rewrite and is what src/server imports as it's
+          built. NEVER put mutable state or stub data here.
 stores/   the UI-first stub stores (one per entity). Mutable useSyncExternalStore
-          state built on the shared createStore factory. THROWN AWAY wholesale when
-          the real data layer lands — treat them as scaffolding. Durable record types
+          state built on the shared createStore factory. THROWN AWAY as the real
+          data layer replaces each one — treat them as scaffolding. Durable record types
           live in domain/ (the store imports them); a store keeps an inline type only
           when it's presentational (icon-bearing, e.g. notifications) or an auth-layer
           placeholder (orgs).
@@ -75,10 +76,10 @@ utils.ts status.ts format.ts slug.ts list-view.ts nav.ts admin-nav.ts
           utils.ts (cn) is the shadcn convention; don't move it.
 ```
 
-### The server import boundary (honor it now)
+### The server import boundary
 
-When `src/server` lands, it may import `@/lib/domain/*` and the root pure helpers,
-but **must never** import `@/lib/stores/*` or `@/lib/stubs/*` (those are client-only
+`src/server` may import `@/lib/domain/*` and the root pure helpers, but **must
+never** import `@/lib/stores/*` or `@/lib/stubs/*` (those are client-only
 scaffolding that would drag stub data into the server bundle). Keeping domain types
 out of `stubs/` is what makes this boundary enforceable.
 

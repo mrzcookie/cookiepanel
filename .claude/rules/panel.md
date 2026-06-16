@@ -2,24 +2,26 @@
 
 `apps/panel` is `@cookiepanel/panel`: **TanStack Start (SSR) + React 19 +
 Tailwind v4**, file-based routing, server functions for the API. This file has
-two parts: how we work **now** (UI-first), and the **intended** shape of the
-data layer for later. Don't build the "later" parts before their phase.
+two parts: the **UI/stub patterns** the panel is built on, and the **data/server
+layer** we're now building behind it. Most of the panel still runs on stubs; wire
+the data layer **feature by feature**, not all at once.
 
-## Now: the UI-first phase
+## The UI / stub layer
 
-The whole panel is being built as **pure UI first**:
+The panel's surface is presentational and fed by stub stores; a feature stays
+this way until its backend is wired:
 
 - **shadcn components + presentational React components.** Add shadcn primitives
   via the CLI/MCP; build domain components on top of them. Keep components
   presentational — props in, markup out.
-- **Static placeholder data.** Pages render from local stub data, not a backend.
-  There is **no `src/server`, no server functions, no database, and no auth yet**.
-- **Don't reach for a backend that isn't there.** If a page needs data, define a
-  typed stub and feed it in. We wire real data later, behind the same component
-  props.
+- **Stub data behind the props.** A not-yet-wired feature renders from its stub
+  store (`lib/stores/*`), not a backend. **Don't invent a backend for it** —
+  define a typed stub and feed it in; when its data layer lands it swaps in behind
+  the same props. If it's unclear whether a request means the UI or a backend that
+  doesn't exist yet, assume the UI and ask.
 - **Styling:** Tailwind v4 (`@import "tailwindcss"` in `src/styles/global.css`),
-  Biome-sorted classes. Design language is shadcn defaults for now — see
-  `design.md`.
+  Biome-sorted classes. Design language is **"The Console"** (live) — see
+  `design.md` / `DESIGN.md`.
 
 When in doubt, model a page on its eventual job (a fleet view, a server detail,
 a template editor) but implement only the view with fake data.
@@ -29,10 +31,10 @@ domain split, the `lib/domain` vs `stores` vs `stubs` split, the server import
 boundary, the no-barrels rule) is documented in **`apps/panel/ARCHITECTURE.md`**.
 Read it before adding files so the tree stays sorted.
 
-## Later: the server layer (target shape)
+## The data/server layer (now building)
 
-When the data layer lands, server code lives under **`src/server/**`, which is
-server-only** — it must never reach the client bundle. That means `node:crypto`,
+Server code lives under **`src/server/**`, which is server-only** — it must never
+reach the client bundle. That means `node:crypto`,
 the DB client, `node:https`, the auth server config, and validated secrets/env
 all stay under `src/server`. Client-safe domain types and helpers live in
 `src/lib/**` so both the server and the UI can import them.
@@ -85,7 +87,7 @@ client abstraction, where the fake-vs-real split lives, etc. Don't commit to a
 particular shape yet. Whatever it is, panel business logic should depend on a
 typed boundary, not scatter raw daemon HTTP calls through the codebase.
 
-## Data fetching (target pattern)
+## Data fetching
 
 TanStack Query + Router SSR, in one flow: **server fn → `queryOptions` → loader
 `ensureQueryData` → component `useSuspenseQuery`**.
@@ -123,7 +125,7 @@ File-based routing under `src/routes/`. Conventions that matter:
 - Trailing-underscore segments escape layout nesting while keeping the URL (a
   detail route opts out of its list's layout). `$param` = dynamic segment.
 
-## Auth stack (target)
+## Auth stack
 
 - **Better Auth**, via its **minimal entrypoint** (`better-auth/minimal`) to
   avoid the Kysely dependency; DB through the Drizzle adapter.

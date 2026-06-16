@@ -54,17 +54,26 @@ wire format is pinned by a **shared API contract** so the two never drift. See
 
 Full glossary, fields, and relationships: `.claude/rules/domain.md`.
 
-## Current phase: panel UI first
+## Current phase: wiring the panel's data layer
 
-Right now we build the **panel as pure UI** — shadcn components and presentational
-React components fed **static placeholder data**. There is **no `src/server`, no
-server functions, no database, and no auth yet**, and **no real daemon** (the Go
-side is a stub). We mature the look and the flows first, then wire the data
-layer, then build the real daemon.
+The panel UI is mature; we're now **building its data/server layer behind it** —
+the database, auth, and server functions — **feature by feature**, behind the
+same component props the UI already renders from. `src/server`, the DB, and auth
+are now in-scope to build, but much of the panel still runs on stub stores until
+each feature is wired, so treat it as **half-stubbed, half-real**:
 
-The rules files describe the *target* architecture for those later phases. When
-you touch a page now, keep it presentational and stub the data — don't reach for
-a backend that isn't there.
+- **A feature whose backend doesn't exist yet is still UI work.** Keep it
+  presentational against its stub store; don't invent a backend for it. **When
+  it's unclear whether a request means the UI or a backend that may not exist
+  yet, assume the UI and ask.**
+- **A feature being wired** gets the real `src/server` data layer (repository →
+  service → server function) from `panel.md`, swapped in behind the existing props.
+
+The **daemon stays a later phase** — `apps/daemon` is still a stub and the
+panel↔daemon connection isn't built, so anything that needs a live box (server
+console/stats, real enrollment/heartbeat, on-box files/firewall/backups) stays
+stubbed until then. The rules files describe the *target* architecture; `panel.md`
+and `security.md` are now the spec for the panel layer we're actively building.
 
 ## Non-negotiable rules
 
@@ -107,15 +116,15 @@ area — they hold the detail this file deliberately leaves out.
 - `architecture.md` — the two halves, how the panel and daemon talk (HTTPS,
   per-node key, cert pinning, enrollment, heartbeat), and the shared contract.
 - `domain.md` — every domain noun, its fields, relationships, and lifecycle.
-- `panel.md` — panel conventions: the bare-UI phase rules now, and the intended
-  layering / routing / data-fetching / auth for when the data layer lands.
+- `panel.md` — panel conventions: the UI/stub patterns and the data-layer shape
+  (layering / routing / data-fetching / auth) we're now building behind the UI.
 - `daemon.md` — what `cookied` is and will own, subsystem by subsystem, and its
   on-box security posture.
 - `security.md` — the non-negotiables in full: tenant isolation, secrets,
   validating untrusted input on a root daemon.
-- `design.md` — design language intent (shadcn now; the `impeccable` skill
-  drives the real design language later; the prior "The Console" direction is
-  kept as non-binding reference).
+- `design.md` — design language orientation: "The Console" (dark) / "Daylight"
+  is live; the full spec lives in `DESIGN.md` and the `impeccable` skill drives
+  further design work.
 
 ## Reference projects (read-only — never edit)
 

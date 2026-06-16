@@ -1,8 +1,9 @@
 # Architecture — the two halves and how they talk
 
-> **Status.** This describes the *target* system. Today the panel is a UI-first
-> scaffold and the daemon is a stub; neither side of the connection below is
-> wired yet. This is the design to build toward, not what exists.
+> **Status.** The panel↔daemon connection below is the *target* protocol and is
+> **not built yet**: `apps/daemon` is still a stub, so the daemon side and the
+> wire between them don't exist. The panel side (auth, data layer) is now being
+> built; this is the protocol it builds toward, not what exists.
 
 CookiePanel is one product split into two programs that run in different places
 and trust each other over the network.
@@ -117,6 +118,7 @@ client shape in code or docs until we choose one.
 ## Phasing
 
 The product is built **panel-first**: mature the panel against static/stubbed
-data, then build the data layer, then the real daemon. The panel must always be
-runnable without a daemon binary — early on with placeholder data, later with a
-stub/fake for the box. See `panel.md` for what that means in the panel codebase.
+data (done), **build the data layer** (in progress), then the real daemon. The
+panel must always be runnable without a daemon binary — on stub data now, later
+with a stub/fake for the box. See `panel.md` for what that means in the panel
+codebase.

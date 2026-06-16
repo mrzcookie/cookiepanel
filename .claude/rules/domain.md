@@ -1,8 +1,9 @@
 # Domain model
 
 > **Status.** This is the product's *conceptual* model — what the nouns are and
-> how they relate. The current repo has none of these tables/types yet (UI-first
-> phase). Field lists are the intended shape, drawn from the prior rewrite; treat
+> how they relate. The panel-owned entities (below) are now being turned into
+> real Postgres tables; the daemon-derived ones stay stubbed until the daemon
+> exists. Field lists are the intended shape, drawn from the prior rewrite; treat
 > exact field names as a strong starting point, not a frozen schema.
 
 Everything is scoped to an **Organization**. The model splits cleanly into two
@@ -15,7 +16,7 @@ halves, and that split is the important, durable part:
 - **Daemon-derived (live, from the box):** Server (container), Network, Drive,
   Firewall, and a node's *live* fields (status, hardware, usage, heartbeats).
   These are *actual state* — the daemon reports them; the panel layers them onto
-  the registry at read time. In the UI-first phase these come from in-memory
+  the registry at read time. Until the daemon exists these come from in-memory
   stubs.
 
 ## Tenancy & identity

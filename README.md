@@ -31,10 +31,10 @@ apps/
   daemon/   cookied — the Go agent that runs on each managed box
 ```
 
-> **Status: structural rewrite in progress.** The panel is being built
-> **UI-first** — shadcn components and presentational React with static
-> placeholder data, and **no backend wiring yet**. The data layer (auth,
-> persistence) and the real daemon land in later phases. The daemon is currently
+> **Status: structural rewrite in progress.** The panel UI is mature; we're now
+> **building its data layer** (auth, persistence, server functions) behind it,
+> feature by feature — much of the panel still runs on stub data until each
+> feature is wired. The **real daemon is a later phase**; `cookied` is currently
 > a buildable stub.
 
 ## Prerequisites
