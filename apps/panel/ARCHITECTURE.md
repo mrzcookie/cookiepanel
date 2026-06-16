@@ -17,14 +17,19 @@ src/
                login, onboarding) stay flat. See "routes/" below.
   components/  UI (presentational). See below.
   lib/         client-safe domain types, pure helpers, and the stub stores. See below.
-  server/      server-only code (DB, auth, server functions). env.ts (t3-env +
-               zod) is the validated, server-only env entry. Built feature by
-               feature; the daemon client is still a later phase.
+  server/      server-only code. env.ts (t3-env) validates env; db/ has the
+               Drizzle client + schema + migrations; auth/ is Better Auth;
+               email.ts (Resend) and redis.ts (ioredis) are shared. Daemon later.
   styles/      global.css (Tailwind v4 + tokens).
 ```
 
 Imports always use the `@/` alias (maps to `src/`), always deep paths
 (`@/components/<folder>/<file>`, `@/lib/domain/<entity>`). No barrels — see below.
+
+Two `src/` root files wire the framework: `router.tsx` (router + TanStack Query
+SSR) and `start.ts` (the Start instance — its request middleware mounts the
+Better Auth handler at `/api/auth/*`, since this Start version has no
+server-route file API).
 
 ## components/
 
@@ -82,6 +87,23 @@ utils.ts status.ts format.ts slug.ts list-view.ts nav.ts admin-nav.ts
 never** import `@/lib/stores/*` or `@/lib/stubs/*` (those are client-only
 scaffolding that would drag stub data into the server bundle). Keeping domain types
 out of `stubs/` is what makes this boundary enforceable.
+
+### Database & migrations
+
+`src/server/db/schema/` is the Drizzle schema — one file per concern, re-exported
+from `index.ts` (what the db client and drizzle-kit read). `auth.ts` is generated
+by Better Auth; regenerate with `pnpm --filter @cookiepanel/panel auth:generate`
+after changing the auth config.
+
+**Name every migration.** Generate with an explicit `--name`:
+
+```
+pnpm --filter @cookiepanel/panel exec drizzle-kit generate --name <change>
+```
+
+That writes `src/server/db/migrations/NNNN_<change>.sql` (e.g. `0000_init_auth.sql`);
+never ship the random default name. Apply with `db:migrate`. The Postgres + Redis
+the panel needs in dev live in `infra/compose.yaml` (`pnpm dev:up`).
 
 ## routes/
 

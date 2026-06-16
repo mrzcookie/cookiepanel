@@ -16,6 +16,8 @@
 		"check:ci": "biome ci",
 		"knip": "knip",
 		"analyze": "pnpm --filter @cookiepanel/panel analyze",
+		"dev:up": "docker compose -f infra/compose.yaml up -d --wait",
+		"dev:down": "docker compose -f infra/compose.yaml down",
 		"daemon:build": "make -C apps/daemon build",
 		"daemon:run": "make -C apps/daemon run",
 		"daemon:test": "make -C apps/daemon test"

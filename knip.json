@@ -17,7 +17,11 @@
 			"entry": [
 				"src/routes/**/*.tsx",
 				"src/components/ui/**",
-				"src/server/env.ts"
+				"src/router.tsx",
+				"src/start.ts",
+				"src/server/env.ts",
+				"src/server/db/index.ts",
+				"src/lib/auth-client.ts"
 			],
 			"project": ["src/**/*.{ts,tsx}", "!src/routeTree.gen.ts"]
 		}

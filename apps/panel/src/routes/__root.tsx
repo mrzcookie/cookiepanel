@@ -1,4 +1,9 @@
-import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import type { QueryClient } from "@tanstack/react-query";
+import {
+	createRootRouteWithContext,
+	HeadContent,
+	Scripts,
+} from "@tanstack/react-router";
 import { ThemeProvider } from "next-themes";
 import { lazy, type ReactNode, Suspense } from "react";
 import { ErrorScreen } from "@/components/layout/error-screen";
@@ -29,32 +34,34 @@ const Devtools = import.meta.env.DEV
 		)
 	: null;
 
-export const Route = createRootRoute({
-	head: () => ({
-		meta: [
-			{ charSet: "utf-8" },
-			{ name: "viewport", content: "width=device-width, initial-scale=1" },
-			{ title: "CookiePanel" },
-		],
-		links: [{ rel: "stylesheet", href: appCss }],
-	}),
-	notFoundComponent: () => (
-		<ErrorScreen
-			code="404"
-			description="That page doesn't exist, or it moved. Check the address, or head back to your fleet."
-			title="Page not found"
-			tone="muted"
-		/>
-	),
-	errorComponent: () => (
-		<ErrorScreen
-			code="500"
-			description="Something broke on our end. The team has been notified; try again in a moment."
-			title="Something went wrong"
-		/>
-	),
-	shellComponent: RootDocument,
-});
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
+	{
+		head: () => ({
+			meta: [
+				{ charSet: "utf-8" },
+				{ name: "viewport", content: "width=device-width, initial-scale=1" },
+				{ title: "CookiePanel" },
+			],
+			links: [{ rel: "stylesheet", href: appCss }],
+		}),
+		notFoundComponent: () => (
+			<ErrorScreen
+				code="404"
+				description="That page doesn't exist, or it moved. Check the address, or head back to your fleet."
+				title="Page not found"
+				tone="muted"
+			/>
+		),
+		errorComponent: () => (
+			<ErrorScreen
+				code="500"
+				description="Something broke on our end. The team has been notified; try again in a moment."
+				title="Something went wrong"
+			/>
+		),
+		shellComponent: RootDocument,
+	}
+);
 
 function RootDocument({ children }: { children: ReactNode }) {
 	return (

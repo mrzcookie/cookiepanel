@@ -18,7 +18,8 @@
 			"!**/.nitro",
 			"!**/.tanstack",
 			"!**/dist",
-			"!apps/daemon"
+			"!apps/daemon",
+			"!**/src/server/db/migrations"
 		],
 		"ignoreUnknown": false
 	},

@@ -10,16 +10,19 @@ import { z } from "zod";
  * runs validation, so the process refuses to boot with a missing/invalid
  * required var.
  *
- * Required vars are the ones the panel can't run without. The optional groups
- * (OAuth, email, billing, storage) belong to features that aren't wired yet —
- * absent is fine; each feature reads its own group when it lands. Social
- * sign-in buttons, for instance, show only when a provider's pair is present.
+ * Required vars are the ones the panel can't run without (DB, Redis, auth). The
+ * optional groups (OAuth, email, billing, storage) belong to features that read
+ * their own group when they land; absent is fine. Social sign-in buttons, for
+ * instance, show only when a provider's pair is present.
  */
 export const env = createEnv({
 	server: {
 		// --- Core (required) ---
 		// Postgres connection string for Drizzle.
 		DATABASE_URL: z.url(),
+		// Redis connection string — Better Auth secondary storage (sessions +
+		// rate limiting) and shared server-side caching. See src/server/redis.ts.
+		REDIS_URL: z.url(),
 		// Better Auth signing secret. Generate: `openssl rand -base64 32`.
 		AUTH_SECRET: z.string().min(32),
 		// Public base URL the app is served from (auth callbacks, magic links).
@@ -33,13 +36,20 @@ export const env = createEnv({
 				"ENCRYPTION_KEY must be 64 hex chars (32 bytes) — generate with `openssl rand -hex 32`"
 			),
 
+		// --- Auth extras (optional) ---
+		// Extra CSRF-trusted origins (comma-separated); baseURL is always trusted.
+		AUTH_TRUSTED_ORIGINS: z.string().optional(),
+		// User ids to bootstrap as platform admins (comma-separated), independent
+		// of their stored role — for seeding the first admin.
+		AUTH_ADMIN_USER_IDS: z.string().optional(),
+
 		// --- OAuth social providers (optional; a button shows only when set) ---
 		GITHUB_CLIENT_ID: z.string().optional(),
 		GITHUB_CLIENT_SECRET: z.string().optional(),
 		GOOGLE_CLIENT_ID: z.string().optional(),
 		GOOGLE_CLIENT_SECRET: z.string().optional(),
 
-		// --- Email — magic-link delivery via Resend (optional until auth lands) ---
+		// --- Email — magic links + org invitations via Resend (optional) ---
 		RESEND_API_KEY: z.string().optional(),
 		// From address; "Name <addr@host>" is allowed, so not strictly an email.
 		EMAIL_FROM: z.string().optional(),

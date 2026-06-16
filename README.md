@@ -41,15 +41,22 @@ apps/
 
 - Node 24+ and pnpm 10.28+
 - Go 1.25+
+- Docker (for the local dev infra — Postgres + Redis; see `infra/`)
 
 ## Getting started
 
 ```bash
-pnpm install        # install JS/TS workspaces
-pnpm dev            # run the panel (Vite dev) on :3000
+pnpm install                 # install JS/TS workspaces
+pnpm dev:up                  # start dev infra (Postgres + Redis) — see infra/
 
-pnpm daemon:build   # build the cookied binary
-pnpm daemon:run     # run the daemon (stub for now)
+cp apps/panel/.env.example apps/panel/.env          # then fill AUTH_SECRET + ENCRYPTION_KEY
+pnpm --filter @cookiepanel/panel db:migrate         # apply database migrations
+
+pnpm dev                     # run the panel (Vite dev) on :3000
+pnpm dev:down                # stop the dev infra when done
+
+pnpm daemon:build            # build the cookied binary
+pnpm daemon:run              # run the daemon (stub for now)
 ```
 
 ## Commands
@@ -57,6 +64,8 @@ pnpm daemon:run     # run the daemon (stub for now)
 | Command             | What it does                  |
 |---------------------|-------------------------------|
 | `pnpm dev`          | Run the panel dev server      |
+| `pnpm dev:up`       | Start dev infra (Postgres + Redis) |
+| `pnpm dev:down`     | Stop the dev infra            |
 | `pnpm build`        | Build TS workspaces (panel)   |
 | `pnpm typecheck`    | Type-check TS workspaces      |
 | `pnpm check`        | Biome lint + format           |
