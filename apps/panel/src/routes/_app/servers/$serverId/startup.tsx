@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { ChangeTemplateButton } from "@/components/servers/template-switcher";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
+	CardAction,
 	CardContent,
 	CardDescription,
 	CardHeader,
@@ -103,6 +105,9 @@ function RuntimeCard({
 						? " Switching runtime takes effect on the next restart."
 						: ""}
 				</CardDescription>
+				<CardAction>
+					<ChangeTemplateButton server={server} />
+				</CardAction>
 			</CardHeader>
 			<CardContent className={switchable ? "space-y-5" : undefined}>
 				<div className="grid gap-4 sm:grid-cols-3">

@@ -1,4 +1,9 @@
 import type { ServerRow, ServerState } from "@/lib/domain/servers";
+import {
+	defaultRuntimeLabel,
+	defaultServerVariables,
+	type Template,
+} from "@/lib/domain/templates";
 import { createStore } from "@/lib/store";
 import { SERVERS } from "@/lib/stubs";
 
@@ -224,6 +229,30 @@ export function updateServerRuntime(id: string, imageLabel: string) {
 		store
 			.get()
 			.map((server) => (server.id === id ? { ...server, imageLabel } : server))
+	);
+}
+
+/**
+ * Switch a server onto a different template. The variable schemas don't carry
+ * across templates, so the runtime and stored variables are reset to the new
+ * template's defaults (matching a fresh deploy); the data volume is kept and the
+ * daemon would recreate the container on a reinstall. The caller adjusts the
+ * old/new templates' server counts.
+ */
+export function switchServerTemplate(id: string, template: Template) {
+	store.set(
+		store.get().map((server) =>
+			server.id === id
+				? {
+						...server,
+						templateId: template.id,
+						templateName: template.name,
+						imageLabel: defaultRuntimeLabel(template),
+						variables: defaultServerVariables(template),
+						updateAvailable: false,
+					}
+				: server
+		)
 	);
 }
 

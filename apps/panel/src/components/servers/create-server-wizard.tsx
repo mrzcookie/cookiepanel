@@ -30,6 +30,7 @@ import {
 import type { AllocationProtocol } from "@/lib/domain/networks";
 import type { NodeRow } from "@/lib/domain/nodes";
 import {
+	defaultRuntimeLabel,
 	deployVariables,
 	isDeployable,
 	type Template,
@@ -91,14 +92,6 @@ type Draft = {
 	protocol: AllocationProtocol;
 };
 
-function defaultRuntime(template: Template): string {
-	return (
-		template.images.find((image) => image.isDefault)?.label ??
-		template.images[0]?.label ??
-		""
-	);
-}
-
 function seedValues(template: Template): Record<string, string> {
 	const seed: Record<string, string> = {};
 	for (const variable of deployVariables(template)) {
@@ -153,7 +146,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 		if (preselect && isDeployable(preselect)) {
 			return {
 				...base,
-				runtimeLabel: defaultRuntime(preselect),
+				runtimeLabel: defaultRuntimeLabel(preselect),
 				templateId: preselect.id,
 				values: seedValues(preselect),
 			};
@@ -176,7 +169,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 		}
 		setDraft((current) => ({
 			...current,
-			runtimeLabel: defaultRuntime(next),
+			runtimeLabel: defaultRuntimeLabel(next),
 			templateId: id,
 			values: seedValues(next),
 		}));

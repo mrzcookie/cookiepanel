@@ -129,6 +129,14 @@ export function incrementTemplateServerCount(id: string) {
 	}));
 }
 
+/** Drop the deployed-server count when a server leaves a template (switch/delete). */
+export function decrementTemplateServerCount(id: string) {
+	replace(id, (current) => ({
+		...current,
+		serverCount: Math.max(0, current.serverCount - 1),
+	}));
+}
+
 /** Publish (or re-publish), bumping the version. Caller checks deployBlockers. */
 export function publishTemplate(id: string) {
 	replace(id, (current) => ({

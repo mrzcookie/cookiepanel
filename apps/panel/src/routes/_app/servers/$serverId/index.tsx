@@ -1,7 +1,8 @@
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
+import { ServerActivityCard } from "@/components/servers/server-activity";
+import { ServerUsageCard } from "@/components/servers/server-usage";
 import { DetailList, DetailRow } from "@/components/shared/detail-list";
-import { UsageMeter } from "@/components/shared/entity-card";
 import {
 	Card,
 	CardContent,
@@ -10,7 +11,6 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import type { ServerRow } from "@/lib/domain/servers";
-import { formatBytes } from "@/lib/format";
 import { useServer } from "@/lib/stores/servers-store";
 
 // xterm touches the DOM at import, so the console only loads on the client.
@@ -19,13 +19,6 @@ const ServerConsole = lazy(() => import("@/components/servers/server-console"));
 export const Route = createFileRoute("/_app/servers/$serverId/")({
 	component: ServerConsoleTab,
 });
-
-function percent(used: number | null, total: number) {
-	if (used === null || total === 0) {
-		return null;
-	}
-	return Math.round((used / total) * 100);
-}
 
 function formatUptime(seconds: number | null) {
 	if (seconds === null) {
@@ -68,7 +61,7 @@ function ServerConsoleTab() {
 				</Card>
 			) : null}
 
-			<div className="grid items-start gap-6 lg:grid-cols-3">
+			<div className="grid gap-6 lg:grid-cols-3">
 				<Card className="lg:col-span-2">
 					<CardHeader>
 						<CardTitle>Console</CardTitle>
@@ -87,11 +80,13 @@ function ServerConsoleTab() {
 					</CardContent>
 				</Card>
 
-				<div className="space-y-6">
+				<div className="flex min-h-0 flex-col gap-6">
 					<ConnectionCard server={server} />
-					<ResourcesCard server={server} />
+					<ServerActivityCard className="min-h-0 flex-1" server={server} />
 				</div>
 			</div>
+
+			<ServerUsageCard server={server} />
 		</div>
 	);
 }
@@ -114,7 +109,7 @@ function ConnectionCard({ server }: { server: ServerRow }) {
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>Connection</CardTitle>
+				<CardTitle>Details</CardTitle>
 				<CardDescription>Where players reach this server.</CardDescription>
 			</CardHeader>
 			<CardContent>
@@ -124,60 +119,11 @@ function ConnectionCard({ server }: { server: ServerRow }) {
 						label="Connect"
 						value={connect ?? "—"}
 					/>
-					<DetailRow label="Runtime" value={server.imageLabel} />
 					<DetailRow
 						label="Uptime"
 						value={formatUptime(server.uptimeSeconds)}
 					/>
 				</DetailList>
-			</CardContent>
-		</Card>
-	);
-}
-
-function ResourcesCard({ server }: { server: ServerRow }) {
-	const memPercent = percent(server.memUsedBytes, server.memLimitBytes);
-	const diskPercent = percent(server.diskUsedBytes, server.diskLimitBytes);
-
-	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>Resources</CardTitle>
-				<CardDescription>
-					Live usage against this server's limits.
-				</CardDescription>
-			</CardHeader>
-			<CardContent className="flex flex-col gap-4">
-				<UsageMeter
-					detail={
-						server.cpuPercent === null
-							? `— / ${server.cpuLimitCores} cores`
-							: `${server.cpuPercent}% of ${server.cpuLimitCores} cores`
-					}
-					label="CPU"
-					stressed={(server.cpuPercent ?? 0) >= 90}
-					value={server.cpuPercent}
-				/>
-				<UsageMeter
-					detail={`${
-						server.memUsedBytes === null
-							? "—"
-							: formatBytes(server.memUsedBytes)
-					} / ${formatBytes(server.memLimitBytes)}`}
-					label="Memory"
-					stressed={(memPercent ?? 0) >= 90}
-					value={memPercent}
-				/>
-				<UsageMeter
-					detail={`${
-						server.diskUsedBytes === null
-							? "—"
-							: formatBytes(server.diskUsedBytes)
-					} / ${formatBytes(server.diskLimitBytes)}`}
-					label="Disk"
-					stressed={(diskPercent ?? 0) >= 90}
-					value={diskPercent}
-				/>
 			</CardContent>
 		</Card>
 	);
