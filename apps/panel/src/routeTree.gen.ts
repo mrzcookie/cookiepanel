@@ -12,57 +12,57 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HomeRouteImport } from './routes/home'
-import { Route as AdminRouteImport } from './routes/admin'
-import { Route as AppRouteImport } from './routes/_app'
-import { Route as AdminIndexRouteImport } from './routes/admin.index'
-import { Route as AppIndexRouteImport } from './routes/_app.index'
-import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
-import { Route as AdminBillingRouteImport } from './routes/admin.billing'
-import { Route as AdminActivityRouteImport } from './routes/admin.activity'
-import { Route as AppTemplatesRouteImport } from './routes/_app.templates'
-import { Route as AppSettingsRouteImport } from './routes/_app.settings'
-import { Route as AppAccountRouteImport } from './routes/_app.account'
-import { Route as AdminUsersIndexRouteImport } from './routes/admin.users.index'
-import { Route as AdminTemplatesIndexRouteImport } from './routes/admin.templates.index'
-import { Route as AdminSubdomainsIndexRouteImport } from './routes/admin.subdomains.index'
-import { Route as AdminOrgsIndexRouteImport } from './routes/admin.orgs.index'
-import { Route as AdminNodesIndexRouteImport } from './routes/admin.nodes.index'
-import { Route as AppSettingsIndexRouteImport } from './routes/_app.settings.index'
-import { Route as AppServersIndexRouteImport } from './routes/_app.servers.index'
-import { Route as AppNodesIndexRouteImport } from './routes/_app.nodes.index'
-import { Route as AppNetworksIndexRouteImport } from './routes/_app.networks.index'
-import { Route as AppAccountIndexRouteImport } from './routes/_app.account.index'
-import { Route as AdminUsersUserIdRouteImport } from './routes/admin.users.$userId'
-import { Route as AdminTemplatesNewRouteImport } from './routes/admin.templates.new'
-import { Route as AdminTemplatesTemplateIdRouteImport } from './routes/admin.templates.$templateId'
-import { Route as AdminOrgsOrgIdRouteImport } from './routes/admin.orgs.$orgId'
-import { Route as AdminNodesNodeIdRouteImport } from './routes/admin.nodes.$nodeId'
-import { Route as AppTemplatesNewRouteImport } from './routes/_app.templates_.new'
-import { Route as AppTemplatesTemplateIdRouteImport } from './routes/_app.templates_.$templateId'
-import { Route as AppSettingsMembersRouteImport } from './routes/_app.settings.members'
-import { Route as AppSettingsBillingRouteImport } from './routes/_app.settings.billing'
-import { Route as AppSettingsActivityRouteImport } from './routes/_app.settings.activity'
-import { Route as AppServersNewRouteImport } from './routes/_app.servers.new'
-import { Route as AppServersServerIdRouteImport } from './routes/_app.servers.$serverId'
-import { Route as AppNodesNewRouteImport } from './routes/_app.nodes.new'
-import { Route as AppNodesNodeIdRouteImport } from './routes/_app.nodes.$nodeId'
-import { Route as AppNetworksNetworkIdRouteImport } from './routes/_app.networks.$networkId'
-import { Route as AppAccountActivityRouteImport } from './routes/_app.account.activity'
-import { Route as AppServersServerIdIndexRouteImport } from './routes/_app.servers.$serverId.index'
-import { Route as AppNodesNodeIdIndexRouteImport } from './routes/_app.nodes.$nodeId.index'
-import { Route as AdminTemplatesTemplateIdEditRouteImport } from './routes/admin.templates.$templateId_.edit'
-import { Route as AppTemplatesTemplateIdEditRouteImport } from './routes/_app.templates_.$templateId_.edit'
-import { Route as AppServersServerIdStartupRouteImport } from './routes/_app.servers.$serverId.startup'
-import { Route as AppServersServerIdSettingsRouteImport } from './routes/_app.servers.$serverId.settings'
-import { Route as AppServersServerIdSchedulesRouteImport } from './routes/_app.servers.$serverId.schedules'
-import { Route as AppServersServerIdNetworkRouteImport } from './routes/_app.servers.$serverId.network'
-import { Route as AppServersServerIdFilesRouteImport } from './routes/_app.servers.$serverId.files'
-import { Route as AppServersServerIdDatabaseRouteImport } from './routes/_app.servers.$serverId.database'
-import { Route as AppServersServerIdBackupsRouteImport } from './routes/_app.servers.$serverId.backups'
-import { Route as AppServersServerIdActivityRouteImport } from './routes/_app.servers.$serverId.activity'
-import { Route as AppNodesNodeIdStorageRouteImport } from './routes/_app.nodes.$nodeId.storage'
-import { Route as AppNodesNodeIdSettingsRouteImport } from './routes/_app.nodes.$nodeId.settings'
-import { Route as AppNodesNodeIdNetworkingRouteImport } from './routes/_app.nodes.$nodeId.networking'
+import { Route as AdminRouteRouteImport } from './routes/admin/route'
+import { Route as AppRouteRouteImport } from './routes/_app/route'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AdminBillingRouteImport } from './routes/admin/billing'
+import { Route as AdminActivityRouteImport } from './routes/admin/activity'
+import { Route as AppTemplatesRouteImport } from './routes/_app/templates'
+import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
+import { Route as AppAccountRouteRouteImport } from './routes/_app/account/route'
+import { Route as AdminUsersIndexRouteImport } from './routes/admin/users/index'
+import { Route as AdminTemplatesIndexRouteImport } from './routes/admin/templates/index'
+import { Route as AdminSubdomainsIndexRouteImport } from './routes/admin/subdomains/index'
+import { Route as AdminOrgsIndexRouteImport } from './routes/admin/orgs/index'
+import { Route as AdminNodesIndexRouteImport } from './routes/admin/nodes/index'
+import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
+import { Route as AppServersIndexRouteImport } from './routes/_app/servers/index'
+import { Route as AppNodesIndexRouteImport } from './routes/_app/nodes/index'
+import { Route as AppNetworksIndexRouteImport } from './routes/_app/networks/index'
+import { Route as AppAccountIndexRouteImport } from './routes/_app/account/index'
+import { Route as AdminUsersUserIdRouteImport } from './routes/admin/users/$userId'
+import { Route as AdminTemplatesNewRouteImport } from './routes/admin/templates/new'
+import { Route as AdminTemplatesTemplateIdRouteImport } from './routes/admin/templates/$templateId'
+import { Route as AdminOrgsOrgIdRouteImport } from './routes/admin/orgs/$orgId'
+import { Route as AdminNodesNodeIdRouteImport } from './routes/admin/nodes/$nodeId'
+import { Route as AppTemplatesNewRouteImport } from './routes/_app/templates_/new'
+import { Route as AppTemplatesTemplateIdRouteImport } from './routes/_app/templates_/$templateId'
+import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
+import { Route as AppSettingsBillingRouteImport } from './routes/_app/settings/billing'
+import { Route as AppSettingsActivityRouteImport } from './routes/_app/settings/activity'
+import { Route as AppServersNewRouteImport } from './routes/_app/servers/new'
+import { Route as AppNodesNewRouteImport } from './routes/_app/nodes/new'
+import { Route as AppNetworksNetworkIdRouteImport } from './routes/_app/networks/$networkId'
+import { Route as AppAccountActivityRouteImport } from './routes/_app/account/activity'
+import { Route as AppServersServerIdRouteRouteImport } from './routes/_app/servers/$serverId/route'
+import { Route as AppNodesNodeIdRouteRouteImport } from './routes/_app/nodes/$nodeId/route'
+import { Route as AppServersServerIdIndexRouteImport } from './routes/_app/servers/$serverId/index'
+import { Route as AppNodesNodeIdIndexRouteImport } from './routes/_app/nodes/$nodeId/index'
+import { Route as AdminTemplatesTemplateIdEditRouteImport } from './routes/admin/templates/$templateId_/edit'
+import { Route as AppTemplatesTemplateIdEditRouteImport } from './routes/_app/templates_/$templateId_/edit'
+import { Route as AppServersServerIdStartupRouteImport } from './routes/_app/servers/$serverId/startup'
+import { Route as AppServersServerIdSettingsRouteImport } from './routes/_app/servers/$serverId/settings'
+import { Route as AppServersServerIdSchedulesRouteImport } from './routes/_app/servers/$serverId/schedules'
+import { Route as AppServersServerIdNetworkRouteImport } from './routes/_app/servers/$serverId/network'
+import { Route as AppServersServerIdFilesRouteImport } from './routes/_app/servers/$serverId/files'
+import { Route as AppServersServerIdDatabaseRouteImport } from './routes/_app/servers/$serverId/database'
+import { Route as AppServersServerIdBackupsRouteImport } from './routes/_app/servers/$serverId/backups'
+import { Route as AppServersServerIdActivityRouteImport } from './routes/_app/servers/$serverId/activity'
+import { Route as AppNodesNodeIdStorageRouteImport } from './routes/_app/nodes/$nodeId/storage'
+import { Route as AppNodesNodeIdSettingsRouteImport } from './routes/_app/nodes/$nodeId/settings'
+import { Route as AppNodesNodeIdNetworkingRouteImport } from './routes/_app/nodes/$nodeId/networking'
 
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
@@ -79,290 +79,290 @@ const HomeRoute = HomeRouteImport.update({
   path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRoute = AdminRouteImport.update({
+const AdminRouteRoute = AdminRouteRouteImport.update({
   id: '/admin',
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppRoute = AppRouteImport.update({
+const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminBillingRoute = AdminBillingRouteImport.update({
   id: '/billing',
   path: '/billing',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminActivityRoute = AdminActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AppTemplatesRoute = AppTemplatesRouteImport.update({
   id: '/templates',
   path: '/templates',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
+const AppSettingsRouteRoute = AppSettingsRouteRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any)
-const AppAccountRoute = AppAccountRouteImport.update({
+const AppAccountRouteRoute = AppAccountRouteRouteImport.update({
   id: '/account',
   path: '/account',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AdminUsersIndexRoute = AdminUsersIndexRouteImport.update({
   id: '/users/',
   path: '/users/',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminTemplatesIndexRoute = AdminTemplatesIndexRouteImport.update({
   id: '/templates/',
   path: '/templates/',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminSubdomainsIndexRoute = AdminSubdomainsIndexRouteImport.update({
   id: '/subdomains/',
   path: '/subdomains/',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminOrgsIndexRoute = AdminOrgsIndexRouteImport.update({
   id: '/orgs/',
   path: '/orgs/',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminNodesIndexRoute = AdminNodesIndexRouteImport.update({
   id: '/nodes/',
   path: '/nodes/',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppSettingsRoute,
+  getParentRoute: () => AppSettingsRouteRoute,
 } as any)
 const AppServersIndexRoute = AppServersIndexRouteImport.update({
   id: '/servers/',
   path: '/servers/',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppNodesIndexRoute = AppNodesIndexRouteImport.update({
   id: '/nodes/',
   path: '/nodes/',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppNetworksIndexRoute = AppNetworksIndexRouteImport.update({
   id: '/networks/',
   path: '/networks/',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppAccountIndexRoute = AppAccountIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppAccountRoute,
+  getParentRoute: () => AppAccountRouteRoute,
 } as any)
 const AdminUsersUserIdRoute = AdminUsersUserIdRouteImport.update({
   id: '/users/$userId',
   path: '/users/$userId',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminTemplatesNewRoute = AdminTemplatesNewRouteImport.update({
   id: '/templates/new',
   path: '/templates/new',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminTemplatesTemplateIdRoute =
   AdminTemplatesTemplateIdRouteImport.update({
     id: '/templates/$templateId',
     path: '/templates/$templateId',
-    getParentRoute: () => AdminRoute,
+    getParentRoute: () => AdminRouteRoute,
   } as any)
 const AdminOrgsOrgIdRoute = AdminOrgsOrgIdRouteImport.update({
   id: '/orgs/$orgId',
   path: '/orgs/$orgId',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminNodesNodeIdRoute = AdminNodesNodeIdRouteImport.update({
   id: '/nodes/$nodeId',
   path: '/nodes/$nodeId',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AppTemplatesNewRoute = AppTemplatesNewRouteImport.update({
   id: '/templates_/new',
   path: '/templates/new',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppTemplatesTemplateIdRoute = AppTemplatesTemplateIdRouteImport.update({
   id: '/templates_/$templateId',
   path: '/templates/$templateId',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
   id: '/members',
   path: '/members',
-  getParentRoute: () => AppSettingsRoute,
+  getParentRoute: () => AppSettingsRouteRoute,
 } as any)
 const AppSettingsBillingRoute = AppSettingsBillingRouteImport.update({
   id: '/billing',
   path: '/billing',
-  getParentRoute: () => AppSettingsRoute,
+  getParentRoute: () => AppSettingsRouteRoute,
 } as any)
 const AppSettingsActivityRoute = AppSettingsActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
-  getParentRoute: () => AppSettingsRoute,
+  getParentRoute: () => AppSettingsRouteRoute,
 } as any)
 const AppServersNewRoute = AppServersNewRouteImport.update({
   id: '/servers/new',
   path: '/servers/new',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppServersServerIdRoute = AppServersServerIdRouteImport.update({
-  id: '/servers/$serverId',
-  path: '/servers/$serverId',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppNodesNewRoute = AppNodesNewRouteImport.update({
   id: '/nodes/new',
   path: '/nodes/new',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppNodesNodeIdRoute = AppNodesNodeIdRouteImport.update({
-  id: '/nodes/$nodeId',
-  path: '/nodes/$nodeId',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppNetworksNetworkIdRoute = AppNetworksNetworkIdRouteImport.update({
   id: '/networks/$networkId',
   path: '/networks/$networkId',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppAccountActivityRoute = AppAccountActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
-  getParentRoute: () => AppAccountRoute,
+  getParentRoute: () => AppAccountRouteRoute,
+} as any)
+const AppServersServerIdRouteRoute = AppServersServerIdRouteRouteImport.update({
+  id: '/servers/$serverId',
+  path: '/servers/$serverId',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppNodesNodeIdRouteRoute = AppNodesNodeIdRouteRouteImport.update({
+  id: '/nodes/$nodeId',
+  path: '/nodes/$nodeId',
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppServersServerIdIndexRoute = AppServersServerIdIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppServersServerIdRoute,
+  getParentRoute: () => AppServersServerIdRouteRoute,
 } as any)
 const AppNodesNodeIdIndexRoute = AppNodesNodeIdIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppNodesNodeIdRoute,
+  getParentRoute: () => AppNodesNodeIdRouteRoute,
 } as any)
 const AdminTemplatesTemplateIdEditRoute =
   AdminTemplatesTemplateIdEditRouteImport.update({
     id: '/templates/$templateId_/edit',
     path: '/templates/$templateId/edit',
-    getParentRoute: () => AdminRoute,
+    getParentRoute: () => AdminRouteRoute,
   } as any)
 const AppTemplatesTemplateIdEditRoute =
   AppTemplatesTemplateIdEditRouteImport.update({
     id: '/templates_/$templateId_/edit',
     path: '/templates/$templateId/edit',
-    getParentRoute: () => AppRoute,
+    getParentRoute: () => AppRouteRoute,
   } as any)
 const AppServersServerIdStartupRoute =
   AppServersServerIdStartupRouteImport.update({
     id: '/startup',
     path: '/startup',
-    getParentRoute: () => AppServersServerIdRoute,
+    getParentRoute: () => AppServersServerIdRouteRoute,
   } as any)
 const AppServersServerIdSettingsRoute =
   AppServersServerIdSettingsRouteImport.update({
     id: '/settings',
     path: '/settings',
-    getParentRoute: () => AppServersServerIdRoute,
+    getParentRoute: () => AppServersServerIdRouteRoute,
   } as any)
 const AppServersServerIdSchedulesRoute =
   AppServersServerIdSchedulesRouteImport.update({
     id: '/schedules',
     path: '/schedules',
-    getParentRoute: () => AppServersServerIdRoute,
+    getParentRoute: () => AppServersServerIdRouteRoute,
   } as any)
 const AppServersServerIdNetworkRoute =
   AppServersServerIdNetworkRouteImport.update({
     id: '/network',
     path: '/network',
-    getParentRoute: () => AppServersServerIdRoute,
+    getParentRoute: () => AppServersServerIdRouteRoute,
   } as any)
 const AppServersServerIdFilesRoute = AppServersServerIdFilesRouteImport.update({
   id: '/files',
   path: '/files',
-  getParentRoute: () => AppServersServerIdRoute,
+  getParentRoute: () => AppServersServerIdRouteRoute,
 } as any)
 const AppServersServerIdDatabaseRoute =
   AppServersServerIdDatabaseRouteImport.update({
     id: '/database',
     path: '/database',
-    getParentRoute: () => AppServersServerIdRoute,
+    getParentRoute: () => AppServersServerIdRouteRoute,
   } as any)
 const AppServersServerIdBackupsRoute =
   AppServersServerIdBackupsRouteImport.update({
     id: '/backups',
     path: '/backups',
-    getParentRoute: () => AppServersServerIdRoute,
+    getParentRoute: () => AppServersServerIdRouteRoute,
   } as any)
 const AppServersServerIdActivityRoute =
   AppServersServerIdActivityRouteImport.update({
     id: '/activity',
     path: '/activity',
-    getParentRoute: () => AppServersServerIdRoute,
+    getParentRoute: () => AppServersServerIdRouteRoute,
   } as any)
 const AppNodesNodeIdStorageRoute = AppNodesNodeIdStorageRouteImport.update({
   id: '/storage',
   path: '/storage',
-  getParentRoute: () => AppNodesNodeIdRoute,
+  getParentRoute: () => AppNodesNodeIdRouteRoute,
 } as any)
 const AppNodesNodeIdSettingsRoute = AppNodesNodeIdSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => AppNodesNodeIdRoute,
+  getParentRoute: () => AppNodesNodeIdRouteRoute,
 } as any)
 const AppNodesNodeIdNetworkingRoute =
   AppNodesNodeIdNetworkingRouteImport.update({
     id: '/networking',
     path: '/networking',
-    getParentRoute: () => AppNodesNodeIdRoute,
+    getParentRoute: () => AppNodesNodeIdRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
-  '/admin': typeof AdminRouteWithChildren
+  '/admin': typeof AdminRouteRouteWithChildren
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
-  '/account': typeof AppAccountRouteWithChildren
-  '/settings': typeof AppSettingsRouteWithChildren
+  '/account': typeof AppAccountRouteRouteWithChildren
+  '/settings': typeof AppSettingsRouteRouteWithChildren
   '/templates': typeof AppTemplatesRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/billing': typeof AdminBillingRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/': typeof AdminIndexRoute
+  '/nodes/$nodeId': typeof AppNodesNodeIdRouteRouteWithChildren
+  '/servers/$serverId': typeof AppServersServerIdRouteRouteWithChildren
   '/account/activity': typeof AppAccountActivityRoute
   '/networks/$networkId': typeof AppNetworksNetworkIdRoute
-  '/nodes/$nodeId': typeof AppNodesNodeIdRouteWithChildren
   '/nodes/new': typeof AppNodesNewRoute
-  '/servers/$serverId': typeof AppServersServerIdRouteWithChildren
   '/servers/new': typeof AppServersNewRoute
   '/settings/activity': typeof AppSettingsActivityRoute
   '/settings/billing': typeof AppSettingsBillingRoute
@@ -452,24 +452,24 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/_app': typeof AppRouteWithChildren
-  '/admin': typeof AdminRouteWithChildren
+  '/_app': typeof AppRouteRouteWithChildren
+  '/admin': typeof AdminRouteRouteWithChildren
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
-  '/_app/account': typeof AppAccountRouteWithChildren
-  '/_app/settings': typeof AppSettingsRouteWithChildren
+  '/_app/account': typeof AppAccountRouteRouteWithChildren
+  '/_app/settings': typeof AppSettingsRouteRouteWithChildren
   '/_app/templates': typeof AppTemplatesRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/billing': typeof AdminBillingRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/_app/': typeof AppIndexRoute
   '/admin/': typeof AdminIndexRoute
+  '/_app/nodes/$nodeId': typeof AppNodesNodeIdRouteRouteWithChildren
+  '/_app/servers/$serverId': typeof AppServersServerIdRouteRouteWithChildren
   '/_app/account/activity': typeof AppAccountActivityRoute
   '/_app/networks/$networkId': typeof AppNetworksNetworkIdRoute
-  '/_app/nodes/$nodeId': typeof AppNodesNodeIdRouteWithChildren
   '/_app/nodes/new': typeof AppNodesNewRoute
-  '/_app/servers/$serverId': typeof AppServersServerIdRouteWithChildren
   '/_app/servers/new': typeof AppServersNewRoute
   '/_app/settings/activity': typeof AppSettingsActivityRoute
   '/_app/settings/billing': typeof AppSettingsBillingRoute
@@ -522,11 +522,11 @@ export interface FileRouteTypes {
     | '/admin/billing'
     | '/admin/settings'
     | '/admin/'
+    | '/nodes/$nodeId'
+    | '/servers/$serverId'
     | '/account/activity'
     | '/networks/$networkId'
-    | '/nodes/$nodeId'
     | '/nodes/new'
-    | '/servers/$serverId'
     | '/servers/new'
     | '/settings/activity'
     | '/settings/billing'
@@ -628,11 +628,11 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/_app/'
     | '/admin/'
+    | '/_app/nodes/$nodeId'
+    | '/_app/servers/$serverId'
     | '/_app/account/activity'
     | '/_app/networks/$networkId'
-    | '/_app/nodes/$nodeId'
     | '/_app/nodes/new'
-    | '/_app/servers/$serverId'
     | '/_app/servers/new'
     | '/_app/settings/activity'
     | '/_app/settings/billing'
@@ -672,8 +672,8 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  AppRoute: typeof AppRouteWithChildren
-  AdminRoute: typeof AdminRouteWithChildren
+  AppRouteRoute: typeof AppRouteRouteWithChildren
+  AdminRouteRoute: typeof AdminRouteRouteWithChildren
   HomeRoute: typeof HomeRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
@@ -706,14 +706,14 @@ declare module '@tanstack/react-router' {
       id: '/admin'
       path: '/admin'
       fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
+      preLoaderRoute: typeof AdminRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
       id: '/_app'
       path: ''
       fullPath: '/'
-      preLoaderRoute: typeof AppRouteImport
+      preLoaderRoute: typeof AppRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -721,398 +721,396 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/_app/': {
       id: '/_app/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppRouteRoute
     }
     '/admin/settings': {
       id: '/admin/settings'
       path: '/settings'
       fullPath: '/admin/settings'
       preLoaderRoute: typeof AdminSettingsRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/admin/billing': {
       id: '/admin/billing'
       path: '/billing'
       fullPath: '/admin/billing'
       preLoaderRoute: typeof AdminBillingRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/admin/activity': {
       id: '/admin/activity'
       path: '/activity'
       fullPath: '/admin/activity'
       preLoaderRoute: typeof AdminActivityRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/_app/templates': {
       id: '/_app/templates'
       path: '/templates'
       fullPath: '/templates'
       preLoaderRoute: typeof AppTemplatesRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/settings': {
       id: '/_app/settings'
       path: '/settings'
       fullPath: '/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof AppSettingsRouteRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/account': {
       id: '/_app/account'
       path: '/account'
       fullPath: '/account'
-      preLoaderRoute: typeof AppAccountRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof AppAccountRouteRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/admin/users/': {
       id: '/admin/users/'
       path: '/users'
       fullPath: '/admin/users/'
       preLoaderRoute: typeof AdminUsersIndexRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/admin/templates/': {
       id: '/admin/templates/'
       path: '/templates'
       fullPath: '/admin/templates/'
       preLoaderRoute: typeof AdminTemplatesIndexRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/admin/subdomains/': {
       id: '/admin/subdomains/'
       path: '/subdomains'
       fullPath: '/admin/subdomains/'
       preLoaderRoute: typeof AdminSubdomainsIndexRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/admin/orgs/': {
       id: '/admin/orgs/'
       path: '/orgs'
       fullPath: '/admin/orgs/'
       preLoaderRoute: typeof AdminOrgsIndexRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/admin/nodes/': {
       id: '/admin/nodes/'
       path: '/nodes'
       fullPath: '/admin/nodes/'
       preLoaderRoute: typeof AdminNodesIndexRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/_app/settings/': {
       id: '/_app/settings/'
       path: '/'
       fullPath: '/settings/'
       preLoaderRoute: typeof AppSettingsIndexRouteImport
-      parentRoute: typeof AppSettingsRoute
+      parentRoute: typeof AppSettingsRouteRoute
     }
     '/_app/servers/': {
       id: '/_app/servers/'
       path: '/servers'
       fullPath: '/servers/'
       preLoaderRoute: typeof AppServersIndexRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/nodes/': {
       id: '/_app/nodes/'
       path: '/nodes'
       fullPath: '/nodes/'
       preLoaderRoute: typeof AppNodesIndexRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/networks/': {
       id: '/_app/networks/'
       path: '/networks'
       fullPath: '/networks/'
       preLoaderRoute: typeof AppNetworksIndexRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/account/': {
       id: '/_app/account/'
       path: '/'
       fullPath: '/account/'
       preLoaderRoute: typeof AppAccountIndexRouteImport
-      parentRoute: typeof AppAccountRoute
+      parentRoute: typeof AppAccountRouteRoute
     }
     '/admin/users/$userId': {
       id: '/admin/users/$userId'
       path: '/users/$userId'
       fullPath: '/admin/users/$userId'
       preLoaderRoute: typeof AdminUsersUserIdRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/admin/templates/new': {
       id: '/admin/templates/new'
       path: '/templates/new'
       fullPath: '/admin/templates/new'
       preLoaderRoute: typeof AdminTemplatesNewRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/admin/templates/$templateId': {
       id: '/admin/templates/$templateId'
       path: '/templates/$templateId'
       fullPath: '/admin/templates/$templateId'
       preLoaderRoute: typeof AdminTemplatesTemplateIdRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/admin/orgs/$orgId': {
       id: '/admin/orgs/$orgId'
       path: '/orgs/$orgId'
       fullPath: '/admin/orgs/$orgId'
       preLoaderRoute: typeof AdminOrgsOrgIdRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/admin/nodes/$nodeId': {
       id: '/admin/nodes/$nodeId'
       path: '/nodes/$nodeId'
       fullPath: '/admin/nodes/$nodeId'
       preLoaderRoute: typeof AdminNodesNodeIdRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/_app/templates_/new': {
       id: '/_app/templates_/new'
       path: '/templates/new'
       fullPath: '/templates/new'
       preLoaderRoute: typeof AppTemplatesNewRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/templates_/$templateId': {
       id: '/_app/templates_/$templateId'
       path: '/templates/$templateId'
       fullPath: '/templates/$templateId'
       preLoaderRoute: typeof AppTemplatesTemplateIdRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/settings/members': {
       id: '/_app/settings/members'
       path: '/members'
       fullPath: '/settings/members'
       preLoaderRoute: typeof AppSettingsMembersRouteImport
-      parentRoute: typeof AppSettingsRoute
+      parentRoute: typeof AppSettingsRouteRoute
     }
     '/_app/settings/billing': {
       id: '/_app/settings/billing'
       path: '/billing'
       fullPath: '/settings/billing'
       preLoaderRoute: typeof AppSettingsBillingRouteImport
-      parentRoute: typeof AppSettingsRoute
+      parentRoute: typeof AppSettingsRouteRoute
     }
     '/_app/settings/activity': {
       id: '/_app/settings/activity'
       path: '/activity'
       fullPath: '/settings/activity'
       preLoaderRoute: typeof AppSettingsActivityRouteImport
-      parentRoute: typeof AppSettingsRoute
+      parentRoute: typeof AppSettingsRouteRoute
     }
     '/_app/servers/new': {
       id: '/_app/servers/new'
       path: '/servers/new'
       fullPath: '/servers/new'
       preLoaderRoute: typeof AppServersNewRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/servers/$serverId': {
-      id: '/_app/servers/$serverId'
-      path: '/servers/$serverId'
-      fullPath: '/servers/$serverId'
-      preLoaderRoute: typeof AppServersServerIdRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/nodes/new': {
       id: '/_app/nodes/new'
       path: '/nodes/new'
       fullPath: '/nodes/new'
       preLoaderRoute: typeof AppNodesNewRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/nodes/$nodeId': {
-      id: '/_app/nodes/$nodeId'
-      path: '/nodes/$nodeId'
-      fullPath: '/nodes/$nodeId'
-      preLoaderRoute: typeof AppNodesNodeIdRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/networks/$networkId': {
       id: '/_app/networks/$networkId'
       path: '/networks/$networkId'
       fullPath: '/networks/$networkId'
       preLoaderRoute: typeof AppNetworksNetworkIdRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/account/activity': {
       id: '/_app/account/activity'
       path: '/activity'
       fullPath: '/account/activity'
       preLoaderRoute: typeof AppAccountActivityRouteImport
-      parentRoute: typeof AppAccountRoute
+      parentRoute: typeof AppAccountRouteRoute
+    }
+    '/_app/servers/$serverId': {
+      id: '/_app/servers/$serverId'
+      path: '/servers/$serverId'
+      fullPath: '/servers/$serverId'
+      preLoaderRoute: typeof AppServersServerIdRouteRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/nodes/$nodeId': {
+      id: '/_app/nodes/$nodeId'
+      path: '/nodes/$nodeId'
+      fullPath: '/nodes/$nodeId'
+      preLoaderRoute: typeof AppNodesNodeIdRouteRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/servers/$serverId/': {
       id: '/_app/servers/$serverId/'
       path: '/'
       fullPath: '/servers/$serverId/'
       preLoaderRoute: typeof AppServersServerIdIndexRouteImport
-      parentRoute: typeof AppServersServerIdRoute
+      parentRoute: typeof AppServersServerIdRouteRoute
     }
     '/_app/nodes/$nodeId/': {
       id: '/_app/nodes/$nodeId/'
       path: '/'
       fullPath: '/nodes/$nodeId/'
       preLoaderRoute: typeof AppNodesNodeIdIndexRouteImport
-      parentRoute: typeof AppNodesNodeIdRoute
+      parentRoute: typeof AppNodesNodeIdRouteRoute
     }
     '/admin/templates/$templateId_/edit': {
       id: '/admin/templates/$templateId_/edit'
       path: '/templates/$templateId/edit'
       fullPath: '/admin/templates/$templateId/edit'
       preLoaderRoute: typeof AdminTemplatesTemplateIdEditRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/_app/templates_/$templateId_/edit': {
       id: '/_app/templates_/$templateId_/edit'
       path: '/templates/$templateId/edit'
       fullPath: '/templates/$templateId/edit'
       preLoaderRoute: typeof AppTemplatesTemplateIdEditRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/servers/$serverId/startup': {
       id: '/_app/servers/$serverId/startup'
       path: '/startup'
       fullPath: '/servers/$serverId/startup'
       preLoaderRoute: typeof AppServersServerIdStartupRouteImport
-      parentRoute: typeof AppServersServerIdRoute
+      parentRoute: typeof AppServersServerIdRouteRoute
     }
     '/_app/servers/$serverId/settings': {
       id: '/_app/servers/$serverId/settings'
       path: '/settings'
       fullPath: '/servers/$serverId/settings'
       preLoaderRoute: typeof AppServersServerIdSettingsRouteImport
-      parentRoute: typeof AppServersServerIdRoute
+      parentRoute: typeof AppServersServerIdRouteRoute
     }
     '/_app/servers/$serverId/schedules': {
       id: '/_app/servers/$serverId/schedules'
       path: '/schedules'
       fullPath: '/servers/$serverId/schedules'
       preLoaderRoute: typeof AppServersServerIdSchedulesRouteImport
-      parentRoute: typeof AppServersServerIdRoute
+      parentRoute: typeof AppServersServerIdRouteRoute
     }
     '/_app/servers/$serverId/network': {
       id: '/_app/servers/$serverId/network'
       path: '/network'
       fullPath: '/servers/$serverId/network'
       preLoaderRoute: typeof AppServersServerIdNetworkRouteImport
-      parentRoute: typeof AppServersServerIdRoute
+      parentRoute: typeof AppServersServerIdRouteRoute
     }
     '/_app/servers/$serverId/files': {
       id: '/_app/servers/$serverId/files'
       path: '/files'
       fullPath: '/servers/$serverId/files'
       preLoaderRoute: typeof AppServersServerIdFilesRouteImport
-      parentRoute: typeof AppServersServerIdRoute
+      parentRoute: typeof AppServersServerIdRouteRoute
     }
     '/_app/servers/$serverId/database': {
       id: '/_app/servers/$serverId/database'
       path: '/database'
       fullPath: '/servers/$serverId/database'
       preLoaderRoute: typeof AppServersServerIdDatabaseRouteImport
-      parentRoute: typeof AppServersServerIdRoute
+      parentRoute: typeof AppServersServerIdRouteRoute
     }
     '/_app/servers/$serverId/backups': {
       id: '/_app/servers/$serverId/backups'
       path: '/backups'
       fullPath: '/servers/$serverId/backups'
       preLoaderRoute: typeof AppServersServerIdBackupsRouteImport
-      parentRoute: typeof AppServersServerIdRoute
+      parentRoute: typeof AppServersServerIdRouteRoute
     }
     '/_app/servers/$serverId/activity': {
       id: '/_app/servers/$serverId/activity'
       path: '/activity'
       fullPath: '/servers/$serverId/activity'
       preLoaderRoute: typeof AppServersServerIdActivityRouteImport
-      parentRoute: typeof AppServersServerIdRoute
+      parentRoute: typeof AppServersServerIdRouteRoute
     }
     '/_app/nodes/$nodeId/storage': {
       id: '/_app/nodes/$nodeId/storage'
       path: '/storage'
       fullPath: '/nodes/$nodeId/storage'
       preLoaderRoute: typeof AppNodesNodeIdStorageRouteImport
-      parentRoute: typeof AppNodesNodeIdRoute
+      parentRoute: typeof AppNodesNodeIdRouteRoute
     }
     '/_app/nodes/$nodeId/settings': {
       id: '/_app/nodes/$nodeId/settings'
       path: '/settings'
       fullPath: '/nodes/$nodeId/settings'
       preLoaderRoute: typeof AppNodesNodeIdSettingsRouteImport
-      parentRoute: typeof AppNodesNodeIdRoute
+      parentRoute: typeof AppNodesNodeIdRouteRoute
     }
     '/_app/nodes/$nodeId/networking': {
       id: '/_app/nodes/$nodeId/networking'
       path: '/networking'
       fullPath: '/nodes/$nodeId/networking'
       preLoaderRoute: typeof AppNodesNodeIdNetworkingRouteImport
-      parentRoute: typeof AppNodesNodeIdRoute
+      parentRoute: typeof AppNodesNodeIdRouteRoute
     }
   }
 }
 
-interface AppAccountRouteChildren {
+interface AppAccountRouteRouteChildren {
   AppAccountActivityRoute: typeof AppAccountActivityRoute
   AppAccountIndexRoute: typeof AppAccountIndexRoute
 }
 
-const AppAccountRouteChildren: AppAccountRouteChildren = {
+const AppAccountRouteRouteChildren: AppAccountRouteRouteChildren = {
   AppAccountActivityRoute: AppAccountActivityRoute,
   AppAccountIndexRoute: AppAccountIndexRoute,
 }
 
-const AppAccountRouteWithChildren = AppAccountRoute._addFileChildren(
-  AppAccountRouteChildren,
+const AppAccountRouteRouteWithChildren = AppAccountRouteRoute._addFileChildren(
+  AppAccountRouteRouteChildren,
 )
 
-interface AppSettingsRouteChildren {
+interface AppSettingsRouteRouteChildren {
   AppSettingsActivityRoute: typeof AppSettingsActivityRoute
   AppSettingsBillingRoute: typeof AppSettingsBillingRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
 
-const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsActivityRoute: AppSettingsActivityRoute,
   AppSettingsBillingRoute: AppSettingsBillingRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
 
-const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
-  AppSettingsRouteChildren,
-)
+const AppSettingsRouteRouteWithChildren =
+  AppSettingsRouteRoute._addFileChildren(AppSettingsRouteRouteChildren)
 
-interface AppNodesNodeIdRouteChildren {
+interface AppNodesNodeIdRouteRouteChildren {
   AppNodesNodeIdNetworkingRoute: typeof AppNodesNodeIdNetworkingRoute
   AppNodesNodeIdSettingsRoute: typeof AppNodesNodeIdSettingsRoute
   AppNodesNodeIdStorageRoute: typeof AppNodesNodeIdStorageRoute
   AppNodesNodeIdIndexRoute: typeof AppNodesNodeIdIndexRoute
 }
 
-const AppNodesNodeIdRouteChildren: AppNodesNodeIdRouteChildren = {
+const AppNodesNodeIdRouteRouteChildren: AppNodesNodeIdRouteRouteChildren = {
   AppNodesNodeIdNetworkingRoute: AppNodesNodeIdNetworkingRoute,
   AppNodesNodeIdSettingsRoute: AppNodesNodeIdSettingsRoute,
   AppNodesNodeIdStorageRoute: AppNodesNodeIdStorageRoute,
   AppNodesNodeIdIndexRoute: AppNodesNodeIdIndexRoute,
 }
 
-const AppNodesNodeIdRouteWithChildren = AppNodesNodeIdRoute._addFileChildren(
-  AppNodesNodeIdRouteChildren,
-)
+const AppNodesNodeIdRouteRouteWithChildren =
+  AppNodesNodeIdRouteRoute._addFileChildren(AppNodesNodeIdRouteRouteChildren)
 
-interface AppServersServerIdRouteChildren {
+interface AppServersServerIdRouteRouteChildren {
   AppServersServerIdActivityRoute: typeof AppServersServerIdActivityRoute
   AppServersServerIdBackupsRoute: typeof AppServersServerIdBackupsRoute
   AppServersServerIdDatabaseRoute: typeof AppServersServerIdDatabaseRoute
@@ -1124,30 +1122,33 @@ interface AppServersServerIdRouteChildren {
   AppServersServerIdIndexRoute: typeof AppServersServerIdIndexRoute
 }
 
-const AppServersServerIdRouteChildren: AppServersServerIdRouteChildren = {
-  AppServersServerIdActivityRoute: AppServersServerIdActivityRoute,
-  AppServersServerIdBackupsRoute: AppServersServerIdBackupsRoute,
-  AppServersServerIdDatabaseRoute: AppServersServerIdDatabaseRoute,
-  AppServersServerIdFilesRoute: AppServersServerIdFilesRoute,
-  AppServersServerIdNetworkRoute: AppServersServerIdNetworkRoute,
-  AppServersServerIdSchedulesRoute: AppServersServerIdSchedulesRoute,
-  AppServersServerIdSettingsRoute: AppServersServerIdSettingsRoute,
-  AppServersServerIdStartupRoute: AppServersServerIdStartupRoute,
-  AppServersServerIdIndexRoute: AppServersServerIdIndexRoute,
-}
+const AppServersServerIdRouteRouteChildren: AppServersServerIdRouteRouteChildren =
+  {
+    AppServersServerIdActivityRoute: AppServersServerIdActivityRoute,
+    AppServersServerIdBackupsRoute: AppServersServerIdBackupsRoute,
+    AppServersServerIdDatabaseRoute: AppServersServerIdDatabaseRoute,
+    AppServersServerIdFilesRoute: AppServersServerIdFilesRoute,
+    AppServersServerIdNetworkRoute: AppServersServerIdNetworkRoute,
+    AppServersServerIdSchedulesRoute: AppServersServerIdSchedulesRoute,
+    AppServersServerIdSettingsRoute: AppServersServerIdSettingsRoute,
+    AppServersServerIdStartupRoute: AppServersServerIdStartupRoute,
+    AppServersServerIdIndexRoute: AppServersServerIdIndexRoute,
+  }
 
-const AppServersServerIdRouteWithChildren =
-  AppServersServerIdRoute._addFileChildren(AppServersServerIdRouteChildren)
+const AppServersServerIdRouteRouteWithChildren =
+  AppServersServerIdRouteRoute._addFileChildren(
+    AppServersServerIdRouteRouteChildren,
+  )
 
-interface AppRouteChildren {
-  AppAccountRoute: typeof AppAccountRouteWithChildren
-  AppSettingsRoute: typeof AppSettingsRouteWithChildren
+interface AppRouteRouteChildren {
+  AppAccountRouteRoute: typeof AppAccountRouteRouteWithChildren
+  AppSettingsRouteRoute: typeof AppSettingsRouteRouteWithChildren
   AppTemplatesRoute: typeof AppTemplatesRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppNodesNodeIdRouteRoute: typeof AppNodesNodeIdRouteRouteWithChildren
+  AppServersServerIdRouteRoute: typeof AppServersServerIdRouteRouteWithChildren
   AppNetworksNetworkIdRoute: typeof AppNetworksNetworkIdRoute
-  AppNodesNodeIdRoute: typeof AppNodesNodeIdRouteWithChildren
   AppNodesNewRoute: typeof AppNodesNewRoute
-  AppServersServerIdRoute: typeof AppServersServerIdRouteWithChildren
   AppServersNewRoute: typeof AppServersNewRoute
   AppTemplatesTemplateIdRoute: typeof AppTemplatesTemplateIdRoute
   AppTemplatesNewRoute: typeof AppTemplatesNewRoute
@@ -1157,15 +1158,15 @@ interface AppRouteChildren {
   AppTemplatesTemplateIdEditRoute: typeof AppTemplatesTemplateIdEditRoute
 }
 
-const AppRouteChildren: AppRouteChildren = {
-  AppAccountRoute: AppAccountRouteWithChildren,
-  AppSettingsRoute: AppSettingsRouteWithChildren,
+const AppRouteRouteChildren: AppRouteRouteChildren = {
+  AppAccountRouteRoute: AppAccountRouteRouteWithChildren,
+  AppSettingsRouteRoute: AppSettingsRouteRouteWithChildren,
   AppTemplatesRoute: AppTemplatesRoute,
   AppIndexRoute: AppIndexRoute,
+  AppNodesNodeIdRouteRoute: AppNodesNodeIdRouteRouteWithChildren,
+  AppServersServerIdRouteRoute: AppServersServerIdRouteRouteWithChildren,
   AppNetworksNetworkIdRoute: AppNetworksNetworkIdRoute,
-  AppNodesNodeIdRoute: AppNodesNodeIdRouteWithChildren,
   AppNodesNewRoute: AppNodesNewRoute,
-  AppServersServerIdRoute: AppServersServerIdRouteWithChildren,
   AppServersNewRoute: AppServersNewRoute,
   AppTemplatesTemplateIdRoute: AppTemplatesTemplateIdRoute,
   AppTemplatesNewRoute: AppTemplatesNewRoute,
@@ -1175,9 +1176,11 @@ const AppRouteChildren: AppRouteChildren = {
   AppTemplatesTemplateIdEditRoute: AppTemplatesTemplateIdEditRoute,
 }
 
-const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
+  AppRouteRouteChildren,
+)
 
-interface AdminRouteChildren {
+interface AdminRouteRouteChildren {
   AdminActivityRoute: typeof AdminActivityRoute
   AdminBillingRoute: typeof AdminBillingRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
@@ -1195,7 +1198,7 @@ interface AdminRouteChildren {
   AdminTemplatesTemplateIdEditRoute: typeof AdminTemplatesTemplateIdEditRoute
 }
 
-const AdminRouteChildren: AdminRouteChildren = {
+const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminActivityRoute: AdminActivityRoute,
   AdminBillingRoute: AdminBillingRoute,
   AdminSettingsRoute: AdminSettingsRoute,
@@ -1213,11 +1216,13 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminTemplatesTemplateIdEditRoute: AdminTemplatesTemplateIdEditRoute,
 }
 
-const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
+  AdminRouteRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
-  AppRoute: AppRouteWithChildren,
-  AdminRoute: AdminRouteWithChildren,
+  AppRouteRoute: AppRouteRouteWithChildren,
+  AdminRouteRoute: AdminRouteRouteWithChildren,
   HomeRoute: HomeRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,

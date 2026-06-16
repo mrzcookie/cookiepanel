@@ -11,6 +11,10 @@ documents the organization **within** it.
 src/
   routes/      file-based routing (TanStack Start). Paths ARE the URLs — never
                move/rename. routeTree.gen.ts is generated; don't hand-edit it.
+               Hybrid layout: the two big surfaces (_app/, admin/) use
+               directory-based routing (a route.tsx layout per folder, nested
+               subfolders); the top-level auth/utility pages (__root, home,
+               login, onboarding) stay flat. See "routes/" below.
   components/  UI (presentational). See below.
   lib/         client-safe domain types, pure helpers, and the stub stores. See below.
   server/      server-only code (DB, auth, daemon client). Lands in a later phase;
@@ -68,6 +72,39 @@ When `src/server` lands, it may import `@/lib/domain/*` and the root pure helper
 but **must never** import `@/lib/stores/*` or `@/lib/stubs/*` (those are client-only
 scaffolding that would drag stub data into the server bundle). Keeping domain types
 out of `stubs/` is what makes this boundary enforceable.
+
+## routes/
+
+File-based routing (TanStack Start); `routeTree.gen.ts` is generated on dev/build
+from the file tree — don't hand-edit it. The tree is **hybrid**:
+
+```
+__root.tsx                       the root route.
+home.tsx login.tsx onboarding.tsx
+                                 top-level auth/utility pages — kept FLAT (a
+                                 handful of leaves; no shell, outside _app).
+_app/                            the signed-in app surface (pathless layout —
+  route.tsx                        no URL segment). route.tsx is the folder's
+  index.tsx                        layout/guard; index.tsx is its index route.
+  nodes/  servers/  settings/      one subfolder per section; $param/ for a
+  account/ networks/ templates_/   dynamic segment with its own children.
+admin/                           the cross-org admin surface, same shape.
+  route.tsx  index.tsx  nodes/ orgs/ users/ templates/ ...
+```
+
+Rules that matter:
+
+- **Directory style for the two big surfaces** (`_app/`, `admin/`); flat for the
+  top-level pages. Within a folder, the **layout** route is `route.tsx`, the
+  index is `index.tsx`, and every other leaf is a plain `<name>.tsx`.
+- **The folder path IS the URL** — `_app/servers/$serverId/files.tsx` →
+  `/servers/$serverId/files`. The `createFileRoute("/...")` id matches the path,
+  so moving a file between flat/directory style is purely cosmetic (same URL,
+  same id) — but never change the *path*, it's the public URL.
+- **Trailing-underscore escapes nesting** while keeping the URL: a `$id_/` folder
+  or `name_` segment opts a detail/edit route out of its list's layout (e.g.
+  `_app/templates_/$templateId_/edit.tsx`). See `.claude/rules/panel.md` for the
+  URL conventions (pathless `_app`, tabbed sub-pages, `$param`).
 
 ## Conventions
 
