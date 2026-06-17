@@ -6,6 +6,7 @@ import { admin } from "better-auth/plugins/admin";
 import { magicLink } from "better-auth/plugins/magic-link";
 import { organization } from "better-auth/plugins/organization";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
+import { recordActivity } from "@/server/activity/record";
 import { db } from "@/server/db";
 import * as schema from "@/server/db/schema";
 import { sendEmail } from "@/server/email";
@@ -91,6 +92,27 @@ export const auth = betterAuth({
 		encryptOAuthTokens: true,
 	},
 
+	// Audit trail — best-effort writes to the activity log (src/server/activity).
+	databaseHooks: {
+		session: {
+			create: {
+				after: async (session) => {
+					const activeOrg =
+						typeof session.activeOrganizationId === "string"
+							? session.activeOrganizationId
+							: null;
+					await recordActivity({
+						category: "auth",
+						action: "login",
+						userId: session.userId,
+						organizationId: activeOrg,
+						ip: session.ipAddress ?? null,
+					});
+				},
+			},
+		},
+	},
+
 	user: {
 		additionalFields: {
 			// Theme preference, persisted to the user row so it follows the account.
@@ -120,6 +142,48 @@ export const auth = betterAuth({
 			invitationExpiresIn: 60 * 60 * 24 * 7, // 7 days
 			invitationLimit: 100,
 			cancelPendingInvitationsOnReInvite: true,
+			organizationHooks: {
+				afterCreateOrganization: async ({ organization: org, user }) => {
+					await recordActivity({
+						category: "organization",
+						action: "organization.created",
+						organizationId: org.id,
+						userId: user.id,
+						actorName: user.name,
+						targetType: "organization",
+						targetId: org.id,
+						targetLabel: org.name,
+					});
+				},
+				afterAddMember: async ({ member: added, user, organization: org }) => {
+					await recordActivity({
+						category: "member",
+						action: "member.joined",
+						organizationId: org.id,
+						userId: user.id,
+						actorName: user.name,
+						targetType: "member",
+						targetId: added.id,
+						targetLabel: user.name,
+					});
+				},
+				afterCreateInvitation: async ({
+					invitation: inv,
+					inviter,
+					organization: org,
+				}) => {
+					await recordActivity({
+						category: "member",
+						action: "member.invited",
+						organizationId: org.id,
+						userId: inviter.id,
+						actorName: inviter.name,
+						targetType: "invitation",
+						targetId: inv.id,
+						targetLabel: inv.email,
+					});
+				},
+			},
 			sendInvitationEmail: async ({
 				email,
 				organization: org,

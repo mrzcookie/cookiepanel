@@ -11,4 +11,6 @@
  * ssh keys, activity log) land here as features wire up; each carries
  * `organizationId` for the repository-layer org-scoping backstop (`security.md`).
  */
+export * from "./activity";
 export * from "./auth";
+export * from "./nodes";
