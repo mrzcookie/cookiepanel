@@ -23,6 +23,18 @@ export function formatBytes(bytes: number): string {
 	return `${value.toFixed(decimals)} ${BYTE_UNITS[exponent]}`;
 }
 
+/**
+ * A name's first + last initial, for an avatar fallback when there's no image:
+ * `initials("Jane Cooper")` → "JC", `initials("Jane")` → "J". Empty for a blank
+ * or missing name — the caller then shows an icon instead.
+ */
+export function initials(name: string | undefined | null): string {
+	const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
+	const first = parts.at(0)?.charAt(0) ?? "";
+	const last = parts.length > 1 ? (parts.at(-1)?.charAt(0) ?? "") : "";
+	return (first + last).toUpperCase();
+}
+
 /** Pluralize a count with its noun: `pluralize(1, "server")` → "1 server". */
 export function pluralize(count: number, noun: string): string {
 	return `${count} ${count === 1 ? noun : `${noun}s`}`;

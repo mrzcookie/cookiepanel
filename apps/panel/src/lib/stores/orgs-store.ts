@@ -1,10 +1,9 @@
-import { slugify } from "@/lib/slug";
 import { createStore } from "@/lib/store";
 
-// Mutable client-side stub store for organizations (the tenant). Real orgs come
-// from the auth/identity layer; here a small seeded set + an active selection
-// stands in so the org switcher works. Seed ids are deterministic (SSR-safe);
-// orgs created at runtime use crypto ids. Replaced when auth lands.
+// Mutable client-side stub store for organizations (the tenant). The org switcher
+// now runs on real Better Auth orgs; this seeded set remains only as the
+// active-org source for the still-stubbed billing + admin surfaces, and is
+// removed when those features are wired. Seed ids are deterministic (SSR-safe).
 
 export type Org = {
 	id: string;
@@ -54,18 +53,4 @@ export function useActiveOrg(): Org {
 		current.orgs[0] ??
 		DEFAULT_ORG
 	);
-}
-
-export function setActiveOrg(id: string) {
-	store.set({ ...store.get(), activeId: id });
-}
-
-export function createOrg(name: string): Org {
-	const org: Org = {
-		id: crypto.randomUUID(),
-		name: name.trim(),
-		slug: slugify(name) || "new-org",
-	};
-	store.set({ orgs: [...store.get().orgs, org], activeId: org.id });
-	return org;
 }

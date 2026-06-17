@@ -16,8 +16,9 @@ const Devtools = import.meta.env.DEV
 			Promise.all([
 				import("@tanstack/react-devtools"),
 				import("@tanstack/react-router-devtools"),
+				import("@tanstack/react-query-devtools"),
 				import("@tanstack/react-form-devtools"),
-			]).then(([{ TanStackDevtools }, router, form]) => ({
+			]).then(([{ TanStackDevtools }, router, query, form]) => ({
 				default: () => (
 					<TanStackDevtools
 						config={{ position: "bottom-right" }}
@@ -26,6 +27,13 @@ const Devtools = import.meta.env.DEV
 								name: "TanStack Router",
 								render: <router.TanStackRouterDevtoolsPanel />,
 							},
+							{
+								name: "TanStack Query",
+								render: <query.ReactQueryDevtoolsPanel />,
+							},
+							// The Form package ships its own plugin helper (sets the name
+							// and forwards the devtools theme into the panel) — use it
+							// rather than mounting the bare panel.
 							form.formDevtoolsPlugin(),
 						]}
 					/>

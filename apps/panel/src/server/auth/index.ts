@@ -6,6 +6,7 @@ import { admin } from "better-auth/plugins/admin";
 import { magicLink } from "better-auth/plugins/magic-link";
 import { organization } from "better-auth/plugins/organization";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
+import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { THEME_OPTIONS } from "@/lib/theme";
 import { recordActivity } from "@/server/activity/record";
@@ -104,6 +105,28 @@ export const auth = betterAuth({
 	databaseHooks: {
 		session: {
 			create: {
+				// Default the active organization at sign-in. The org plugin doesn't
+				// set one on its own, so without this a returning member would land
+				// with no active org and every org-scoped op (settings, nodes, the
+				// activity feed) would fail. Pick their earliest membership; a user
+				// with no orgs is routed to onboarding to create their first.
+				before: async (session) => {
+					if (session.activeOrganizationId) {
+						return;
+					}
+					const [first] = await db
+						.select({ organizationId: schema.member.organizationId })
+						.from(schema.member)
+						.where(eq(schema.member.userId, session.userId))
+						.orderBy(asc(schema.member.createdAt))
+						.limit(1);
+					if (!first) {
+						return;
+					}
+					return {
+						data: { ...session, activeOrganizationId: first.organizationId },
+					};
+				},
 				after: async (session) => {
 					const activeOrg =
 						typeof session.activeOrganizationId === "string"

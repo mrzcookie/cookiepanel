@@ -1,9 +1,9 @@
-import { useForm } from "@tanstack/react-form";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { Loader2 } from "lucide-react";
+import { type FormEvent, useState } from "react";
 import { toast } from "sonner";
 import { RemoveButton } from "@/components/shared/remove-button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +33,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
 	Table,
 	TableBody,
@@ -41,60 +42,66 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { CURRENT_USER } from "@/lib/stubs";
+import { authClient } from "@/lib/auth-client";
+import { initials } from "@/lib/format";
+import { isEmail } from "@/lib/validation";
 
 export const Route = createFileRoute("/_app/settings/members")({
 	component: SettingsMembers,
 });
 
-type Member = {
-	id: string;
-	name: string | null;
-	email: string;
-	role: string;
-	pending?: boolean;
-};
+type ActiveOrg = NonNullable<
+	ReturnType<typeof authClient.useActiveOrganization>["data"]
+>;
+type Member = ActiveOrg["members"][number];
+type Invitation = ActiveOrg["invitations"][number];
 
-const INITIAL_MEMBERS: Member[] = [
-	{
-		id: "m_1",
-		name: CURRENT_USER.name,
-		email: CURRENT_USER.email,
-		role: "Owner",
-	},
-	{ id: "m_2", name: "Marco Diaz", email: "marco@example.com", role: "Admin" },
-];
+/** "owner" → "Owner"; tolerates the comma-joined multi-role string. */
+function roleLabel(role: string) {
+	return role
+		.split(",")
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(", ");
+}
 
-function initials(text: string) {
-	return text.slice(0, 2).toUpperCase();
+function isManager(role: string | undefined) {
+	return !!role && (role.includes("owner") || role.includes("admin"));
 }
 
 function SettingsMembers() {
-	const [members, setMembers] = useState<Member[]>(INITIAL_MEMBERS);
-	const [open, setOpen] = useState(false);
+	const { data: org } = authClient.useActiveOrganization();
+	const { data: session } = authClient.useSession();
 
-	const form = useForm({
-		defaultValues: { email: "", role: "Member" },
-		onSubmit: ({ value, formApi }) => {
-			setMembers((prev) => [
-				...prev,
-				{
-					id: crypto.randomUUID(),
-					name: null,
-					email: value.email.trim(),
-					role: value.role,
-					pending: true,
-				},
-			]);
-			toast.success("Invitation sent.");
-			setOpen(false);
-			formApi.reset();
-		},
-	});
+	const members = org?.members ?? [];
+	const invitations = (org?.invitations ?? []).filter(
+		(invite) => invite.status === "pending"
+	);
+	const myRole = members.find(
+		(member) => member.userId === session?.user.id
+	)?.role;
+	const canManage = isManager(myRole);
 
-	function remove(id: string, name: string) {
-		setMembers((prev) => prev.filter((member) => member.id !== id));
-		toast.success(`Removed “${name}”.`);
+	async function removeMember(member: Member) {
+		const label = member.user.name || member.user.email;
+		const { error } = await authClient.organization.removeMember({
+			memberIdOrEmail: member.id,
+		});
+		if (error) {
+			toast.error(error.message ?? "Couldn't remove the member.");
+			return;
+		}
+		toast.success(`Removed “${label}”.`);
+	}
+
+	async function cancelInvitation(invite: Invitation) {
+		const { error } = await authClient.organization.cancelInvitation({
+			invitationId: invite.id,
+		});
+		if (error) {
+			toast.error(error.message ?? "Couldn't cancel the invitation.");
+			return;
+		}
+		toast.success(`Canceled the invite for ${invite.email}.`);
 	}
 
 	return (
@@ -104,91 +111,11 @@ function SettingsMembers() {
 				<CardDescription>
 					People who can manage this organization.
 				</CardDescription>
-				<CardAction>
-					<Dialog
-						onOpenChange={(next) => {
-							setOpen(next);
-							if (!next) {
-								form.reset();
-							}
-						}}
-						open={open}
-					>
-						<DialogTrigger asChild>
-							<Button size="sm">Invite member</Button>
-						</DialogTrigger>
-						<DialogContent>
-							<form
-								onSubmit={(event) => {
-									event.preventDefault();
-									form.handleSubmit();
-								}}
-							>
-								<DialogHeader>
-									<DialogTitle>Invite a member</DialogTitle>
-									<DialogDescription>
-										They'll get an email invitation to join this organization.
-									</DialogDescription>
-								</DialogHeader>
-								<div className="grid gap-4 py-4">
-									<form.Field name="email">
-										{(field) => (
-											<div className="grid gap-2">
-												<Label htmlFor={field.name}>Email</Label>
-												<Input
-													id={field.name}
-													name={field.name}
-													onBlur={field.handleBlur}
-													onChange={(event) =>
-														field.handleChange(event.target.value)
-													}
-													placeholder="teammate@example.com"
-													type="email"
-													value={field.state.value}
-												/>
-											</div>
-										)}
-									</form.Field>
-									<form.Field name="role">
-										{(field) => (
-											<div className="grid gap-2">
-												<Label htmlFor={field.name}>Role</Label>
-												<Select
-													onValueChange={(value) => field.handleChange(value)}
-													value={field.state.value}
-												>
-													<SelectTrigger className="w-full" id={field.name}>
-														<SelectValue />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="Member">Member</SelectItem>
-														<SelectItem value="Admin">Admin</SelectItem>
-													</SelectContent>
-												</Select>
-											</div>
-										)}
-									</form.Field>
-								</div>
-								<DialogFooter>
-									<DialogClose asChild>
-										<Button type="button" variant="outline">
-											Cancel
-										</Button>
-									</DialogClose>
-									<form.Subscribe
-										selector={(state) => state.values.email.trim() !== ""}
-									>
-										{(canInvite) => (
-											<Button disabled={!canInvite} type="submit">
-												Send invite
-											</Button>
-										)}
-									</form.Subscribe>
-								</DialogFooter>
-							</form>
-						</DialogContent>
-					</Dialog>
-				</CardAction>
+				{canManage ? (
+					<CardAction>
+						<InviteDialog />
+					</CardAction>
+				) : null}
 			</CardHeader>
 			<CardContent>
 				<Table>
@@ -202,50 +129,234 @@ function SettingsMembers() {
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{members.map((member) => (
-							<TableRow key={member.id}>
-								<TableCell>
-									<div className="flex items-center gap-3">
-										<Avatar className="size-8">
-											<AvatarFallback>
-												{initials(member.name ?? member.email)}
-											</AvatarFallback>
-										</Avatar>
-										<div className="min-w-0">
-											<div className="flex items-center gap-2">
-												<span className="font-medium">
-													{member.name ?? member.email}
-												</span>
-												{member.pending ? (
-													<Badge variant="secondary">Pending</Badge>
-												) : null}
-											</div>
-											{member.name ? (
-												<div className="text-muted-foreground text-sm">
-													{member.email}
-												</div>
-											) : null}
-										</div>
-									</div>
-								</TableCell>
-								<TableCell className="text-muted-foreground">
-									{member.role}
-								</TableCell>
-								<TableCell>
-									{member.role === "Owner" ? null : (
-										<RemoveButton
-											label={`Remove ${member.name ?? member.email}`}
-											onClick={() =>
-												remove(member.id, member.name ?? member.email)
-											}
-										/>
-									)}
-								</TableCell>
-							</TableRow>
-						))}
+						{org ? (
+							<>
+								{members.map((member) => (
+									<MemberRow
+										canManage={canManage}
+										key={member.id}
+										member={member}
+										onRemove={() => removeMember(member)}
+									/>
+								))}
+								{invitations.map((invite) => (
+									<InvitationRow
+										canManage={canManage}
+										invite={invite}
+										key={invite.id}
+										onCancel={() => cancelInvitation(invite)}
+									/>
+								))}
+							</>
+						) : (
+							<LoadingRows />
+						)}
 					</TableBody>
 				</Table>
 			</CardContent>
 		</Card>
+	);
+}
+
+function MemberRow({
+	member,
+	canManage,
+	onRemove,
+}: {
+	member: Member;
+	canManage: boolean;
+	onRemove: () => void;
+}) {
+	const label = member.user.name || member.user.email;
+	const init = initials(member.user.name) || label.slice(0, 2).toUpperCase();
+	const isOwner = member.role.includes("owner");
+
+	return (
+		<TableRow>
+			<TableCell>
+				<div className="flex items-center gap-3">
+					<Avatar className="size-8">
+						{member.user.image ? (
+							<AvatarImage alt="" src={member.user.image} />
+						) : null}
+						<AvatarFallback>{init}</AvatarFallback>
+					</Avatar>
+					<div className="min-w-0">
+						<span className="font-medium">{label}</span>
+						{member.user.name ? (
+							<div className="text-muted-foreground text-sm">
+								{member.user.email}
+							</div>
+						) : null}
+					</div>
+				</div>
+			</TableCell>
+			<TableCell className="text-muted-foreground">
+				{roleLabel(member.role)}
+			</TableCell>
+			<TableCell>
+				{canManage && !isOwner ? (
+					<RemoveButton label={`Remove ${label}`} onClick={onRemove} />
+				) : null}
+			</TableCell>
+		</TableRow>
+	);
+}
+
+function InvitationRow({
+	invite,
+	canManage,
+	onCancel,
+}: {
+	invite: Invitation;
+	canManage: boolean;
+	onCancel: () => void;
+}) {
+	return (
+		<TableRow>
+			<TableCell>
+				<div className="flex items-center gap-3">
+					<Avatar className="size-8">
+						<AvatarFallback>
+							{invite.email.slice(0, 2).toUpperCase()}
+						</AvatarFallback>
+					</Avatar>
+					<div className="flex min-w-0 items-center gap-2">
+						<span className="font-medium">{invite.email}</span>
+						<Badge variant="secondary">Pending</Badge>
+					</div>
+				</div>
+			</TableCell>
+			<TableCell className="text-muted-foreground">
+				{roleLabel(invite.role)}
+			</TableCell>
+			<TableCell>
+				{canManage ? (
+					<RemoveButton
+						label={`Cancel the invite for ${invite.email}`}
+						onClick={onCancel}
+					/>
+				) : null}
+			</TableCell>
+		</TableRow>
+	);
+}
+
+function LoadingRows() {
+	return (
+		<>
+			{[0, 1].map((row) => (
+				<TableRow key={row}>
+					<TableCell>
+						<div className="flex items-center gap-3">
+							<Skeleton className="size-8 rounded-full" />
+							<Skeleton className="h-4 w-40" />
+						</div>
+					</TableCell>
+					<TableCell>
+						<Skeleton className="h-4 w-16" />
+					</TableCell>
+					<TableCell />
+				</TableRow>
+			))}
+		</>
+	);
+}
+
+function InviteDialog() {
+	const [open, setOpen] = useState(false);
+	const [email, setEmail] = useState("");
+	const [role, setRole] = useState<"member" | "admin">("member");
+	const [sending, setSending] = useState(false);
+
+	const valid = isEmail(email.trim());
+
+	function reset() {
+		setEmail("");
+		setRole("member");
+	}
+
+	async function submit(event: FormEvent) {
+		event.preventDefault();
+		if (!valid || sending) {
+			return;
+		}
+		setSending(true);
+		const { error } = await authClient.organization.inviteMember({
+			email: email.trim(),
+			role,
+		});
+		setSending(false);
+		if (error) {
+			toast.error(error.message ?? "Couldn't send the invitation.");
+			return;
+		}
+		toast.success("Invitation sent.");
+		setOpen(false);
+		reset();
+	}
+
+	return (
+		<Dialog
+			onOpenChange={(next) => {
+				setOpen(next);
+				if (!next) {
+					reset();
+				}
+			}}
+			open={open}
+		>
+			<DialogTrigger asChild>
+				<Button size="sm">Invite member</Button>
+			</DialogTrigger>
+			<DialogContent>
+				<form onSubmit={submit}>
+					<DialogHeader>
+						<DialogTitle>Invite a member</DialogTitle>
+						<DialogDescription>
+							They'll get an email invitation to join this organization.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="grid gap-4 py-4">
+						<div className="grid gap-2">
+							<Label htmlFor="invite-email">Email</Label>
+							<Input
+								id="invite-email"
+								onChange={(event) => setEmail(event.target.value)}
+								placeholder="teammate@example.com"
+								type="email"
+								value={email}
+							/>
+						</div>
+						<div className="grid gap-2">
+							<Label htmlFor="invite-role">Role</Label>
+							<Select
+								onValueChange={(value) => setRole(value as "member" | "admin")}
+								value={role}
+							>
+								<SelectTrigger className="w-full" id="invite-role">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="member">Member</SelectItem>
+									<SelectItem value="admin">Admin</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+					</div>
+					<DialogFooter>
+						<DialogClose asChild>
+							<Button type="button" variant="outline">
+								Cancel
+							</Button>
+						</DialogClose>
+						<Button disabled={!valid || sending} type="submit">
+							{sending ? <Loader2 className="animate-spin" /> : null}
+							Send invite
+						</Button>
+					</DialogFooter>
+				</form>
+			</DialogContent>
+		</Dialog>
 	);
 }

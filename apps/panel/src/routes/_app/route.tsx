@@ -19,6 +19,11 @@ export const Route = createFileRoute("/_app")({
 		if (!session) {
 			throw redirect({ to: "/login", search: { redirect: location.href } });
 		}
+		// Signed in but no organization yet (or none active) — the whole app is
+		// org-scoped, so route them to create/pick their first one before entering.
+		if (!session.activeOrganizationId) {
+			throw redirect({ to: "/onboarding" });
+		}
 	},
 	component: AppLayout,
 	// Fallback for any unmatched path inside the shell (e.g. a stray segment off a

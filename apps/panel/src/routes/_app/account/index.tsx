@@ -29,7 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { authClient } from "@/lib/auth-client";
-import { formatDate } from "@/lib/format";
+import { formatDate, initials } from "@/lib/format";
 import { isEmail } from "@/lib/validation";
 import { getEnabledSocialProviders } from "@/server/auth/session";
 import { removeAvatar, uploadAvatar } from "@/server/user";
@@ -86,6 +86,9 @@ function ProfileFormBody({ user }: { user: SessionUser | undefined }) {
 
 	const trimmed = name.trim();
 	const nameDirty = !!user && trimmed.length > 0 && trimmed !== user.name;
+	// Initials of the saved name (not the in-progress edit) — the avatar's
+	// no-image fallback, matching the account menu.
+	const init = initials(user?.name);
 
 	async function handleAvatarUpload(file: File) {
 		const body = new FormData();
@@ -130,6 +133,11 @@ function ProfileFormBody({ user }: { user: SessionUser | undefined }) {
 			<CardContent className="space-y-6">
 				{/* Only the avatar image is fetched — the button + hint render now. */}
 				<ImageUploadField
+					fallback={
+						init ? (
+							<span className="font-medium text-xl">{init}</span>
+						) : undefined
+					}
 					icon={UserRound}
 					label="Upload avatar"
 					loading={!user}

@@ -1,6 +1,6 @@
-import { useForm } from "@tanstack/react-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Building2 } from "lucide-react";
+import { Building2, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -30,116 +30,204 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { slugify } from "@/lib/slug";
+import { Skeleton } from "@/components/ui/skeleton";
+import { authClient } from "@/lib/auth-client";
+import { formatDate } from "@/lib/format";
+import { nextOrgDestination } from "@/lib/org";
+import { removeOrgLogo, uploadOrgLogo } from "@/server/org";
 
 export const Route = createFileRoute("/_app/settings/")({
 	component: SettingsGeneral,
 });
 
-const ORG_ID = "c3a4e1f2-7b8d-4e9a-a1b2-3c4d5e6f7a8b";
+/** The active organization as the auth client reports it (with members etc.). */
+type ActiveOrg = NonNullable<
+	ReturnType<typeof authClient.useActiveOrganization>["data"]
+>;
 
 function SettingsGeneral() {
-	const [savedName, setSavedName] = useState("Acme Servers");
-	// The slug follows the saved name, not what's currently being typed.
-	const slug = slugify(savedName) || "—";
-
-	const form = useForm({
-		defaultValues: { name: "Acme Servers" },
-		onSubmit: ({ value }) => {
-			setSavedName(value.name.trim());
-			toast.success("Organization saved.");
-		},
-	});
+	const { data: org } = authClient.useActiveOrganization();
 
 	return (
 		<div className="max-w-2xl space-y-6">
-			<Card>
-				<CardHeader>
-					<CardTitle>Organization</CardTitle>
-					<CardDescription>Your organization's name and logo.</CardDescription>
-				</CardHeader>
-				<form
-					className="contents"
-					onSubmit={(event) => {
-						event.preventDefault();
-						form.handleSubmit();
-					}}
-				>
-					<CardContent className="space-y-6">
-						<ImageUploadField
-							icon={Building2}
-							label="Upload logo"
-							shape="square"
-						/>
-						<form.Field name="name">
-							{(field) => (
-								<div className="grid gap-2">
-									<Label htmlFor={field.name}>Name</Label>
-									<Input
-										id={field.name}
-										name={field.name}
-										onBlur={field.handleBlur}
-										onChange={(event) => field.handleChange(event.target.value)}
-										placeholder="Acme Servers"
-										value={field.state.value}
-									/>
-								</div>
-							)}
-						</form.Field>
-					</CardContent>
-					<CardFooter>
-						<form.Subscribe selector={(state) => state.values.name}>
-							{(currentName) => (
-								<Button
-									disabled={
-										currentName.trim() === savedName ||
-										currentName.trim() === ""
-									}
-									type="submit"
-								>
-									Save changes
-								</Button>
-							)}
-						</form.Subscribe>
-					</CardFooter>
-				</form>
-			</Card>
-			<Card>
-				<CardHeader>
-					<CardTitle>Details</CardTitle>
-					<CardDescription>
-						Identifiers for this organization. The slug is generated from the
-						name.
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<DetailList>
-						<DetailRow copyable label="Organization ID" value={ORG_ID} />
-						<DetailRow copyable label="Slug" value={slug} />
-						<DetailRow label="Created" value="Jun 11, 2026" />
-					</DetailList>
-				</CardContent>
-			</Card>
-			<OrgDangerZone name={savedName} />
+			<OrganizationCard org={org} />
+			<DetailsCard org={org} />
+			<OrgDangerZone org={org} />
 		</div>
 	);
 }
 
-function OrgDangerZone({ name }: { name: string }) {
-	const navigate = useNavigate();
-	const [leaveOpen, setLeaveOpen] = useState(false);
-	const [deleteOpen, setDeleteOpen] = useState(false);
+function OrganizationCard({ org }: { org: ActiveOrg | null }) {
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Organization</CardTitle>
+				<CardDescription>Your organization's name and logo.</CardDescription>
+			</CardHeader>
+			{/* Keyed so the form remounts when the active org resolves/changes — the
+			    name field then initializes from the loaded value. */}
+			<OrganizationFormBody key={org?.id ?? "loading"} org={org} />
+		</Card>
+	);
+}
 
-	function leave() {
-		setLeaveOpen(false);
-		toast.success(`Left “${name}”.`);
-		navigate({ to: "/" });
+function OrganizationFormBody({ org }: { org: ActiveOrg | null }) {
+	const { refetch } = authClient.useActiveOrganization();
+	const [name, setName] = useState(org?.name ?? "");
+	const [saving, setSaving] = useState(false);
+
+	const trimmed = name.trim();
+	const nameDirty = !!org && trimmed.length > 0 && trimmed !== org.name;
+
+	async function handleLogoUpload(file: File) {
+		const body = new FormData();
+		body.append("file", file);
+		try {
+			await uploadOrgLogo({ data: body });
+			// The logo persists through our server fn, so the active-org query won't
+			// auto-refresh — pull it explicitly.
+			await refetch();
+			toast.success("Logo updated.");
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't update the logo."
+			);
+		}
 	}
 
-	function remove() {
+	async function handleLogoRemove() {
+		try {
+			await removeOrgLogo();
+			await refetch();
+			toast.success("Logo removed.");
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't remove the logo."
+			);
+		}
+	}
+
+	async function saveName() {
+		setSaving(true);
+		// No organizationId → the active org. The org plugin checks the caller's
+		// permission (a non-admin member is rejected; surfaced below).
+		const { error } = await authClient.organization.update({
+			data: { name: trimmed },
+		});
+		setSaving(false);
+		if (error) {
+			toast.error(error.message ?? "Couldn't save the organization.");
+			return;
+		}
+		toast.success("Organization saved.");
+	}
+
+	return (
+		<>
+			<CardContent className="space-y-6">
+				<ImageUploadField
+					icon={Building2}
+					label="Upload logo"
+					loading={!org}
+					onRemove={handleLogoRemove}
+					onUpload={handleLogoUpload}
+					shape="square"
+					value={org?.logo ?? null}
+				/>
+				<div className="grid gap-2">
+					<Label htmlFor="org-name">Name</Label>
+					{org ? (
+						<Input
+							id="org-name"
+							onChange={(event) => setName(event.target.value)}
+							placeholder="Acme Servers"
+							value={name}
+						/>
+					) : (
+						<Skeleton className="h-9 w-full" />
+					)}
+				</div>
+			</CardContent>
+			<CardFooter>
+				<Button disabled={!nameDirty || saving} onClick={saveName}>
+					{saving ? <Loader2 className="animate-spin" /> : null}
+					Save changes
+				</Button>
+			</CardFooter>
+		</>
+	);
+}
+
+function DetailsCard({ org }: { org: ActiveOrg | null }) {
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Details</CardTitle>
+				<CardDescription>Identifiers for this organization.</CardDescription>
+			</CardHeader>
+			<CardContent>
+				<DetailList>
+					<DetailRow copyable label="Organization ID" value={org?.id} />
+					<DetailRow copyable label="Slug" value={org?.slug} />
+					<DetailRow
+						label="Created"
+						value={org ? formatDate(org.createdAt) : undefined}
+					/>
+				</DetailList>
+			</CardContent>
+		</Card>
+	);
+}
+
+function OrgDangerZone({ org }: { org: ActiveOrg | null }) {
+	const navigate = useNavigate();
+	const queryClient = useQueryClient();
+	const [leaveOpen, setLeaveOpen] = useState(false);
+	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [busy, setBusy] = useState(false);
+
+	// After leaving/deleting the active org, fall through to another org the user
+	// belongs to (or onboarding), resetting org-scoped caches on the way.
+	async function settleAfterExit() {
+		const dest = await nextOrgDestination();
+		queryClient.clear();
+		await navigate({ to: dest });
+	}
+
+	async function leave() {
+		if (!org || busy) {
+			return;
+		}
+		setBusy(true);
+		const { error } = await authClient.organization.leave({
+			organizationId: org.id,
+		});
+		if (error) {
+			setBusy(false);
+			toast.error(error.message ?? "Couldn't leave the organization.");
+			return;
+		}
+		setLeaveOpen(false);
+		toast.success(`Left “${org.name}”.`);
+		await settleAfterExit();
+	}
+
+	async function remove() {
+		if (!org || busy) {
+			return;
+		}
+		setBusy(true);
+		const { error } = await authClient.organization.delete({
+			organizationId: org.id,
+		});
+		if (error) {
+			setBusy(false);
+			toast.error(error.message ?? "Couldn't delete the organization.");
+			return;
+		}
 		setDeleteOpen(false);
-		toast.success(`Deleted “${name}”.`);
-		navigate({ to: "/" });
+		toast.success(`Deleted “${org.name}”.`);
+		await settleAfterExit();
 	}
 
 	return (
@@ -148,6 +236,7 @@ function OrgDangerZone({ name }: { name: string }) {
 				<DangerRow
 					action={
 						<Button
+							disabled={!org}
 							onClick={() => setLeaveOpen(true)}
 							size="sm"
 							variant="outline"
@@ -161,6 +250,7 @@ function OrgDangerZone({ name }: { name: string }) {
 				<DangerRow
 					action={
 						<Button
+							disabled={!org}
 							onClick={() => setDeleteOpen(true)}
 							size="sm"
 							variant="destructive"
@@ -178,7 +268,7 @@ function OrgDangerZone({ name }: { name: string }) {
 					<DialogHeader>
 						<DialogTitle>Leave this organization?</DialogTitle>
 						<DialogDescription>
-							You'll be removed from “{name}” and lose access to its nodes,
+							You'll be removed from “{org?.name}” and lose access to its nodes,
 							servers, and templates until someone invites you back.
 						</DialogDescription>
 					</DialogHeader>
@@ -188,7 +278,10 @@ function OrgDangerZone({ name }: { name: string }) {
 								Cancel
 							</Button>
 						</DialogClose>
-						<Button onClick={leave}>Leave organization</Button>
+						<Button disabled={busy} onClick={leave}>
+							{busy ? <Loader2 className="animate-spin" /> : null}
+							Leave organization
+						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
@@ -198,8 +291,8 @@ function OrgDangerZone({ name }: { name: string }) {
 					<DialogHeader>
 						<DialogTitle>Delete this organization?</DialogTitle>
 						<DialogDescription>
-							This permanently deletes “{name}” along with its nodes, servers,
-							and templates, for every member. This can't be undone.
+							This permanently deletes “{org?.name}” along with its nodes,
+							servers, and templates, for every member. This can't be undone.
 						</DialogDescription>
 					</DialogHeader>
 					<DialogFooter>
@@ -208,7 +301,8 @@ function OrgDangerZone({ name }: { name: string }) {
 								Cancel
 							</Button>
 						</DialogClose>
-						<Button onClick={remove} variant="destructive">
+						<Button disabled={busy} onClick={remove} variant="destructive">
+							{busy ? <Loader2 className="animate-spin" /> : null}
 							Delete organization
 						</Button>
 					</DialogFooter>

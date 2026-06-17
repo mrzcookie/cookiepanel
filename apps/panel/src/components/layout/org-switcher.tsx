@@ -1,5 +1,7 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,13 +23,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-	createOrg,
-	type Org,
-	setActiveOrg,
-	useActiveOrg,
-	useOrgs,
-} from "@/lib/stores/orgs-store";
+import { Skeleton } from "@/components/ui/skeleton";
+import { authClient } from "@/lib/auth-client";
+import { createOrganization } from "@/lib/org";
 import { cn } from "@/lib/utils";
 
 function OrgInitial({ name, className }: { name: string; className?: string }) {
@@ -45,9 +43,32 @@ function OrgInitial({ name, className }: { name: string; className?: string }) {
 }
 
 export function OrgSwitcher() {
-	const orgs = useOrgs();
-	const active = useActiveOrg();
+	const navigate = useNavigate();
+	const queryClient = useQueryClient();
+	const { data: orgs } = authClient.useListOrganizations();
+	const { data: active } = authClient.useActiveOrganization();
 	const [createOpen, setCreateOpen] = useState(false);
+	const [busy, setBusy] = useState(false);
+
+	async function switchTo(organizationId: string) {
+		if (organizationId === active?.id || busy) {
+			return;
+		}
+		setBusy(true);
+		const { error } = await authClient.organization.setActive({
+			organizationId,
+		});
+		if (error) {
+			setBusy(false);
+			toast.error(error.message ?? "Couldn't switch organization.");
+			return;
+		}
+		// Drop org-scoped query caches so every view reloads for the new org, then
+		// land on the overview (the page we're on may belong to the old org).
+		queryClient.clear();
+		await navigate({ to: "/" });
+		setBusy(false);
+	}
 
 	return (
 		<>
@@ -57,10 +78,19 @@ export function OrgSwitcher() {
 						className="flex w-full items-center gap-2 rounded-lg border bg-card px-2 py-1.5 text-left transition-colors hover:bg-muted aria-expanded:bg-muted group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:px-0"
 						type="button"
 					>
-						<OrgInitial name={active.name} />
-						<span className="min-w-0 flex-1 truncate font-medium text-sm group-data-[collapsible=icon]:hidden">
-							{active.name}
-						</span>
+						{active ? (
+							<>
+								<OrgInitial name={active.name} />
+								<span className="min-w-0 flex-1 truncate font-medium text-sm group-data-[collapsible=icon]:hidden">
+									{active.name}
+								</span>
+							</>
+						) : (
+							<>
+								<Skeleton className="size-6 shrink-0 rounded-sm" />
+								<Skeleton className="h-4 min-w-0 flex-1 group-data-[collapsible=icon]:hidden" />
+							</>
+						)}
 						<ChevronsUpDown className="size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
 						<span className="sr-only">Switch organization</span>
 					</button>
@@ -69,11 +99,11 @@ export function OrgSwitcher() {
 					<DropdownMenuLabel className="font-mono text-[0.7rem] text-muted-foreground uppercase tracking-[0.18em]">
 						Organizations
 					</DropdownMenuLabel>
-					{orgs.map((org: Org) => (
-						<DropdownMenuItem key={org.id} onClick={() => setActiveOrg(org.id)}>
+					{(orgs ?? []).map((org) => (
+						<DropdownMenuItem key={org.id} onClick={() => switchTo(org.id)}>
 							<OrgInitial name={org.name} />
 							<span className="min-w-0 flex-1 truncate">{org.name}</span>
-							{org.id === active.id ? (
+							{org.id === active?.id ? (
 								<Check className="size-4 shrink-0 text-primary" />
 							) : null}
 						</DropdownMenuItem>
@@ -98,7 +128,10 @@ function CreateOrgDialog({
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
 }) {
+	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const [name, setName] = useState("");
+	const [creating, setCreating] = useState(false);
 
 	useEffect(() => {
 		if (open) {
@@ -106,20 +139,32 @@ function CreateOrgDialog({
 		}
 	}, [open]);
 
+	async function submit(event: FormEvent) {
+		event.preventDefault();
+		const trimmed = name.trim();
+		if (trimmed === "" || creating) {
+			return;
+		}
+		setCreating(true);
+		// `create` makes the new org active (the default), so just reset the
+		// org-scoped caches and land on the overview for it.
+		const { error } = await createOrganization(trimmed);
+		if (error) {
+			setCreating(false);
+			toast.error(error.message ?? "Couldn't create the organization.");
+			return;
+		}
+		queryClient.clear();
+		toast.success(`Switched to “${trimmed}”.`);
+		onOpenChange(false);
+		setCreating(false);
+		await navigate({ to: "/" });
+	}
+
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>
 			<DialogContent>
-				<form
-					onSubmit={(event) => {
-						event.preventDefault();
-						if (name.trim() === "") {
-							return;
-						}
-						const org = createOrg(name);
-						toast.success(`Switched to “${org.name}”.`);
-						onOpenChange(false);
-					}}
-				>
+				<form onSubmit={submit}>
 					<DialogHeader>
 						<DialogTitle>Create organization</DialogTitle>
 						<DialogDescription>
@@ -143,7 +188,7 @@ function CreateOrgDialog({
 								Cancel
 							</Button>
 						</DialogClose>
-						<Button disabled={name.trim() === ""} type="submit">
+						<Button disabled={name.trim() === "" || creating} type="submit">
 							Create
 						</Button>
 					</DialogFooter>

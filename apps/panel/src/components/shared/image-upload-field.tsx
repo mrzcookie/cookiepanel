@@ -1,5 +1,11 @@
 import { Loader2, type LucideIcon } from "lucide-react";
-import { type ChangeEvent, useId, useRef, useState } from "react";
+import {
+	type ChangeEvent,
+	type ReactNode,
+	useId,
+	useRef,
+	useState,
+} from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -30,6 +36,7 @@ export function ImageUploadField({
 	onUpload,
 	onRemove,
 	loading,
+	fallback,
 }: {
 	icon: LucideIcon;
 	label: string;
@@ -46,6 +53,9 @@ export function ImageUploadField({
 	/** The image value is still loading — show a skeleton in place of it and
 	 * disable the controls. The label + hint stay (they're not fetched). */
 	loading?: boolean;
+	/** Shown in the avatar when there's no image (e.g. a name's initials); falls
+	 * back to `icon` when omitted or empty. */
+	fallback?: ReactNode;
 }) {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [preview, setPreview] = useState<string | null>(null);
@@ -133,7 +143,7 @@ export function ImageUploadField({
 						/>
 					) : null}
 					<AvatarFallback className={square ? "rounded-md" : undefined}>
-						<Icon className="size-7" />
+						{fallback || <Icon className="size-7" />}
 					</AvatarFallback>
 				</Avatar>
 			)}

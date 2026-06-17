@@ -17,12 +17,6 @@ const TiB = 1024 ** 4;
 
 export const CURRENT_USER = { name: "Jane Cooper", email: "jane@example.com" };
 
-// Gates the /admin console entry point. Kept separate from CURRENT_USER (which
-// is editable profile data) because this is an authz capability, not a profile
-// field — a global, cross-org one, distinct from org membership. A stub today;
-// becomes a server-verified flag when auth/RBAC land.
-export const IS_ADMIN = true;
-
 // — Nodes ————————————————————————————————————————————————————————————————————
 
 // Node UUIDs, referenced by servers (by name/address) and networks (by id).
