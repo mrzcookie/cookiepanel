@@ -1,13 +1,40 @@
-import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	Link,
+	notFound,
+	Outlet,
+	redirect,
+	rootRouteId,
+} from "@tanstack/react-router";
 import { AdminShell } from "@/components/layout/admin-shell";
 import { ErrorScreen } from "@/components/layout/error-screen";
 import { Button } from "@/components/ui/button";
+import { fetchIsAdmin, fetchSession } from "@/server/auth/session";
 
 export const Route = createFileRoute("/admin")({
-	// Admin gating lands with auth: a `beforeLoad` guard will read the session,
-	// re-verify the user holds the admin flag (a separate, global capability —
-	// NOT org membership), and bounce everyone else to `/`. The UI-first phase
-	// has no auth, so the surface is open for now.
+	// The platform-admin surface is gated here. Admin is a GLOBAL capability (an
+	// admin-plugin role or an env-bootstrapped id), NOT org membership — the check
+	// is server-verified via `fetchIsAdmin`, the same predicate `requireAdmin`
+	// enforces on every admin server fn, so the env-bootstrapped admin list never
+	// reaches the client. Runs on the server during SSR and on the client on
+	// navigation. This is the UX gate; each admin server fn re-checks `requireAdmin`
+	// as the hard backstop (defense in depth), so the surface is never open.
+	beforeLoad: async ({ location }) => {
+		const session = await fetchSession();
+		if (!session) {
+			// Signed out: their admin status is unknown until they authenticate, so
+			// send them to log in (consistent with `_app`) rather than 404.
+			throw redirect({ to: "/login", search: { redirect: location.href } });
+		}
+		// A known non-admin gets a generic not-found, NOT a redirect or a "forbidden":
+		// the /admin console must be indistinguishable from a route that doesn't
+		// exist, so its existence can't be probed (the generic-not-found principle
+		// in security.md). Target the root boundary so they see the plain app 404 —
+		// no admin chrome, no "Back to admin" link that would give the surface away.
+		if (!(await fetchIsAdmin())) {
+			throw notFound({ routeId: rootRouteId });
+		}
+	},
 	component: AdminLayout,
 	// Sibling of `_app` on purpose: admin is its own surface with its own shell,
 	// so it must not inherit the org-scoped app chrome (sidebar, org switcher).

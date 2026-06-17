@@ -1,28 +1,24 @@
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Users } from "lucide-react";
 import { AdminList } from "@/components/admin/admin-list";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusIndicator } from "@/components/shared/status-indicator";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { TableCell, TableHead, TableRow } from "@/components/ui/table";
-import type { AdminUser } from "@/lib/domain/admin";
+import { adminUsersQueryOptions } from "@/lib/admin-users-queries";
+import type { AdminUserRow } from "@/lib/domain/admin";
+import { formatDate, formatRelativeTime, initials } from "@/lib/format";
 import { userStatus } from "@/lib/status";
-import { ADMIN_USERS } from "@/lib/stubs/admin";
 
 export const Route = createFileRoute("/admin/users/")({
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(adminUsersQueryOptions()),
 	component: AdminUsers,
 });
 
-function initials(name: string) {
-	return name
-		.split(" ")
-		.map((part) => part.charAt(0))
-		.join("")
-		.slice(0, 2)
-		.toUpperCase();
-}
-
-function orgsLabel(user: AdminUser) {
+function orgsLabel(user: AdminUserRow) {
 	const [first, ...rest] = user.memberships;
 	if (!first) {
 		return "—";
@@ -31,6 +27,8 @@ function orgsLabel(user: AdminUser) {
 }
 
 function AdminUsers() {
+	const { data: users } = useSuspenseQuery(adminUsersQueryOptions());
+
 	return (
 		<>
 			<PageHeader
@@ -56,22 +54,28 @@ function AdminUsers() {
 					</TableRow>
 				}
 				icon={Users}
-				items={ADMIN_USERS}
+				items={users}
 				row={(user) => (
 					<TableRow key={user.id}>
 						<TableCell>
 							<div className="flex items-center gap-3">
 								<Avatar className="size-8">
+									{user.image ? <AvatarImage alt="" src={user.image} /> : null}
 									<AvatarFallback>{initials(user.name)}</AvatarFallback>
 								</Avatar>
 								<div className="min-w-0">
-									<Link
-										className="font-medium hover:underline"
-										params={{ userId: user.id }}
-										to="/admin/users/$userId"
-									>
-										{user.name}
-									</Link>
+									<div className="flex items-center gap-2">
+										<Link
+											className="font-medium hover:underline"
+											params={{ userId: user.id }}
+											to="/admin/users/$userId"
+										>
+											{user.name}
+										</Link>
+										{user.role === "admin" ? (
+											<Badge variant="secondary">Admin</Badge>
+										) : null}
+									</div>
 									<div className="truncate text-muted-foreground text-xs">
 										{user.email}
 									</div>
@@ -81,11 +85,17 @@ function AdminUsers() {
 						<TableCell className="text-muted-foreground">
 							{orgsLabel(user)}
 						</TableCell>
-						<TableCell className="text-right text-muted-foreground tabular-nums">
-							{user.joinedAt}
+						<TableCell
+							className="text-right text-muted-foreground tabular-nums"
+							suppressHydrationWarning
+						>
+							{formatDate(user.createdAt)}
 						</TableCell>
-						<TableCell className="text-right text-muted-foreground tabular-nums">
-							{user.lastSeenAt ?? "—"}
+						<TableCell
+							className="text-right text-muted-foreground tabular-nums"
+							suppressHydrationWarning
+						>
+							{user.lastSeenAt ? formatRelativeTime(user.lastSeenAt) : "—"}
 						</TableCell>
 						<TableCell className="text-right">
 							<StatusIndicator status={userStatus(user.status)} />

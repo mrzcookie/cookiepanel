@@ -7,6 +7,13 @@ import type { NodeRow } from "@/lib/domain/nodes";
 
 export type MemberRole = "owner" | "admin" | "member";
 
+/**
+ * A user's **platform-wide** role — distinct from the per-org `MemberRole` in
+ * their memberships. `admin` is the global superadmin capability the /admin
+ * console gates on (Better Auth's admin plugin role), NOT org ownership.
+ */
+export type AdminPlatformRole = "user" | "admin";
+
 /** Whether an audit entry is an admin (platform) action or a tenant action. */
 export type AdminActivityScope = "platform" | "tenant";
 
@@ -41,6 +48,30 @@ export type AdminUser = {
 	joinedAt: string;
 	/** Pre-formatted relative time, or null for never (e.g. an open invite). */
 	lastSeenAt: string | null;
+};
+
+/**
+ * The **wired**, client-safe view of a platform user — the real data layer's
+ * projection (`src/server/users`). Distinct from the stub `AdminUser` above,
+ * which still backs the (stubbed) orgs + overview sections; this one carries the
+ * real fields the admin user panel reads/edits. Timestamps are ISO 8601 — the UI
+ * formats them. Status comes only as `active` | `suspended` from real data
+ * (`invited` is a stub-only notion: a pending invitation isn't a user row).
+ */
+export type AdminUserRow = {
+	id: string;
+	name: string;
+	email: string;
+	image: string | null;
+	emailVerified: boolean;
+	/** Platform role (see {@link AdminPlatformRole}) — NOT the per-org membership role. */
+	role: AdminPlatformRole;
+	status: AdminUserStatus;
+	/** ISO 8601 — when the account was created. */
+	createdAt: string;
+	/** ISO 8601 of the most recent session activity, or null if none on record. */
+	lastSeenAt: string | null;
+	memberships: AdminMembership[];
 };
 
 /** A node in the platform fleet, attributed to the org that owns it. Everything
