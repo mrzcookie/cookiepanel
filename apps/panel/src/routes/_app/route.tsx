@@ -1,10 +1,25 @@
-import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	Link,
+	Outlet,
+	redirect,
+} from "@tanstack/react-router";
 import { PastDueBanner } from "@/components/billing/past-due-banner";
 import { AppShell } from "@/components/layout/app-shell";
 import { ErrorScreen } from "@/components/layout/error-screen";
 import { Button } from "@/components/ui/button";
+import { fetchSession } from "@/server/auth/session";
 
 export const Route = createFileRoute("/_app")({
+	// The signed-in surface is gated here. Runs on the server during SSR and on
+	// the client during navigation; unauthenticated visitors are sent to /login
+	// with a `redirect` back to where they were headed.
+	beforeLoad: async ({ location }) => {
+		const session = await fetchSession();
+		if (!session) {
+			throw redirect({ to: "/login", search: { redirect: location.href } });
+		}
+	},
 	component: AppLayout,
 	// Fallback for any unmatched path inside the shell (e.g. a stray segment off a
 	// leaf detail route, which can't render its own notFoundComponent). Tabbed

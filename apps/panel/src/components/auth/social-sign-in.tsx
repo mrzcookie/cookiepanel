@@ -1,38 +1,59 @@
-import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { GitHubIcon, GoogleIcon } from "@/components/auth/provider-icons";
 import { Button } from "@/components/ui/button";
+import { authClient } from "@/lib/auth-client";
 
-// Google + GitHub OAuth. A real impl hands off to the provider; the stub toasts
-// and drops you into the app. Shared by the login and onboarding screens.
-export function SocialSignIn() {
-	const navigate = useNavigate();
+export type SocialProvider = "google" | "github";
 
-	function go(provider: string) {
-		toast.success(`Continuing with ${provider}…`);
-		navigate({ to: "/" });
+const PROVIDERS: {
+	id: SocialProvider;
+	label: string;
+	icon: typeof GoogleIcon;
+}[] = [
+	{ id: "google", label: "Continue with Google", icon: GoogleIcon },
+	{ id: "github", label: "Continue with GitHub", icon: GitHubIcon },
+];
+
+// Google + GitHub OAuth. Hands off to the provider via Better Auth, which
+// redirects the browser; on success it returns to `callbackURL`. Shared by the
+// login and onboarding screens. Pass `providers` to render only the configured
+// ones (login does this so dev installs without creds show no dead buttons);
+// omit it to show all.
+export function SocialSignIn({
+	providers,
+	callbackURL = "/",
+}: {
+	providers?: SocialProvider[];
+	callbackURL?: string;
+}) {
+	const shown = PROVIDERS.filter((p) => !providers || providers.includes(p.id));
+	if (shown.length === 0) {
+		return null;
+	}
+
+	async function go(provider: SocialProvider) {
+		// On success Better Auth redirects the browser to the provider, so control
+		// doesn't return here; an error means the hand-off itself failed.
+		const { error } = await authClient.signIn.social({ provider, callbackURL });
+		if (error) {
+			toast.error(error.message ?? `Couldn't continue with ${provider}.`);
+		}
 	}
 
 	return (
 		<div className="grid gap-2">
-			<Button
-				className="w-full"
-				onClick={() => go("Google")}
-				type="button"
-				variant="outline"
-			>
-				<GoogleIcon />
-				Continue with Google
-			</Button>
-			<Button
-				className="w-full"
-				onClick={() => go("GitHub")}
-				type="button"
-				variant="outline"
-			>
-				<GitHubIcon />
-				Continue with GitHub
-			</Button>
+			{shown.map((provider) => (
+				<Button
+					className="w-full"
+					key={provider.id}
+					onClick={() => go(provider.id)}
+					type="button"
+					variant="outline"
+				>
+					<provider.icon />
+					{provider.label}
+				</Button>
+			))}
 		</div>
 	);
 }

@@ -23,6 +23,8 @@
 				"src/server/db/index.ts",
 				"src/server/nodes/index.ts",
 				"src/server/activity/index.ts",
+				"src/server/storage/index.ts",
+				"src/server/user/index.ts",
 				"src/lib/auth-client.ts"
 			],
 			"project": ["src/**/*.{ts,tsx}", "!src/routeTree.gen.ts"]

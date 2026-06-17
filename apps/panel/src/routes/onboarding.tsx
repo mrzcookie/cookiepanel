@@ -6,18 +6,20 @@ import { AuthDivider, SocialSignIn } from "@/components/auth/social-sign-in";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { isEmail } from "@/lib/validation";
+import { getEnabledSocialProviders } from "@/server/auth/session";
 
 export const Route = createFileRoute("/onboarding")({
+	loader: async () => ({ providers: await getEnabledSocialProviders() }),
 	component: Onboarding,
 });
 
-const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-
 function Onboarding() {
+	const { providers } = Route.useLoaderData();
 	const navigate = Route.useNavigate();
 	const [email, setEmail] = useState("");
 	const [org, setOrg] = useState("");
-	const valid = EMAIL.test(email.trim()) && org.trim() !== "";
+	const valid = isEmail(email) && org.trim() !== "";
 
 	return (
 		<main className="flex min-h-svh flex-col items-center justify-center bg-background px-6">
@@ -38,13 +40,18 @@ function Onboarding() {
 						Create your account
 					</h1>
 					<p className="text-muted-foreground text-sm">
-						Continue with a provider, or use your email and a name for your
-						first organization.
+						{providers.length > 0
+							? "Continue with a provider, or use your email and a name for your first organization."
+							: "Use your email and a name for your first organization."}
 					</p>
 				</div>
 
-				<SocialSignIn />
-				<AuthDivider label="or continue with email" />
+				{providers.length > 0 ? (
+					<>
+						<SocialSignIn providers={providers} />
+						<AuthDivider label="or continue with email" />
+					</>
+				) : null}
 
 				<form
 					className="space-y-4"

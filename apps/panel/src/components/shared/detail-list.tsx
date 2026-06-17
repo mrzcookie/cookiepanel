@@ -2,6 +2,7 @@ import { Copy } from "lucide-react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 export function DetailList({ children }: { children: ReactNode }) {
@@ -16,7 +17,9 @@ export function DetailRow({
 }: {
 	copyable?: boolean;
 	label: string;
-	value: string;
+	/** The fetched value. Pass `undefined` while it's still loading to render a
+	 * skeleton in its place — the label stays, since it isn't fetched. */
+	value: string | undefined;
 	/** Show the full value (wrapping) instead of truncating — for credentials and
 	 * other data the user must read in full. */
 	wrap?: boolean;
@@ -35,13 +38,22 @@ export function DetailRow({
 					wrap ? "items-start" : "items-center"
 				)}
 			>
-				<span
-					className={cn("font-mono text-sm", wrap ? "break-all" : "truncate")}
-					title={value}
-				>
-					{value}
-				</span>
-				{copyable ? <CopyButton label={label} value={value} /> : null}
+				{value === undefined ? (
+					<Skeleton className="h-4 w-40" />
+				) : (
+					<>
+						<span
+							className={cn(
+								"font-mono text-sm",
+								wrap ? "break-all" : "truncate"
+							)}
+							title={value}
+						>
+							{value}
+						</span>
+						{copyable ? <CopyButton label={label} value={value} /> : null}
+					</>
+				)}
 			</dd>
 		</div>
 	);

@@ -105,6 +105,16 @@ That writes `src/server/db/migrations/NNNN_<change>.sql` (e.g. `0000_init_auth.s
 never ship the random default name. Apply with `db:migrate`. The Postgres + Redis
 the panel needs in dev live in `infra/compose.yaml` (`pnpm dev:up`).
 
+### Object storage
+
+`src/server/storage/` is the server-only object-storage module: it wraps
+S3-compatible storage (`@aws-sdk/client-s3`, so it works with MinIO / Cloudflare
+R2 / AWS S3) for template icons and uploads. It's **optional** — gated by
+`isStorageConfigured()`, so the panel runs without it and features that need it
+degrade gracefully. For dev, a MinIO server (plus a provisioned `cookiepanel`
+bucket) runs in `infra/compose.yaml` (`pnpm dev:up`); the matching `S3_*` env
+defaults live in `.env.example`.
+
 ## routes/
 
 File-based routing (TanStack Start); `routeTree.gen.ts` is generated on dev/build

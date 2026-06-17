@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AccountMenu } from "@/components/layout/account-menu";
+import { AccountThemeSync } from "@/components/layout/account-theme-sync";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { CommandMenu } from "@/components/layout/command-menu";
 import { NotificationsPanel } from "@/components/layout/notifications-panel";
@@ -17,6 +18,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 			headerStart={<CommandMenu />}
 			sidebar={<AppSidebar />}
 		>
+			<AccountThemeSync />
 			{children}
 		</ShellFrame>
 	);

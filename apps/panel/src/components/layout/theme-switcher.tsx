@@ -9,7 +9,13 @@ const THEMES = [
 	{ value: "system", label: "System", icon: Monitor },
 ] as const;
 
-export function ThemeSwitcher() {
+export function ThemeSwitcher({
+	onChange,
+}: {
+	/** Fired after the theme is applied — e.g. to persist the choice to the
+	 * account. Receives "light" | "dark" | "system". */
+	onChange?: (theme: string) => void;
+}) {
 	const { setTheme, theme } = useTheme();
 	const [mounted, setMounted] = useState(false);
 
@@ -21,13 +27,18 @@ export function ThemeSwitcher() {
 
 	const active = mounted ? theme : undefined;
 
+	function select(value: string) {
+		setTheme(value);
+		onChange?.(value);
+	}
+
 	return (
 		<div className="inline-flex gap-1 rounded-lg border p-1">
 			{THEMES.map((option) => (
 				<Button
 					aria-pressed={active === option.value}
 					key={option.value}
-					onClick={() => setTheme(option.value)}
+					onClick={() => select(option.value)}
 					size="sm"
 					type="button"
 					variant={active === option.value ? "secondary" : "ghost"}

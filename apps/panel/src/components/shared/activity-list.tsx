@@ -43,7 +43,10 @@ export function ActivityList({ items }: { items: ActivityItem[] }) {
 							) : null}
 							{item.description}
 						</p>
-						<p className="mt-1 font-mono text-muted-foreground text-xs tracking-wide">
+						<p
+							className="mt-1 font-mono text-muted-foreground text-xs tracking-wide"
+							suppressHydrationWarning
+						>
 							{item.time}
 						</p>
 					</div>

@@ -6,6 +6,8 @@ import { admin } from "better-auth/plugins/admin";
 import { magicLink } from "better-auth/plugins/magic-link";
 import { organization } from "better-auth/plugins/organization";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
+import { z } from "zod";
+import { THEME_OPTIONS } from "@/lib/theme";
 import { recordActivity } from "@/server/activity/record";
 import { db } from "@/server/db";
 import * as schema from "@/server/db/schema";
@@ -90,6 +92,12 @@ export const auth = betterAuth({
 	// OAuth access/refresh tokens are sealed at rest (AES-256-GCM via the secret).
 	account: {
 		encryptOAuthTokens: true,
+		accountLinking: {
+			// Sign-in is passwordless (magic link always works), so removing every
+			// linked OAuth account can never lock a user out — allow it. Without
+			// this, Better Auth refuses to unlink a user's last account.
+			allowUnlinkingAll: true,
+		},
 	},
 
 	// Audit trail — best-effort writes to the activity log (src/server/activity).
@@ -113,14 +121,58 @@ export const auth = betterAuth({
 		},
 	},
 
+	// Email verification — the transport for the change-email confirmation flow
+	// below, and for any explicit verify request. Magic-link sign-in already marks
+	// emails verified, so this is NOT sent on the normal login path.
+	emailVerification: {
+		sendVerificationEmail: async ({ user, url }) => {
+			await sendEmail({
+				to: user.email,
+				subject: "Verify your CookiePanel email",
+				text: `Verify your email address for CookiePanel:\n\n${url}\n\nIf you didn't request this, you can ignore this email.`,
+			});
+		},
+	},
+
 	user: {
 		additionalFields: {
 			// Theme preference, persisted to the user row so it follows the account.
+			// input:true so the account page can set it via authClient.updateUser;
+			// the validator allowlists the three valid values so a client can't
+			// persist (and the app can't later apply) an arbitrary string.
 			theme: {
 				type: "string",
 				required: false,
 				defaultValue: "dark",
-				input: false,
+				input: true,
+				validator: { input: z.enum(THEME_OPTIONS) },
+			},
+		},
+		// Changing email is a verified flow. Because magic-link users are already
+		// emailVerified, Better Auth emails a confirmation link to the CURRENT
+		// address; following it applies the change. The new address is never set
+		// until that link is clicked.
+		changeEmail: {
+			enabled: true,
+			sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
+				await sendEmail({
+					to: user.email,
+					subject: "Confirm your CookiePanel email change",
+					text: `You asked to change your CookiePanel email to ${newEmail}.\n\nConfirm the change (this link is sent to your current address):\n\n${url}\n\nIf you didn't request this, ignore this email — your address won't change.`,
+				});
+			},
+		},
+		// Deleting an account requires email confirmation. Better Auth emails a
+		// link; following it deletes the account, its sessions, and OAuth accounts,
+		// then redirects to the caller's callbackURL. Nothing is deleted until then.
+		deleteUser: {
+			enabled: true,
+			sendDeleteAccountVerification: async ({ user, url }) => {
+				await sendEmail({
+					to: user.email,
+					subject: "Confirm your CookiePanel account deletion",
+					text: `You asked to delete your CookiePanel account.\n\nConfirm — this permanently deletes your account and removes you from every organization:\n\n${url}\n\nIf you didn't request this, ignore this email and your account stays safe.`,
+				});
 			},
 		},
 	},
@@ -209,8 +261,8 @@ export const auth = betterAuth({
 			sendMagicLink: async ({ email, url }) => {
 				await sendEmail({
 					to: email,
-					subject: "Your CookiePanel sign-in link",
-					text: `Sign in to CookiePanel:\n\n${url}\n\nThis link expires shortly. If you didn't request it, ignore this email.`,
+					subject: "Your CookiePanel login link",
+					text: `Log in to CookiePanel:\n\n${url}\n\nThis link expires shortly. If you didn't request it, ignore this email.`,
 				});
 			},
 		}),

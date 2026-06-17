@@ -1,0 +1,23 @@
+import { infiniteQueryOptions } from "@tanstack/react-query";
+import { listMyActivity } from "@/server/activity";
+
+// Query factories for the activity feed: pair a query key with a server-fn call,
+// so a route loader can preload (ensureInfiniteQueryData) and the component reads
+// the warm cache with useSuspenseInfiniteQuery. See .claude/rules/panel.md.
+
+/** Page size for the account activity feed (keyset-paginated by createdAt). */
+const PAGE_SIZE = 50;
+
+/** The signed-in user's own activity, newest first, with keyset "load more". */
+export function myActivityQueryOptions() {
+	return infiniteQueryOptions({
+		queryKey: ["activity", "me"] as const,
+		queryFn: ({ pageParam }) =>
+			listMyActivity({ data: { limit: PAGE_SIZE, before: pageParam } }),
+		initialPageParam: undefined as string | undefined,
+		// A full page means there may be more; the next cursor is the oldest row's
+		// timestamp (the repository's `before` is exclusive, so no overlap).
+		getNextPageParam: (lastPage) =>
+			lastPage.length < PAGE_SIZE ? undefined : lastPage.at(-1)?.createdAt,
+	});
+}

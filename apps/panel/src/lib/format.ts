@@ -56,3 +56,55 @@ export function formatMoney(cents: number): string {
 	const body = fraction ? `${grouped}.${fraction}` : grouped;
 	return `${negative ? "-" : ""}$${body}`;
 }
+
+/**
+ * A calendar date like "Jun 11, 2026" (fixed en-US locale). Locale is pinned so
+ * the month abbreviation is stable, but this reads the viewer's timezone — use it
+ * for client-rendered, session-derived dates (where there's no SSR markup to
+ * mismatch), not inside SSR'd output.
+ */
+export function formatDate(value: string | Date): string {
+	const date = typeof value === "string" ? new Date(value) : value;
+	if (Number.isNaN(date.getTime())) {
+		return "—";
+	}
+	return new Intl.DateTimeFormat("en-US", {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+	}).format(date);
+}
+
+/**
+ * A short relative time — "just now", "5 minutes ago", "Yesterday" — falling back
+ * to an absolute date past a week. Depends on the current time, so it differs
+ * between SSR and the client; render it under `suppressHydrationWarning` (the
+ * activity list does).
+ */
+export function formatRelativeTime(value: string | Date): string {
+	const date = typeof value === "string" ? new Date(value) : value;
+	const ms = date.getTime();
+	if (Number.isNaN(ms)) {
+		return "—";
+	}
+	const seconds = Math.floor((Date.now() - ms) / 1000);
+	if (seconds < 60) {
+		return "just now";
+	}
+	const minutes = Math.floor(seconds / 60);
+	if (minutes < 60) {
+		return `${pluralize(minutes, "minute")} ago`;
+	}
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) {
+		return `${pluralize(hours, "hour")} ago`;
+	}
+	const days = Math.floor(hours / 24);
+	if (days === 1) {
+		return "Yesterday";
+	}
+	if (days < 7) {
+		return `${days} days ago`;
+	}
+	return formatDate(date);
+}
