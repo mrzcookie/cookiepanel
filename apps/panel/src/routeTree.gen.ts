@@ -19,6 +19,7 @@ import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminBillingRouteImport } from './routes/admin/billing'
 import { Route as AdminActivityRouteImport } from './routes/admin/activity'
+import { Route as AcceptInvitationInvitationIdRouteImport } from './routes/accept-invitation.$invitationId'
 import { Route as AppTemplatesRouteImport } from './routes/_app/templates'
 import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
 import { Route as AppAccountRouteRouteImport } from './routes/_app/account/route'
@@ -113,6 +114,12 @@ const AdminActivityRoute = AdminActivityRouteImport.update({
   path: '/activity',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AcceptInvitationInvitationIdRoute =
+  AcceptInvitationInvitationIdRouteImport.update({
+    id: '/accept-invitation/$invitationId',
+    path: '/accept-invitation/$invitationId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AppTemplatesRoute = AppTemplatesRouteImport.update({
   id: '/templates',
   path: '/templates',
@@ -354,6 +361,7 @@ export interface FileRoutesByFullPath {
   '/account': typeof AppAccountRouteRouteWithChildren
   '/settings': typeof AppSettingsRouteRouteWithChildren
   '/templates': typeof AppTemplatesRoute
+  '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/billing': typeof AdminBillingRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -405,6 +413,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/templates': typeof AppTemplatesRoute
+  '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/billing': typeof AdminBillingRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -460,6 +469,7 @@ export interface FileRoutesById {
   '/_app/account': typeof AppAccountRouteRouteWithChildren
   '/_app/settings': typeof AppSettingsRouteRouteWithChildren
   '/_app/templates': typeof AppTemplatesRoute
+  '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/billing': typeof AdminBillingRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -518,6 +528,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/settings'
     | '/templates'
+    | '/accept-invitation/$invitationId'
     | '/admin/activity'
     | '/admin/billing'
     | '/admin/settings'
@@ -569,6 +580,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/templates'
+    | '/accept-invitation/$invitationId'
     | '/admin/activity'
     | '/admin/billing'
     | '/admin/settings'
@@ -623,6 +635,7 @@ export interface FileRouteTypes {
     | '/_app/account'
     | '/_app/settings'
     | '/_app/templates'
+    | '/accept-invitation/$invitationId'
     | '/admin/activity'
     | '/admin/billing'
     | '/admin/settings'
@@ -677,6 +690,7 @@ export interface RootRouteChildren {
   HomeRoute: typeof HomeRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
+  AcceptInvitationInvitationIdRoute: typeof AcceptInvitationInvitationIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -750,6 +764,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/activity'
       preLoaderRoute: typeof AdminActivityRouteImport
       parentRoute: typeof AdminRouteRoute
+    }
+    '/accept-invitation/$invitationId': {
+      id: '/accept-invitation/$invitationId'
+      path: '/accept-invitation/$invitationId'
+      fullPath: '/accept-invitation/$invitationId'
+      preLoaderRoute: typeof AcceptInvitationInvitationIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/templates': {
       id: '/_app/templates'
@@ -1226,6 +1247,7 @@ const rootRouteChildren: RootRouteChildren = {
   HomeRoute: HomeRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
+  AcceptInvitationInvitationIdRoute: AcceptInvitationInvitationIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

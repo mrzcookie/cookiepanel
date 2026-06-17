@@ -3,13 +3,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Building2, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import {
-	DangerRow,
-	DangerRows,
-	DangerZoneCard,
-} from "@/components/shared/danger-zone";
 import { DetailList, DetailRow } from "@/components/shared/detail-list";
 import { ImageUploadField } from "@/components/shared/image-upload-field";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -47,26 +43,50 @@ type ActiveOrg = NonNullable<
 
 function SettingsGeneral() {
 	const { data: org } = authClient.useActiveOrganization();
+	const { data: session } = authClient.useSession();
+
+	const role = org?.members.find(
+		(member) => member.userId === session?.user.id
+	)?.role;
+	// owner/admin hold the "update" permission (name + logo); only owner holds
+	// "delete". Better Auth enforces the same server-side — this just hides
+	// controls that would otherwise fail for a plain member.
+	const canManage =
+		!!role && (role.includes("owner") || role.includes("admin"));
+	const canDelete = !!role && role.includes("owner");
+	// Keep the editable shell (with its skeletons) until both the org and the
+	// session resolve, so a manager never flashes the read-only view first.
+	const ready = !!org && !!session;
 
 	return (
 		<div className="max-w-2xl space-y-6">
-			<OrganizationCard org={org} />
+			<OrganizationCard editable={!ready || canManage} org={org} />
 			<DetailsCard org={org} />
-			<OrgDangerZone org={org} />
+			<OrgExitCard mode={canDelete ? "delete" : "leave"} org={org} />
 		</div>
 	);
 }
 
-function OrganizationCard({ org }: { org: ActiveOrg | null }) {
+function OrganizationCard({
+	org,
+	editable,
+}: {
+	org: ActiveOrg | null;
+	editable: boolean;
+}) {
 	return (
 		<Card>
 			<CardHeader>
 				<CardTitle>Organization</CardTitle>
 				<CardDescription>Your organization's name and logo.</CardDescription>
 			</CardHeader>
-			{/* Keyed so the form remounts when the active org resolves/changes — the
-			    name field then initializes from the loaded value. */}
-			<OrganizationFormBody key={org?.id ?? "loading"} org={org} />
+			{editable ? (
+				// Keyed so the form remounts when the active org resolves/changes — the
+				// name field then initializes from the loaded value.
+				<OrganizationFormBody key={org?.id ?? "loading"} org={org} />
+			) : (
+				<OrganizationReadOnly org={org} />
+			)}
 		</Card>
 	);
 }
@@ -109,8 +129,7 @@ function OrganizationFormBody({ org }: { org: ActiveOrg | null }) {
 
 	async function saveName() {
 		setSaving(true);
-		// No organizationId → the active org. The org plugin checks the caller's
-		// permission (a non-admin member is rejected; surfaced below).
+		// No organizationId → the active org.
 		const { error } = await authClient.organization.update({
 			data: { name: trimmed },
 		});
@@ -158,6 +177,34 @@ function OrganizationFormBody({ org }: { org: ActiveOrg | null }) {
 	);
 }
 
+/** Read-only org identity for members without the "update" permission. */
+function OrganizationReadOnly({ org }: { org: ActiveOrg | null }) {
+	return (
+		<CardContent>
+			<div className="flex items-center gap-4">
+				<Avatar className="size-16 rounded-md after:rounded-md">
+					{org?.logo ? (
+						<AvatarImage alt="" className="rounded-md" src={org.logo} />
+					) : null}
+					<AvatarFallback className="rounded-md">
+						<Building2 className="size-7" />
+					</AvatarFallback>
+				</Avatar>
+				<div className="min-w-0 space-y-1">
+					{org ? (
+						<p className="font-medium">{org.name}</p>
+					) : (
+						<Skeleton className="h-5 w-40" />
+					)}
+					<p className="text-muted-foreground text-sm">
+						Only owners and admins can change the name and logo.
+					</p>
+				</div>
+			</div>
+		</CardContent>
+	);
+}
+
 function DetailsCard({ org }: { org: ActiveOrg | null }) {
 	return (
 		<Card>
@@ -179,97 +226,94 @@ function DetailsCard({ org }: { org: ActiveOrg | null }) {
 	);
 }
 
-function OrgDangerZone({ org }: { org: ActiveOrg | null }) {
+/**
+ * Leaving or deleting the active org both end the same way: fall through to
+ * another org the user belongs to (or onboarding), resetting org-scoped caches.
+ */
+function useSettleAfterExit() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const [leaveOpen, setLeaveOpen] = useState(false);
-	const [deleteOpen, setDeleteOpen] = useState(false);
-	const [busy, setBusy] = useState(false);
-
-	// After leaving/deleting the active org, fall through to another org the user
-	// belongs to (or onboarding), resetting org-scoped caches on the way.
-	async function settleAfterExit() {
+	return async () => {
 		const dest = await nextOrgDestination();
 		queryClient.clear();
 		await navigate({ to: dest });
-	}
+	};
+}
 
-	async function leave() {
+/**
+ * The org exit card — one action, since the two are mutually exclusive: an
+ * **owner** deletes the org (leaving would orphan it), everyone else leaves. It's
+ * a single action, so it's titled for what it does rather than "Danger zone".
+ */
+function OrgExitCard({
+	org,
+	mode,
+}: {
+	org: ActiveOrg | null;
+	mode: "leave" | "delete";
+}) {
+	const settleAfterExit = useSettleAfterExit();
+	const [open, setOpen] = useState(false);
+	const [busy, setBusy] = useState(false);
+	const isDelete = mode === "delete";
+
+	async function confirm() {
 		if (!org || busy) {
 			return;
 		}
 		setBusy(true);
-		const { error } = await authClient.organization.leave({
-			organizationId: org.id,
-		});
+		const { error } = isDelete
+			? await authClient.organization.delete({ organizationId: org.id })
+			: await authClient.organization.leave({ organizationId: org.id });
 		if (error) {
 			setBusy(false);
-			toast.error(error.message ?? "Couldn't leave the organization.");
+			toast.error(
+				error.message ??
+					(isDelete
+						? "Couldn't delete the organization."
+						: "Couldn't leave the organization.")
+			);
 			return;
 		}
-		setLeaveOpen(false);
-		toast.success(`Left “${org.name}”.`);
-		await settleAfterExit();
-	}
-
-	async function remove() {
-		if (!org || busy) {
-			return;
-		}
-		setBusy(true);
-		const { error } = await authClient.organization.delete({
-			organizationId: org.id,
-		});
-		if (error) {
-			setBusy(false);
-			toast.error(error.message ?? "Couldn't delete the organization.");
-			return;
-		}
-		setDeleteOpen(false);
-		toast.success(`Deleted “${org.name}”.`);
+		setOpen(false);
+		toast.success(isDelete ? `Deleted “${org.name}”.` : `Left “${org.name}”.`);
 		await settleAfterExit();
 	}
 
 	return (
-		<DangerZoneCard description="Leaving or deleting this organization can't be undone.">
-			<DangerRows>
-				<DangerRow
-					action={
-						<Button
-							disabled={!org}
-							onClick={() => setLeaveOpen(true)}
-							size="sm"
-							variant="outline"
-						>
-							Leave
-						</Button>
-					}
-					description="Remove yourself from this organization. You'll lose access until you're invited back."
-					title="Leave organization"
-				/>
-				<DangerRow
-					action={
-						<Button
-							disabled={!org}
-							onClick={() => setDeleteOpen(true)}
-							size="sm"
-							variant="destructive"
-						>
-							Delete
-						</Button>
-					}
-					description="Permanently delete this organization, its nodes, servers, and templates for everyone."
-					title="Delete organization"
-				/>
-			</DangerRows>
+		<Card className="border-destructive/40">
+			<CardHeader>
+				<CardTitle className="text-destructive">
+					{isDelete ? "Delete organization" : "Leave organization"}
+				</CardTitle>
+				<CardDescription>
+					{isDelete
+						? "Permanently delete this organization, its nodes, servers, and templates for everyone. This can't be undone."
+						: "Remove yourself from this organization. You'll lose access to its nodes, servers, and templates until someone invites you back."}
+				</CardDescription>
+			</CardHeader>
+			<CardFooter>
+				<Button
+					disabled={!org}
+					onClick={() => setOpen(true)}
+					variant="destructive"
+				>
+					{isDelete ? "Delete organization" : "Leave organization"}
+				</Button>
+			</CardFooter>
 
-			<Dialog onOpenChange={setLeaveOpen} open={leaveOpen}>
+			<Dialog onOpenChange={setOpen} open={open}>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>Leave this organization?</DialogTitle>
+						<DialogTitle>
+							{isDelete
+								? "Delete this organization?"
+								: "Leave this organization?"}
+						</DialogTitle>
 						<DialogDescription>
-							You'll be removed from “{org?.name}” and lose access to its nodes,
-							servers, and templates until someone invites you back.
+							{isDelete
+								? `This permanently deletes “${org?.name}” along with its nodes, servers, and templates, for every member. This can't be undone.`
+								: `You'll be removed from “${org?.name}” and lose access to its nodes, servers, and templates until someone invites you back.`}
 						</DialogDescription>
 					</DialogHeader>
 					<DialogFooter>
@@ -278,36 +322,13 @@ function OrgDangerZone({ org }: { org: ActiveOrg | null }) {
 								Cancel
 							</Button>
 						</DialogClose>
-						<Button disabled={busy} onClick={leave}>
+						<Button disabled={busy} onClick={confirm} variant="destructive">
 							{busy ? <Loader2 className="animate-spin" /> : null}
-							Leave organization
+							{isDelete ? "Delete organization" : "Leave organization"}
 						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
-
-			<Dialog onOpenChange={setDeleteOpen} open={deleteOpen}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Delete this organization?</DialogTitle>
-						<DialogDescription>
-							This permanently deletes “{org?.name}” along with its nodes,
-							servers, and templates, for every member. This can't be undone.
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<DialogClose asChild>
-							<Button type="button" variant="outline">
-								Cancel
-							</Button>
-						</DialogClose>
-						<Button disabled={busy} onClick={remove} variant="destructive">
-							{busy ? <Loader2 className="animate-spin" /> : null}
-							Delete organization
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-		</DangerZoneCard>
+		</Card>
 	);
 }
