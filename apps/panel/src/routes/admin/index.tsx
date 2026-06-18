@@ -227,13 +227,7 @@ function AdminOverview() {
 									>
 										<CreditCard className="size-4 shrink-0 text-destructive" />
 										<span className="flex-1 text-sm">
-											<Link
-												className="font-medium hover:underline"
-												params={{ orgId: org.id }}
-												to="/admin/orgs/$orgId"
-											>
-												{org.name}
-											</Link>{" "}
+											<span className="font-medium">{org.name}</span>{" "}
 											<span className="text-muted-foreground">is past due</span>
 										</span>
 									</li>

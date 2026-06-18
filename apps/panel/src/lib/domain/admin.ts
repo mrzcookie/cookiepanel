@@ -75,6 +75,42 @@ export type AdminUserRow = {
 };
 
 /**
+ * The **wired**, client-safe view of a platform organization — the real data
+ * layer's projection (`src/server/orgs`). Distinct from the stub `Org` in
+ * `lib/stores/orgs-store` (still backing the stubbed billing + overview), this
+ * one carries the real org identity the admin orgs panel reads/edits plus the
+ * counts it derives from real tables. `createdAt` is ISO 8601 — the UI formats
+ * it; `memberCount`/`nodeCount` come from the `member` and `node` tables.
+ */
+export type AdminOrgRow = {
+	id: string;
+	name: string;
+	slug: string;
+	logo: string | null;
+	/** ISO 8601 — when the organization was created. */
+	createdAt: string;
+	memberCount: number;
+	nodeCount: number;
+};
+
+/**
+ * One member of an organization (the admin orgs members view). Client-safe — the
+ * joined user's display fields plus their per-org `role` (NOT the platform role).
+ * `id` is the membership row id; `joinedAt` is ISO 8601.
+ */
+export type AdminOrgMember = {
+	/** The membership row id. */
+	id: string;
+	userId: string;
+	name: string;
+	email: string;
+	image: string | null;
+	role: MemberRole;
+	/** ISO 8601 — when the user joined this organization. */
+	joinedAt: string;
+};
+
+/**
  * One linked OAuth login on an account (the admin connections view). Client-safe
  * — the provider key only, never the stored tokens. `credential` (email/password)
  * rows are excluded by the service; this is the social-login list.

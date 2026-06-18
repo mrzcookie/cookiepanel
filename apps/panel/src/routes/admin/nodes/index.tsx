@@ -57,14 +57,8 @@ function AdminNodes() {
 								}
 							/>
 						</TableCell>
-						<TableCell>
-							<Link
-								className="text-muted-foreground hover:underline"
-								params={{ orgId: node.orgId }}
-								to="/admin/orgs/$orgId"
-							>
-								{node.orgName}
-							</Link>
+						<TableCell className="text-muted-foreground">
+							{node.orgName}
 						</TableCell>
 						<TableCell className="text-right text-muted-foreground tabular-nums">
 							{node.cpuPercent === null ? "—" : `${node.cpuPercent}%`}

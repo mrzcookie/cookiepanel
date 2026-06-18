@@ -52,14 +52,8 @@ function AdminSubdomains() {
 						<TableCell className="font-mono text-muted-foreground text-xs">
 							{record.target}
 						</TableCell>
-						<TableCell>
-							<Link
-								className="text-muted-foreground hover:underline"
-								params={{ orgId: record.orgId }}
-								to="/admin/orgs/$orgId"
-							>
-								{record.orgName}
-							</Link>
+						<TableCell className="text-muted-foreground">
+							{record.orgName}
 						</TableCell>
 						<TableCell>
 							{record.nodeId ? (

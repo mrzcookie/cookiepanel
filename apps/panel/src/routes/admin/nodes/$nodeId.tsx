@@ -73,14 +73,7 @@ function NodeView({ node }: { node: AdminNode }) {
 			/>
 
 			<p className="text-muted-foreground text-sm">
-				Owned by{" "}
-				<Link
-					className="text-foreground hover:underline"
-					params={{ orgId: node.orgId }}
-					to="/admin/orgs/$orgId"
-				>
-					{node.orgName}
-				</Link>
+				Owned by <span className="text-foreground">{node.orgName}</span>
 			</p>
 
 			<div className="grid items-start gap-6 lg:grid-cols-2">

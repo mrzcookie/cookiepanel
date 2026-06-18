@@ -641,8 +641,8 @@ function OrganizationsSection({ user }: { user: AdminUserRow }) {
 			) : (
 				<ul className="divide-y">
 					{user.memberships.map((membership) => (
-						// TODO: link to /admin/orgs/$orgId once the orgs console is wired to
-						// real data (its ids are stubbed today, so a link would 404).
+						// Not linked: the orgs console is a slideout opened from its list,
+						// not a per-org route, so there's no URL to deep-link to here.
 						<li
 							className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
 							key={membership.orgId}

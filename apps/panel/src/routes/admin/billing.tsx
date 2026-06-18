@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { StatTile } from "@/components/admin/stat-tile";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusIndicator } from "@/components/shared/status-indicator";
@@ -133,13 +133,7 @@ function AdminBilling() {
 							{accounts.map(({ org, billing: b }) => (
 								<TableRow key={org.id}>
 									<TableCell>
-										<Link
-											className="font-medium hover:underline"
-											params={{ orgId: org.id }}
-											to="/admin/orgs/$orgId"
-										>
-											{org.name}
-										</Link>
+										<span className="font-medium">{org.name}</span>
 									</TableCell>
 									<TableCell className="text-right text-muted-foreground tabular-nums">
 										{b.nodeCount === 0 ? "—" : b.nodeCount}

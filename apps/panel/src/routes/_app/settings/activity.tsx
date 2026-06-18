@@ -62,6 +62,8 @@ function describe(entry: ActivityEntry): string {
 			return entry.target
 				? `created the organization ${entry.target}`
 				: "created the organization";
+		case "organization.updated":
+			return "updated the organization";
 		case "organization.logo_updated":
 			return "updated the organization logo";
 		case "organization.logo_removed":

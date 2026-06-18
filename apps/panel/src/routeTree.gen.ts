@@ -35,7 +35,6 @@ import { Route as AppNetworksIndexRouteImport } from './routes/_app/networks/ind
 import { Route as AppAccountIndexRouteImport } from './routes/_app/account/index'
 import { Route as AdminTemplatesNewRouteImport } from './routes/admin/templates/new'
 import { Route as AdminTemplatesTemplateIdRouteImport } from './routes/admin/templates/$templateId'
-import { Route as AdminOrgsOrgIdRouteImport } from './routes/admin/orgs/$orgId'
 import { Route as AdminNodesNodeIdRouteImport } from './routes/admin/nodes/$nodeId'
 import { Route as AppTemplatesNewRouteImport } from './routes/_app/templates_/new'
 import { Route as AppTemplatesTemplateIdRouteImport } from './routes/_app/templates_/$templateId'
@@ -195,11 +194,6 @@ const AdminTemplatesTemplateIdRoute =
     path: '/templates/$templateId',
     getParentRoute: () => AdminRouteRoute,
   } as any)
-const AdminOrgsOrgIdRoute = AdminOrgsOrgIdRouteImport.update({
-  id: '/orgs/$orgId',
-  path: '/orgs/$orgId',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
 const AdminNodesNodeIdRoute = AdminNodesNodeIdRouteImport.update({
   id: '/nodes/$nodeId',
   path: '/nodes/$nodeId',
@@ -372,7 +366,6 @@ export interface FileRoutesByFullPath {
   '/templates/$templateId': typeof AppTemplatesTemplateIdRoute
   '/templates/new': typeof AppTemplatesNewRoute
   '/admin/nodes/$nodeId': typeof AdminNodesNodeIdRoute
-  '/admin/orgs/$orgId': typeof AdminOrgsOrgIdRoute
   '/admin/templates/$templateId': typeof AdminTemplatesTemplateIdRoute
   '/admin/templates/new': typeof AdminTemplatesNewRoute
   '/account/': typeof AppAccountIndexRoute
@@ -422,7 +415,6 @@ export interface FileRoutesByTo {
   '/templates/$templateId': typeof AppTemplatesTemplateIdRoute
   '/templates/new': typeof AppTemplatesNewRoute
   '/admin/nodes/$nodeId': typeof AdminNodesNodeIdRoute
-  '/admin/orgs/$orgId': typeof AdminOrgsOrgIdRoute
   '/admin/templates/$templateId': typeof AdminTemplatesTemplateIdRoute
   '/admin/templates/new': typeof AdminTemplatesNewRoute
   '/account': typeof AppAccountIndexRoute
@@ -479,7 +471,6 @@ export interface FileRoutesById {
   '/_app/templates_/$templateId': typeof AppTemplatesTemplateIdRoute
   '/_app/templates_/new': typeof AppTemplatesNewRoute
   '/admin/nodes/$nodeId': typeof AdminNodesNodeIdRoute
-  '/admin/orgs/$orgId': typeof AdminOrgsOrgIdRoute
   '/admin/templates/$templateId': typeof AdminTemplatesTemplateIdRoute
   '/admin/templates/new': typeof AdminTemplatesNewRoute
   '/_app/account/': typeof AppAccountIndexRoute
@@ -536,7 +527,6 @@ export interface FileRouteTypes {
     | '/templates/$templateId'
     | '/templates/new'
     | '/admin/nodes/$nodeId'
-    | '/admin/orgs/$orgId'
     | '/admin/templates/$templateId'
     | '/admin/templates/new'
     | '/account/'
@@ -586,7 +576,6 @@ export interface FileRouteTypes {
     | '/templates/$templateId'
     | '/templates/new'
     | '/admin/nodes/$nodeId'
-    | '/admin/orgs/$orgId'
     | '/admin/templates/$templateId'
     | '/admin/templates/new'
     | '/account'
@@ -642,7 +631,6 @@ export interface FileRouteTypes {
     | '/_app/templates_/$templateId'
     | '/_app/templates_/new'
     | '/admin/nodes/$nodeId'
-    | '/admin/orgs/$orgId'
     | '/admin/templates/$templateId'
     | '/admin/templates/new'
     | '/_app/account/'
@@ -863,13 +851,6 @@ declare module '@tanstack/react-router' {
       path: '/templates/$templateId'
       fullPath: '/admin/templates/$templateId'
       preLoaderRoute: typeof AdminTemplatesTemplateIdRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/orgs/$orgId': {
-      id: '/admin/orgs/$orgId'
-      path: '/orgs/$orgId'
-      fullPath: '/admin/orgs/$orgId'
-      preLoaderRoute: typeof AdminOrgsOrgIdRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/nodes/$nodeId': {
@@ -1188,7 +1169,6 @@ interface AdminRouteRouteChildren {
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminNodesNodeIdRoute: typeof AdminNodesNodeIdRoute
-  AdminOrgsOrgIdRoute: typeof AdminOrgsOrgIdRoute
   AdminTemplatesTemplateIdRoute: typeof AdminTemplatesTemplateIdRoute
   AdminTemplatesNewRoute: typeof AdminTemplatesNewRoute
   AdminNodesIndexRoute: typeof AdminNodesIndexRoute
@@ -1205,7 +1185,6 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminSettingsRoute: AdminSettingsRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminNodesNodeIdRoute: AdminNodesNodeIdRoute,
-  AdminOrgsOrgIdRoute: AdminOrgsOrgIdRoute,
   AdminTemplatesTemplateIdRoute: AdminTemplatesTemplateIdRoute,
   AdminTemplatesNewRoute: AdminTemplatesNewRoute,
   AdminNodesIndexRoute: AdminNodesIndexRoute,
