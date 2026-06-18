@@ -57,14 +57,6 @@ const INVOICE_STATUS: Record<string, StatusMeta> = {
 	void: { label: "Void", tone: "muted" },
 };
 
-// A platform account's standing (admin console). "Invited" is an open invite not
-// yet accepted; "Suspended" is an admin-disabled account.
-const USER_STATUS: Record<string, StatusMeta> = {
-	active: { label: "Active", tone: "online" },
-	invited: { label: "Invited", tone: "pending" },
-	suspended: { label: "Suspended", tone: "error" },
-};
-
 // A panel-minted DNS record's health (admin console).
 const SUBDOMAIN_STATUS: Record<string, StatusMeta> = {
 	active: { label: "Active", tone: "online" },
@@ -82,7 +74,5 @@ export const billingStatus = (status: string): StatusMeta =>
 	BILLING_STATUS[status] ?? FALLBACK;
 export const invoiceStatus = (status: string): StatusMeta =>
 	INVOICE_STATUS[status] ?? FALLBACK;
-export const userStatus = (status: string): StatusMeta =>
-	USER_STATUS[status] ?? FALLBACK;
 export const subdomainStatus = (status: string): StatusMeta =>
 	SUBDOMAIN_STATUS[status] ?? FALLBACK;

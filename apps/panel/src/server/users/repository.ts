@@ -1,7 +1,12 @@
-import { eq, inArray, max } from "drizzle-orm";
+import { and, eq, inArray, max } from "drizzle-orm";
 import type { AdminMembership, MemberRole } from "@/lib/domain/admin";
 import { db } from "@/server/db";
-import { member, organization, session } from "@/server/db/schema/auth";
+import {
+	account,
+	member,
+	organization,
+	session,
+} from "@/server/db/schema/auth";
 
 /**
  * The only module that touches the DB for the admin users views. The user rows
@@ -9,6 +14,12 @@ import { member, organization, session } from "@/server/db/schema/auth";
  * supplies the relational bits that API doesn't return: a user's org memberships
  * and their last-seen time. Both reads are batched by a set of user ids (so the
  * list view stays one query each, not N+1) and returned grouped by user id.
+ *
+ * It also owns the **linked-account read/delete** the admin connections panel
+ * needs: Better Auth's admin plugin has no endpoint to list or unlink another
+ * user's OAuth login, so that one operation touches the `account` table directly
+ * here — the deliberate, isolated exception to the auth-through-Better-Auth rule
+ * (the service that calls it gates on `requireAdmin` and audits the removal).
  *
  * Unlike the org-scoped repositories, this is **deliberately not org-scoped**:
  * the platform admin surface spans every org. Its server fns gate on
@@ -68,5 +79,32 @@ export const usersRepository = {
 			}
 		}
 		return seen;
+	},
+
+	/** A user's linked-account rows (provider + when linked). No tokens leave here. */
+	accountsForUser: (userId: string) =>
+		db
+			.select({
+				id: account.id,
+				providerId: account.providerId,
+				createdAt: account.createdAt,
+			})
+			.from(account)
+			.where(eq(account.userId, userId)),
+
+	/**
+	 * Unlink one login by deleting its `account` row, scoped by `userId` so a
+	 * mismatched id can't reach another account's row. Returns the removed row's
+	 * provider (for the audit trail), or null if nothing matched.
+	 */
+	deleteAccount: async (
+		userId: string,
+		accountId: string
+	): Promise<{ providerId: string } | null> => {
+		const [removed] = await db
+			.delete(account)
+			.where(and(eq(account.id, accountId), eq(account.userId, userId)))
+			.returning({ providerId: account.providerId });
+		return removed ?? null;
 	},
 };

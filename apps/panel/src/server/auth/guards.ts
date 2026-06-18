@@ -64,11 +64,17 @@ export function isPlatformAdmin(user: { id: string; role?: string | null }) {
 	return user.role === "admin" || adminUserIds.includes(user.id);
 }
 
-/** A platform admin (admin-plugin role, or an env-bootstrapped admin id). */
+/** A platform admin (admin-plugin role, or an env-bootstrapped admin id). The
+ * `sessionToken` lets a caller tell the admin's own current session apart from the
+ * others it lists (e.g. flagging "this device" when editing your own account). */
 export async function requireAdmin() {
 	const session = await requireSession();
 	if (!isPlatformAdmin(session.user)) {
 		throw new Error("Forbidden");
 	}
-	return { userId: session.user.id, userName: session.user.name };
+	return {
+		userId: session.user.id,
+		userName: session.user.name,
+		sessionToken: session.session.token,
+	};
 }

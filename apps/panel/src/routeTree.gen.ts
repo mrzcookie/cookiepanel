@@ -33,7 +33,6 @@ import { Route as AppServersIndexRouteImport } from './routes/_app/servers/index
 import { Route as AppNodesIndexRouteImport } from './routes/_app/nodes/index'
 import { Route as AppNetworksIndexRouteImport } from './routes/_app/networks/index'
 import { Route as AppAccountIndexRouteImport } from './routes/_app/account/index'
-import { Route as AdminUsersUserIdRouteImport } from './routes/admin/users/$userId'
 import { Route as AdminTemplatesNewRouteImport } from './routes/admin/templates/new'
 import { Route as AdminTemplatesTemplateIdRouteImport } from './routes/admin/templates/$templateId'
 import { Route as AdminOrgsOrgIdRouteImport } from './routes/admin/orgs/$orgId'
@@ -184,11 +183,6 @@ const AppAccountIndexRoute = AppAccountIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppAccountRouteRoute,
-} as any)
-const AdminUsersUserIdRoute = AdminUsersUserIdRouteImport.update({
-  id: '/users/$userId',
-  path: '/users/$userId',
-  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminTemplatesNewRoute = AdminTemplatesNewRouteImport.update({
   id: '/templates/new',
@@ -381,7 +375,6 @@ export interface FileRoutesByFullPath {
   '/admin/orgs/$orgId': typeof AdminOrgsOrgIdRoute
   '/admin/templates/$templateId': typeof AdminTemplatesTemplateIdRoute
   '/admin/templates/new': typeof AdminTemplatesNewRoute
-  '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/account/': typeof AppAccountIndexRoute
   '/networks/': typeof AppNetworksIndexRoute
   '/nodes/': typeof AppNodesIndexRoute
@@ -432,7 +425,6 @@ export interface FileRoutesByTo {
   '/admin/orgs/$orgId': typeof AdminOrgsOrgIdRoute
   '/admin/templates/$templateId': typeof AdminTemplatesTemplateIdRoute
   '/admin/templates/new': typeof AdminTemplatesNewRoute
-  '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/account': typeof AppAccountIndexRoute
   '/networks': typeof AppNetworksIndexRoute
   '/nodes': typeof AppNodesIndexRoute
@@ -490,7 +482,6 @@ export interface FileRoutesById {
   '/admin/orgs/$orgId': typeof AdminOrgsOrgIdRoute
   '/admin/templates/$templateId': typeof AdminTemplatesTemplateIdRoute
   '/admin/templates/new': typeof AdminTemplatesNewRoute
-  '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/_app/account/': typeof AppAccountIndexRoute
   '/_app/networks/': typeof AppNetworksIndexRoute
   '/_app/nodes/': typeof AppNodesIndexRoute
@@ -548,7 +539,6 @@ export interface FileRouteTypes {
     | '/admin/orgs/$orgId'
     | '/admin/templates/$templateId'
     | '/admin/templates/new'
-    | '/admin/users/$userId'
     | '/account/'
     | '/networks/'
     | '/nodes/'
@@ -599,7 +589,6 @@ export interface FileRouteTypes {
     | '/admin/orgs/$orgId'
     | '/admin/templates/$templateId'
     | '/admin/templates/new'
-    | '/admin/users/$userId'
     | '/account'
     | '/networks'
     | '/nodes'
@@ -656,7 +645,6 @@ export interface FileRouteTypes {
     | '/admin/orgs/$orgId'
     | '/admin/templates/$templateId'
     | '/admin/templates/new'
-    | '/admin/users/$userId'
     | '/_app/account/'
     | '/_app/networks/'
     | '/_app/nodes/'
@@ -862,13 +850,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/account/'
       preLoaderRoute: typeof AppAccountIndexRouteImport
       parentRoute: typeof AppAccountRouteRoute
-    }
-    '/admin/users/$userId': {
-      id: '/admin/users/$userId'
-      path: '/users/$userId'
-      fullPath: '/admin/users/$userId'
-      preLoaderRoute: typeof AdminUsersUserIdRouteImport
-      parentRoute: typeof AdminRouteRoute
     }
     '/admin/templates/new': {
       id: '/admin/templates/new'
@@ -1210,7 +1191,6 @@ interface AdminRouteRouteChildren {
   AdminOrgsOrgIdRoute: typeof AdminOrgsOrgIdRoute
   AdminTemplatesTemplateIdRoute: typeof AdminTemplatesTemplateIdRoute
   AdminTemplatesNewRoute: typeof AdminTemplatesNewRoute
-  AdminUsersUserIdRoute: typeof AdminUsersUserIdRoute
   AdminNodesIndexRoute: typeof AdminNodesIndexRoute
   AdminOrgsIndexRoute: typeof AdminOrgsIndexRoute
   AdminSubdomainsIndexRoute: typeof AdminSubdomainsIndexRoute
@@ -1228,7 +1208,6 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminOrgsOrgIdRoute: AdminOrgsOrgIdRoute,
   AdminTemplatesTemplateIdRoute: AdminTemplatesTemplateIdRoute,
   AdminTemplatesNewRoute: AdminTemplatesNewRoute,
-  AdminUsersUserIdRoute: AdminUsersUserIdRoute,
   AdminNodesIndexRoute: AdminNodesIndexRoute,
   AdminOrgsIndexRoute: AdminOrgsIndexRoute,
   AdminSubdomainsIndexRoute: AdminSubdomainsIndexRoute,

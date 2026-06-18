@@ -179,13 +179,7 @@ function OrgView({ org, plan }: { org: Org; plan: BillingState }) {
 									key={user.id}
 								>
 									<div className="min-w-0">
-										<Link
-											className="font-medium text-sm hover:underline"
-											params={{ userId: user.id }}
-											to="/admin/users/$userId"
-										>
-											{user.name}
-										</Link>
+										<div className="font-medium text-sm">{user.name}</div>
 										<div className="truncate text-muted-foreground text-xs">
 											{user.email}
 										</div>

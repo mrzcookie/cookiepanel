@@ -1,11 +1,28 @@
+import { randomUUID } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
-import type { AdminMembership, AdminUserRow } from "@/lib/domain/admin";
+import type {
+	AdminMembership,
+	AdminUserConnection,
+	AdminUserRow,
+	AdminUserSession,
+} from "@/lib/domain/admin";
 import { recordActivity } from "@/server/activity/record";
 import { auth } from "@/server/auth";
 import { requireAdmin } from "@/server/auth/guards";
+import {
+	deleteObject,
+	isStorageConfigured,
+	ownedKeyFromUrl,
+	publicUrl,
+	putObject,
+} from "@/server/storage";
+import { sniffImage, validateImageUpload } from "@/server/storage/image-upload";
 import { usersRepository } from "./repository";
+
+/** Storage namespace for avatar objects (shared with the account-level avatar). */
+const AVATAR_PREFIX = "avatars";
 
 /**
  * Platform users service + server functions — the typed boundary the /admin user
@@ -104,6 +121,16 @@ async function loadUser(
 	return row;
 }
 
+/** Best-effort display label for the audit trail (name → email → id). */
+async function userLabel(headers: Headers, userId: string): Promise<string> {
+	try {
+		const user = await auth.api.getUser({ headers, query: { id: userId } });
+		return user?.name ?? user?.email ?? userId;
+	} catch {
+		return userId;
+	}
+}
+
 const userIdInput = z.object({ userId: z.string().min(1) });
 
 export const listAdminUsers = createServerFn({ method: "GET" }).handler(
@@ -118,13 +145,6 @@ export const listAdminUsers = createServerFn({ method: "GET" }).handler(
 		return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 	}
 );
-
-export const getAdminUser = createServerFn({ method: "GET" })
-	.validator(userIdInput)
-	.handler(async ({ data }) => {
-		await requireAdmin();
-		return loadUser(getRequest().headers, data.userId);
-	});
 
 const updateInput = z.object({
 	userId: z.string().min(1),
@@ -184,11 +204,6 @@ export const setAdminUserRole = createServerFn({ method: "POST" })
 	.validator(roleInput)
 	.handler(async ({ data }) => {
 		const admin = await requireAdmin();
-		// Guard self: an admin can't change their own platform role (a foot-gun
-		// that could revoke their own access). Enforced server-side, not just hidden.
-		if (data.userId === admin.userId) {
-			throw new Error("You can't change your own platform role.");
-		}
 
 		const { user } = await auth.api.setRole({
 			headers: getRequest().headers,
@@ -221,9 +236,6 @@ export const setAdminUserStatus = createServerFn({ method: "POST" })
 	.validator(statusInput)
 	.handler(async ({ data }) => {
 		const admin = await requireAdmin();
-		if (data.userId === admin.userId) {
-			throw new Error("You can't suspend your own account.");
-		}
 
 		const headers = getRequest().headers;
 		const suspend = data.status === "suspended";
@@ -253,22 +265,10 @@ export const deleteAdminUser = createServerFn({ method: "POST" })
 	.validator(userIdInput)
 	.handler(async ({ data }) => {
 		const admin = await requireAdmin();
-		if (data.userId === admin.userId) {
-			throw new Error("You can't delete your own account here.");
-		}
 
 		const headers = getRequest().headers;
 		// Capture a label for the audit trail before the row is gone.
-		let label = data.userId;
-		try {
-			const user = await auth.api.getUser({
-				headers,
-				query: { id: data.userId },
-			});
-			label = user?.name ?? user?.email ?? data.userId;
-		} catch {
-			// Best-effort label only; proceed with the removal regardless.
-		}
+		const label = await userLabel(headers, data.userId);
 
 		await auth.api.removeUser({ headers, body: { userId: data.userId } });
 
@@ -282,4 +282,262 @@ export const deleteAdminUser = createServerFn({ method: "POST" })
 			targetLabel: label,
 		});
 		return { id: data.userId };
+	});
+
+/**
+ * Set a user's avatar from the admin console. Same shape as the account-level
+ * `uploadAvatar` (S3 put → persist the URL → drop the old object), but the URL is
+ * written with the admin plugin's `adminUpdateUser` (target `userId`, not the
+ * session) and the storage key is namespaced by the **target** user. Expects a
+ * multipart body carrying `file` + `userId`.
+ */
+function validateAvatarUpload(input: unknown): { file: File; userId: string } {
+	const { file } = validateImageUpload(input);
+	const userId = (input as FormData).get("userId");
+	if (typeof userId !== "string" || userId.length === 0) {
+		throw new Error("No user provided");
+	}
+	return { file, userId };
+}
+
+export const setAdminUserAvatar = createServerFn({ method: "POST" })
+	.validator(validateAvatarUpload)
+	.handler(async ({ data }) => {
+		const admin = await requireAdmin();
+		const headers = getRequest().headers;
+
+		if (!isStorageConfigured()) {
+			// Operator/config condition, not user error — keep it presentable.
+			throw new Error("Image uploads aren't available right now");
+		}
+
+		// Load first: a generic not-found on a bad id, plus the prior avatar to clean up.
+		const before = await loadUser(headers, data.userId);
+
+		// Re-read + magic-byte check past the validator's MIME check; yields the
+		// bytes and a safe extension. The key is server-minted and namespaced by the
+		// target user, so it can't collide with another account's objects.
+		const { bytes, ext } = await sniffImage(data.file);
+		const key = `${AVATAR_PREFIX}/${data.userId}/${randomUUID()}.${ext}`;
+
+		await putObject({
+			key,
+			body: bytes,
+			contentType: data.file.type,
+			cacheControl: "public, max-age=31536000, immutable",
+		});
+
+		const url = publicUrl(key);
+		let updated!: AuthUser;
+		try {
+			// Persist through Better Auth (it owns `user.image`) so the user's session
+			// + cookie cache stay current.
+			updated = await auth.api.adminUpdateUser({
+				headers,
+				body: { userId: data.userId, data: { image: url } },
+			});
+		} catch (error) {
+			// The profile never moved — don't strand the object we just uploaded.
+			await deleteObject(key).catch(() => {});
+			throw new Error("Couldn't update the avatar. Please try again.", {
+				cause: error,
+			});
+		}
+
+		// Best-effort: drop the prior avatar, but only when it's one we own.
+		const prevKey = ownedKeyFromUrl(before.image, AVATAR_PREFIX);
+		if (prevKey) {
+			await deleteObject(prevKey).catch(() => {});
+		}
+
+		const [row] = await projectUsers([updated]);
+		if (!row) {
+			throw new Error("Not found");
+		}
+
+		await recordActivity({
+			category: "account",
+			action: "account.avatar_updated",
+			userId: admin.userId,
+			actorName: admin.userName,
+			targetType: "user",
+			targetId: row.id,
+			targetLabel: row.name,
+		});
+		return row;
+	});
+
+export const removeAdminUserAvatar = createServerFn({ method: "POST" })
+	.validator(userIdInput)
+	.handler(async ({ data }) => {
+		const admin = await requireAdmin();
+		const headers = getRequest().headers;
+		const before = await loadUser(headers, data.userId);
+
+		// Clear through Better Auth (it owns `user.image`); `image: null` removes it.
+		const updated = await auth.api.adminUpdateUser({
+			headers,
+			body: { userId: data.userId, data: { image: null } },
+		});
+
+		const prevKey = ownedKeyFromUrl(before.image, AVATAR_PREFIX);
+		if (prevKey) {
+			await deleteObject(prevKey).catch(() => {});
+		}
+
+		const [row] = await projectUsers([updated]);
+		if (!row) {
+			throw new Error("Not found");
+		}
+
+		// Only audit a real removal — no spurious entry when there was no avatar.
+		if (before.image) {
+			await recordActivity({
+				category: "account",
+				action: "account.avatar_removed",
+				userId: admin.userId,
+				actorName: admin.userName,
+				targetType: "user",
+				targetId: row.id,
+				targetLabel: row.name,
+			});
+		}
+		return row;
+	});
+
+/** A user's linked social logins (client-safe — provider keys, never tokens). The
+ * `credential` provider (email/password) is filtered out: this is the OAuth list. */
+export const listAdminUserAccounts = createServerFn({ method: "GET" })
+	.validator(userIdInput)
+	.handler(async ({ data }): Promise<AdminUserConnection[]> => {
+		await requireAdmin();
+		const rows = await usersRepository.accountsForUser(data.userId);
+		return rows
+			.filter((row) => row.providerId !== "credential")
+			.map((row) => ({
+				id: row.id,
+				providerId: row.providerId,
+				linkedAt: row.createdAt.toISOString(),
+			}));
+	});
+
+const unlinkInput = z.object({
+	userId: z.string().min(1),
+	accountId: z.string().min(1),
+});
+
+/**
+ * Disconnect one of a user's social logins. Better Auth's admin plugin has no
+ * unlink endpoint, so this deletes the `account` row through the repository — the
+ * one deliberate direct write to an auth-owned table, gated on `requireAdmin` and
+ * audited. The account stays reachable via magic link (the app is passwordless),
+ * so there's no lock-out to guard against.
+ */
+export const unlinkAdminUserAccount = createServerFn({ method: "POST" })
+	.validator(unlinkInput)
+	.handler(async ({ data }) => {
+		const admin = await requireAdmin();
+		const removed = await usersRepository.deleteAccount(
+			data.userId,
+			data.accountId
+		);
+		if (!removed) {
+			throw new Error("Not found");
+		}
+
+		await recordActivity({
+			category: "account",
+			action: "account.connection_removed",
+			userId: admin.userId,
+			actorName: admin.userName,
+			targetType: "user",
+			targetId: data.userId,
+			targetLabel: await userLabel(getRequest().headers, data.userId),
+			metadata: { provider: removed.providerId },
+		});
+		return { id: data.accountId };
+	});
+
+/** A user's active sessions (client-safe — never the token). Newest first; the
+ * admin's own current session is flagged so the UI can mark it "this device". */
+export const listAdminUserSessions = createServerFn({ method: "GET" })
+	.validator(userIdInput)
+	.handler(async ({ data }): Promise<AdminUserSession[]> => {
+		const admin = await requireAdmin();
+		const { sessions } = await auth.api.listUserSessions({
+			headers: getRequest().headers,
+			body: { userId: data.userId },
+		});
+		return sessions
+			.map((session) => ({
+				id: session.id,
+				ipAddress: session.ipAddress ?? null,
+				userAgent: session.userAgent ?? null,
+				createdAt: new Date(session.createdAt).toISOString(),
+				expiresAt: new Date(session.expiresAt).toISOString(),
+				isCurrent: session.token === admin.sessionToken,
+			}))
+			.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+	});
+
+const sessionInput = z.object({
+	userId: z.string().min(1),
+	sessionId: z.string().min(1),
+});
+
+/** Revoke one session. The admin API revokes by token (never exposed to the
+ * client), so we resolve the id → token from the user's session list first. */
+export const revokeAdminUserSession = createServerFn({ method: "POST" })
+	.validator(sessionInput)
+	.handler(async ({ data }) => {
+		const admin = await requireAdmin();
+		const headers = getRequest().headers;
+		const { sessions } = await auth.api.listUserSessions({
+			headers,
+			body: { userId: data.userId },
+		});
+		const target = sessions.find((session) => session.id === data.sessionId);
+		if (!target) {
+			throw new Error("Not found");
+		}
+
+		await auth.api.revokeUserSession({
+			headers,
+			body: { sessionToken: target.token },
+		});
+
+		await recordActivity({
+			category: "account",
+			action: "account.session_revoked",
+			userId: admin.userId,
+			actorName: admin.userName,
+			targetType: "user",
+			targetId: data.userId,
+			targetLabel: await userLabel(headers, data.userId),
+		});
+		return { id: data.sessionId };
+	});
+
+/** Revoke every active session for a user (clear all / force sign-out). Clean via
+ * the admin API; the account itself is untouched, so they can sign back in. */
+export const revokeAdminUserSessions = createServerFn({ method: "POST" })
+	.validator(userIdInput)
+	.handler(async ({ data }) => {
+		const admin = await requireAdmin();
+		const headers = getRequest().headers;
+		await auth.api.revokeUserSessions({
+			headers,
+			body: { userId: data.userId },
+		});
+
+		await recordActivity({
+			category: "account",
+			action: "account.sessions_revoked",
+			userId: admin.userId,
+			actorName: admin.userName,
+			targetType: "user",
+			targetId: data.userId,
+			targetLabel: await userLabel(headers, data.userId),
+		});
+		return { ok: true };
 	});

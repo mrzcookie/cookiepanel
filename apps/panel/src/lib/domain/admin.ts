@@ -74,6 +74,38 @@ export type AdminUserRow = {
 	memberships: AdminMembership[];
 };
 
+/**
+ * One linked OAuth login on an account (the admin connections view). Client-safe
+ * — the provider key only, never the stored tokens. `credential` (email/password)
+ * rows are excluded by the service; this is the social-login list.
+ */
+export type AdminUserConnection = {
+	id: string;
+	/** The provider key, e.g. "google" | "github". */
+	providerId: string;
+	/** ISO 8601 — when the login was linked. */
+	linkedAt: string;
+};
+
+/**
+ * One active session for a user (the admin sessions view). Client-safe — the
+ * session token never leaves the server; the row is keyed by its `id`, and the
+ * admin's own current session is flagged so it reads as "this device".
+ */
+export type AdminUserSession = {
+	id: string;
+	/** Source IP, or null if it wasn't recorded. */
+	ipAddress: string | null;
+	/** Raw user-agent string (the UI derives a friendly device label), or null. */
+	userAgent: string | null;
+	/** ISO 8601 — when the session was opened. */
+	createdAt: string;
+	/** ISO 8601 — when the session expires. */
+	expiresAt: string;
+	/** True when this is the requesting admin's own current session. */
+	isCurrent: boolean;
+};
+
 /** A node in the platform fleet, attributed to the org that owns it. Everything
  * else is the same daemon-derived shape the org app already renders. */
 export type AdminNode = NodeRow & { orgId: string; orgName: string };

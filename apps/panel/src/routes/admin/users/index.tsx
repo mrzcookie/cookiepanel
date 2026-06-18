@@ -1,16 +1,16 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { Users } from "lucide-react";
+import { useState } from "react";
 import { AdminList } from "@/components/admin/admin-list";
+import { AdminUserSheet } from "@/components/admin/admin-user-sheet";
 import { PageHeader } from "@/components/shared/page-header";
-import { StatusIndicator } from "@/components/shared/status-indicator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import { adminUsersQueryOptions } from "@/lib/admin-users-queries";
 import type { AdminUserRow } from "@/lib/domain/admin";
 import { formatDate, formatRelativeTime, initials } from "@/lib/format";
-import { userStatus } from "@/lib/status";
 
 export const Route = createFileRoute("/admin/users/")({
 	loader: ({ context }) =>
@@ -28,6 +28,11 @@ function orgsLabel(user: AdminUserRow) {
 
 function AdminUsers() {
 	const { data: users } = useSuspenseQuery(adminUsersQueryOptions());
+	const [selectedId, setSelectedId] = useState<string | null>(null);
+
+	// Derive the selection from the live list so it stays fresh after a mutation
+	// invalidates the cache; a deleted user simply falls out and the sheet closes.
+	const selected = users.find((user) => user.id === selectedId) ?? null;
 
 	return (
 		<>
@@ -50,13 +55,16 @@ function AdminUsers() {
 						<TableHead>Organizations</TableHead>
 						<TableHead className="text-right">Joined</TableHead>
 						<TableHead className="text-right">Last seen</TableHead>
-						<TableHead className="text-right">Status</TableHead>
 					</TableRow>
 				}
 				icon={Users}
 				items={users}
 				row={(user) => (
-					<TableRow key={user.id}>
+					<TableRow
+						className="cursor-pointer"
+						key={user.id}
+						onClick={() => setSelectedId(user.id)}
+					>
 						<TableCell>
 							<div className="flex items-center gap-3">
 								<Avatar className="size-8">
@@ -65,15 +73,12 @@ function AdminUsers() {
 								</Avatar>
 								<div className="min-w-0">
 									<div className="flex items-center gap-2">
-										<Link
-											className="font-medium hover:underline"
-											params={{ userId: user.id }}
-											to="/admin/users/$userId"
-										>
-											{user.name}
-										</Link>
+										<span className="font-medium">{user.name}</span>
 										{user.role === "admin" ? (
 											<Badge variant="secondary">Admin</Badge>
+										) : null}
+										{user.status === "suspended" ? (
+											<Badge variant="destructive">Suspended</Badge>
 										) : null}
 									</div>
 									<div className="truncate text-muted-foreground text-xs">
@@ -97,12 +102,17 @@ function AdminUsers() {
 						>
 							{user.lastSeenAt ? formatRelativeTime(user.lastSeenAt) : "—"}
 						</TableCell>
-						<TableCell className="text-right">
-							<StatusIndicator status={userStatus(user.status)} />
-						</TableCell>
 					</TableRow>
 				)}
 				searchPlaceholder="Search users…"
+			/>
+			<AdminUserSheet
+				onOpenChange={(open) => {
+					if (!open) {
+						setSelectedId(null);
+					}
+				}}
+				user={selected}
 			/>
 		</>
 	);
