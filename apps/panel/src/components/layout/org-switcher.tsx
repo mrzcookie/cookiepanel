@@ -45,10 +45,23 @@ function OrgInitial({ name, className }: { name: string; className?: string }) {
 export function OrgSwitcher() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { data: orgs } = authClient.useListOrganizations();
-	const { data: active } = authClient.useActiveOrganization();
+	const { data: orgs, refetch: refetchOrgs } =
+		authClient.useListOrganizations();
+	const { data: active, refetch: refetchActive } =
+		authClient.useActiveOrganization();
 	const [createOpen, setCreateOpen] = useState(false);
 	const [busy, setBusy] = useState(false);
+
+	// Better Auth's org atoms are module-level singletons that only auto-fetch on
+	// their first-ever mount; afterwards they refresh on a create/switch signal
+	// only while something is subscribed. The switcher isn't mounted during
+	// onboarding (it lives in the _app shell), so the new org's create signal is
+	// missed and the list shows stale on arrival. The switcher only (re)mounts on
+	// entry to the app shell — after onboarding or login — so refetch then.
+	useEffect(() => {
+		refetchOrgs();
+		refetchActive();
+	}, [refetchOrgs, refetchActive]);
 
 	async function switchTo(organizationId: string) {
 		if (organizationId === active?.id || busy) {
@@ -146,8 +159,8 @@ function CreateOrgDialog({
 			return;
 		}
 		setCreating(true);
-		// `create` makes the new org active (the default), so just reset the
-		// org-scoped caches and land on the overview for it.
+		// createOrganization sets the new org active, so just reset the org-scoped
+		// caches and land on the overview for it.
 		const { error } = await createOrganization(trimmed);
 		if (error) {
 			setCreating(false);

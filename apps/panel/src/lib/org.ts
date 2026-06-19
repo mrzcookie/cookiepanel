@@ -4,18 +4,30 @@ import { slugify } from "@/lib/slug";
 /**
  * Create an organization, deriving a slug from the name. Slugs are unique
  * org-wide, so on a collision retry once with a short random suffix rather than
- * failing the user. `create` makes the new org the active one (Better Auth's
- * default). Returns the Better Auth `{ data, error }` result.
+ * failing the user. Returns the Better Auth `{ data, error }` result.
+ *
+ * Creating an org does NOT make it the session's active org, so on success we
+ * set it active explicitly — otherwise a brand-new user (no prior active org)
+ * would create the org but stay `activeOrganizationId: null` and get bounced
+ * straight back to onboarding. setActive also refreshes the session cookie
+ * cache so the next guard read sees the new active org.
  */
-export function createOrganization(name: string) {
+export async function createOrganization(name: string) {
 	const base = slugify(name) || "org";
-	return authClient.organization.create({ name, slug: base }).then((first) => {
-		if (first.error?.code !== "ORGANIZATION_SLUG_ALREADY_TAKEN") {
-			return first;
-		}
-		const suffix = crypto.randomUUID().slice(0, 6);
-		return authClient.organization.create({ name, slug: `${base}-${suffix}` });
-	});
+	const first = await authClient.organization.create({ name, slug: base });
+	const result =
+		first.error?.code === "ORGANIZATION_SLUG_ALREADY_TAKEN"
+			? await authClient.organization.create({
+					name,
+					slug: `${base}-${crypto.randomUUID().slice(0, 6)}`,
+				})
+			: first;
+	if (result.data) {
+		await authClient.organization.setActive({
+			organizationId: result.data.id,
+		});
+	}
+	return result;
 }
 
 /**

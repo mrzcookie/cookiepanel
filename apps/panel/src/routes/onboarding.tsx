@@ -17,14 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
-import { createOrganization } from "@/lib/org";
+import { createOrganization, nextOrgDestination } from "@/lib/org";
 import { isEmail } from "@/lib/validation";
 import { fetchSession, getEnabledSocialProviders } from "@/server/auth/session";
-
-// Where the intended org name is stashed between account creation and the
-// post-login "name your organization" step (the magic link round-trips back to
-// /onboarding in this same browser, so localStorage carries it across).
-const PENDING_ORG_KEY = "cookiepanel:onboarding-org";
 
 export const Route = createFileRoute("/onboarding")({
 	// Onboarding is for users without an organization yet: signed out (create an
@@ -66,13 +61,12 @@ function Onboarding() {
 	);
 }
 
-/** Signed-out step: email + intended org name → magic link. */
+/** Signed-out step: email → magic link. The org is created after login. */
 function CreateAccount({ providers }: { providers: SocialProvider[] }) {
 	const [email, setEmail] = useState("");
-	const [org, setOrg] = useState("");
 	const [sent, setSent] = useState(false);
 	const [sending, setSending] = useState(false);
-	const valid = isEmail(email) && org.trim() !== "";
+	const valid = isEmail(email);
 
 	async function submit(event: FormEvent) {
 		event.preventDefault();
@@ -80,13 +74,6 @@ function CreateAccount({ providers }: { providers: SocialProvider[] }) {
 			return;
 		}
 		setSending(true);
-		// Stash the org name so the post-login step prefills it. The org itself is
-		// created after the user authenticates (it needs a session).
-		try {
-			localStorage.setItem(PENDING_ORG_KEY, org.trim());
-		} catch {
-			// Private-mode / storage-disabled: harmless — they'll just retype it.
-		}
 		const { error } = await authClient.signIn.magicLink({
 			email: email.trim(),
 			callbackURL: "/onboarding",
@@ -111,8 +98,8 @@ function CreateAccount({ providers }: { providers: SocialProvider[] }) {
 				</h1>
 				<p className="text-muted-foreground text-sm">
 					{providers.length > 0
-						? "Continue with a provider, or use your email and a name for your first organization."
-						: "Use your email and a name for your first organization."}
+						? "Continue with a provider, or use your email to get started."
+						: "Use your email to get started."}
 				</p>
 			</div>
 
@@ -123,7 +110,7 @@ function CreateAccount({ providers }: { providers: SocialProvider[] }) {
 					<p className="text-muted-foreground text-sm">
 						A login link is on its way to{" "}
 						<span className="font-mono">{email.trim()}</span>. Open it to finish
-						setting up {org.trim()}.
+						setting up your account.
 					</p>
 					<Button
 						className="mt-1"
@@ -151,15 +138,6 @@ function CreateAccount({ providers }: { providers: SocialProvider[] }) {
 								placeholder="you@example.com"
 								type="email"
 								value={email}
-							/>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="onboard-org">Organization name</Label>
-							<Input
-								id="onboard-org"
-								onChange={(event) => setOrg(event.target.value)}
-								placeholder="Acme Gaming"
-								value={org}
 							/>
 						</div>
 						<Button
@@ -191,18 +169,24 @@ function CreateFirstOrg() {
 	const [name, setName] = useState("");
 	const [creating, setCreating] = useState(false);
 
-	// Prefill from the stash set during account creation. Populated after mount
-	// (localStorage is client-only) so SSR and the first client render agree.
+	// We land here whenever the session has no valid active org — which includes a
+	// member whose active org was just deleted/left but who still belongs to
+	// another. Recover into that one rather than making them create a new org; a
+	// genuinely org-less user has nothing to switch to and stays on the form.
 	useEffect(() => {
-		try {
-			const pending = localStorage.getItem(PENDING_ORG_KEY);
-			if (pending) {
-				setName(pending);
+		let cancelled = false;
+		void (async () => {
+			const dest = await nextOrgDestination();
+			if (cancelled || dest !== "/") {
+				return;
 			}
-		} catch {
-			// Ignore — the field just stays empty.
-		}
-	}, []);
+			queryClient.clear();
+			await navigate({ to: "/" });
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [navigate, queryClient]);
 
 	async function submit(event: FormEvent) {
 		event.preventDefault();
@@ -216,11 +200,6 @@ function CreateFirstOrg() {
 			setCreating(false);
 			toast.error(error.message ?? "Couldn't create your organization.");
 			return;
-		}
-		try {
-			localStorage.removeItem(PENDING_ORG_KEY);
-		} catch {
-			// Non-fatal.
 		}
 		// New org is active now; clear any stale caches and head into the app.
 		queryClient.clear();
