@@ -23,8 +23,8 @@ import { env } from "@/server/env";
  * back as `null`, so the guard routes a user whose only/active org is gone to
  * onboarding instead of letting them through to pages that then fail org-scoped.
  *
- * `fetchIsAdmin` powers the account menu's /admin entry: the same capability check
- * `requireAdmin` enforces, evaluated server-side (the env-bootstrapped admin list
+ * `fetchIsPlatformAdmin` powers the account menu's /admin entry: the same capability check
+ * `requirePlatformAdmin` enforces, evaluated server-side (the env-bootstrapped admin list
  * never reaches the client), so the menu shows the link to exactly who the guard
  * will admit. Returns false when signed out — never throws — so it's safe to call
  * anywhere.
@@ -63,7 +63,7 @@ export const fetchSession = createServerFn({ method: "GET" }).handler(
 	}
 );
 
-export const fetchIsAdmin = createServerFn({ method: "GET" }).handler(
+export const fetchIsPlatformAdmin = createServerFn({ method: "GET" }).handler(
 	async () => {
 		const session = await auth.api.getSession({
 			headers: getRequest().headers,

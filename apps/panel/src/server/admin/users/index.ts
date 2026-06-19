@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
@@ -10,15 +9,10 @@ import type {
 } from "@/lib/domain/admin";
 import { recordActivity } from "@/server/activity/record";
 import { auth } from "@/server/auth";
-import { requireAdmin } from "@/server/auth/guards";
-import {
-	deleteObject,
-	isStorageConfigured,
-	ownedKeyFromUrl,
-	publicUrl,
-	putObject,
-} from "@/server/storage";
-import { sniffImage, validateImageUpload } from "@/server/storage/image-upload";
+import { requirePlatformAdmin } from "@/server/auth/guards";
+import { deleteOwnedObject } from "@/server/storage";
+import { validateImageUpload } from "@/server/storage/image-upload";
+import { replaceManagedImage } from "@/server/storage/managed-image";
 import { usersRepository } from "./repository";
 
 /** Storage namespace for avatar objects (shared with the account-level avatar). */
@@ -27,7 +21,7 @@ const AVATAR_PREFIX = "avatars";
 /**
  * Platform users service + server functions — the typed boundary the /admin user
  * panel calls. Each is a thin `auth + validate + delegate` shim: gate on
- * `requireAdmin` (the global capability, NOT org membership — see guards.ts),
+ * `requirePlatformAdmin` (the global capability, NOT org membership — see guards.ts),
  * validate input (Zod), and delegate.
  *
  * User rows come from Better Auth's **admin plugin** (`auth.api.*`), never a
@@ -64,7 +58,7 @@ function toAdminUserRow(
 	lastSeen: Date | null
 ): AdminUserRow {
 	// `role` is a comma-list in the admin plugin; admin if "admin" is among them.
-	const isAdmin = (user.role ?? "")
+	const isPlatformAdmin = (user.role ?? "")
 		.split(",")
 		.some((part) => part.trim() === "admin");
 	const createdAt =
@@ -76,7 +70,7 @@ function toAdminUserRow(
 		email: user.email,
 		image: user.image ?? null,
 		emailVerified: user.emailVerified,
-		role: isAdmin ? "admin" : "user",
+		role: isPlatformAdmin ? "admin" : "user",
 		status: user.banned ? "suspended" : "active",
 		createdAt: createdAt.toISOString(),
 		lastSeenAt: lastSeen ? lastSeen.toISOString() : null,
@@ -135,7 +129,7 @@ const userIdInput = z.object({ userId: z.string().min(1) });
 
 export const listAdminUsers = createServerFn({ method: "GET" }).handler(
 	async () => {
-		await requireAdmin();
+		await requirePlatformAdmin();
 		const { users } = await auth.api.listUsers({
 			headers: getRequest().headers,
 			query: { limit: LIST_LIMIT },
@@ -156,7 +150,7 @@ const updateInput = z.object({
 export const updateAdminUser = createServerFn({ method: "POST" })
 	.validator(updateInput)
 	.handler(async ({ data }) => {
-		const admin = await requireAdmin();
+		const admin = await requirePlatformAdmin();
 		const headers = getRequest().headers;
 
 		const patch: Record<string, unknown> = {};
@@ -203,7 +197,7 @@ const roleInput = z.object({
 export const setAdminUserRole = createServerFn({ method: "POST" })
 	.validator(roleInput)
 	.handler(async ({ data }) => {
-		const admin = await requireAdmin();
+		const admin = await requirePlatformAdmin();
 
 		const { user } = await auth.api.setRole({
 			headers: getRequest().headers,
@@ -235,7 +229,7 @@ const statusInput = z.object({
 export const setAdminUserStatus = createServerFn({ method: "POST" })
 	.validator(statusInput)
 	.handler(async ({ data }) => {
-		const admin = await requireAdmin();
+		const admin = await requirePlatformAdmin();
 
 		const headers = getRequest().headers;
 		const suspend = data.status === "suspended";
@@ -264,7 +258,7 @@ export const setAdminUserStatus = createServerFn({ method: "POST" })
 export const deleteAdminUser = createServerFn({ method: "POST" })
 	.validator(userIdInput)
 	.handler(async ({ data }) => {
-		const admin = await requireAdmin();
+		const admin = await requirePlatformAdmin();
 
 		const headers = getRequest().headers;
 		// Capture a label for the audit trail before the row is gone.
@@ -303,52 +297,28 @@ function validateAvatarUpload(input: unknown): { file: File; userId: string } {
 export const setAdminUserAvatar = createServerFn({ method: "POST" })
 	.validator(validateAvatarUpload)
 	.handler(async ({ data }) => {
-		const admin = await requireAdmin();
+		const admin = await requirePlatformAdmin();
 		const headers = getRequest().headers;
-
-		if (!isStorageConfigured()) {
-			// Operator/config condition, not user error — keep it presentable.
-			throw new Error("Image uploads aren't available right now");
-		}
 
 		// Load first: a generic not-found on a bad id, plus the prior avatar to clean up.
 		const before = await loadUser(headers, data.userId);
 
-		// Re-read + magic-byte check past the validator's MIME check; yields the
-		// bytes and a safe extension. The key is server-minted and namespaced by the
-		// target user, so it can't collide with another account's objects.
-		const { bytes, ext } = await sniffImage(data.file);
-		const key = `${AVATAR_PREFIX}/${data.userId}/${randomUUID()}.${ext}`;
-
-		await putObject({
-			key,
-			body: bytes,
-			contentType: data.file.type,
-			cacheControl: "public, max-age=31536000, immutable",
-		});
-
-		const url = publicUrl(key);
 		let updated!: AuthUser;
-		try {
-			// Persist through Better Auth (it owns `user.image`) so the user's session
-			// + cookie cache stay current.
-			updated = await auth.api.adminUpdateUser({
-				headers,
-				body: { userId: data.userId, data: { image: url } },
-			});
-		} catch (error) {
-			// The profile never moved — don't strand the object we just uploaded.
-			await deleteObject(key).catch(() => {});
-			throw new Error("Couldn't update the avatar. Please try again.", {
-				cause: error,
-			});
-		}
-
-		// Best-effort: drop the prior avatar, but only when it's one we own.
-		const prevKey = ownedKeyFromUrl(before.image, AVATAR_PREFIX);
-		if (prevKey) {
-			await deleteObject(prevKey).catch(() => {});
-		}
+		await replaceManagedImage({
+			prefix: AVATAR_PREFIX,
+			ownerId: data.userId,
+			file: data.file,
+			previousUrl: before.image,
+			// Persist through Better Auth (it owns `user.image`) so the target user's
+			// session + cookie cache stay current.
+			persist: async (image) => {
+				updated = await auth.api.adminUpdateUser({
+					headers,
+					body: { userId: data.userId, data: { image } },
+				});
+			},
+			errorMessage: "Couldn't update the avatar. Please try again.",
+		});
 
 		const [row] = await projectUsers([updated]);
 		if (!row) {
@@ -370,7 +340,7 @@ export const setAdminUserAvatar = createServerFn({ method: "POST" })
 export const removeAdminUserAvatar = createServerFn({ method: "POST" })
 	.validator(userIdInput)
 	.handler(async ({ data }) => {
-		const admin = await requireAdmin();
+		const admin = await requirePlatformAdmin();
 		const headers = getRequest().headers;
 		const before = await loadUser(headers, data.userId);
 
@@ -380,10 +350,8 @@ export const removeAdminUserAvatar = createServerFn({ method: "POST" })
 			body: { userId: data.userId, data: { image: null } },
 		});
 
-		const prevKey = ownedKeyFromUrl(before.image, AVATAR_PREFIX);
-		if (prevKey) {
-			await deleteObject(prevKey).catch(() => {});
-		}
+		// Best-effort: drop the prior avatar, but only when it's one we own.
+		await deleteOwnedObject(before.image, AVATAR_PREFIX);
 
 		const [row] = await projectUsers([updated]);
 		if (!row) {
@@ -410,7 +378,7 @@ export const removeAdminUserAvatar = createServerFn({ method: "POST" })
 export const listAdminUserAccounts = createServerFn({ method: "GET" })
 	.validator(userIdInput)
 	.handler(async ({ data }): Promise<AdminUserConnection[]> => {
-		await requireAdmin();
+		await requirePlatformAdmin();
 		const rows = await usersRepository.accountsForUser(data.userId);
 		return rows
 			.filter((row) => row.providerId !== "credential")
@@ -429,14 +397,14 @@ const unlinkInput = z.object({
 /**
  * Disconnect one of a user's social logins. Better Auth's admin plugin has no
  * unlink endpoint, so this deletes the `account` row through the repository — the
- * one deliberate direct write to an auth-owned table, gated on `requireAdmin` and
+ * one deliberate direct write to an auth-owned table, gated on `requirePlatformAdmin` and
  * audited. The account stays reachable via magic link (the app is passwordless),
  * so there's no lock-out to guard against.
  */
 export const unlinkAdminUserAccount = createServerFn({ method: "POST" })
 	.validator(unlinkInput)
 	.handler(async ({ data }) => {
-		const admin = await requireAdmin();
+		const admin = await requirePlatformAdmin();
 		const removed = await usersRepository.deleteAccount(
 			data.userId,
 			data.accountId
@@ -463,7 +431,7 @@ export const unlinkAdminUserAccount = createServerFn({ method: "POST" })
 export const listAdminUserSessions = createServerFn({ method: "GET" })
 	.validator(userIdInput)
 	.handler(async ({ data }): Promise<AdminUserSession[]> => {
-		const admin = await requireAdmin();
+		const admin = await requirePlatformAdmin();
 		const { sessions } = await auth.api.listUserSessions({
 			headers: getRequest().headers,
 			body: { userId: data.userId },
@@ -490,7 +458,7 @@ const sessionInput = z.object({
 export const revokeAdminUserSession = createServerFn({ method: "POST" })
 	.validator(sessionInput)
 	.handler(async ({ data }) => {
-		const admin = await requireAdmin();
+		const admin = await requirePlatformAdmin();
 		const headers = getRequest().headers;
 		const { sessions } = await auth.api.listUserSessions({
 			headers,
@@ -523,7 +491,7 @@ export const revokeAdminUserSession = createServerFn({ method: "POST" })
 export const revokeAdminUserSessions = createServerFn({ method: "POST" })
 	.validator(userIdInput)
 	.handler(async ({ data }) => {
-		const admin = await requireAdmin();
+		const admin = await requirePlatformAdmin();
 		const headers = getRequest().headers;
 		await auth.api.revokeUserSessions({
 			headers,

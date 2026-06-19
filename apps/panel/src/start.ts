@@ -1,24 +1,13 @@
-import { createMiddleware, createStart } from "@tanstack/react-start";
-import { auth } from "@/server/auth";
+import { createStart } from "@tanstack/react-start";
 
 /**
- * Mount the Better Auth HTTP handler.
+ * The TanStack Start instance. This export is required — the generated route
+ * tree imports `startInstance` for its config typing — so it stays even with no
+ * options set.
  *
- * This TanStack Start version has no server-route file API, so a request
- * middleware forwards every `/api/auth/*` request to Better Auth's handler —
- * returning its Response short-circuits the router. All other requests pass
- * through untouched via `next()`.
+ * The Better Auth HTTP handler is mounted as a server route at
+ * `routes/api/auth/$.ts` (Better Auth's documented TanStack Start integration),
+ * so no global request middleware is needed here. Add `requestMiddleware` here if
+ * a future cross-cutting concern needs to wrap every request.
  */
-const authHandler = createMiddleware({ type: "request" }).server(
-	({ request, next }) => {
-		const { pathname } = new URL(request.url);
-		if (pathname.startsWith("/api/auth/")) {
-			return auth.handler(request);
-		}
-		return next();
-	}
-);
-
-export const startInstance = createStart(() => ({
-	requestMiddleware: [authHandler],
-}));
+export const startInstance = createStart(() => ({}));

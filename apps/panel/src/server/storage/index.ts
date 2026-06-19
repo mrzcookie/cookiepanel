@@ -37,6 +37,22 @@ export async function deleteObject(key: string): Promise<void> {
 	);
 }
 
+/**
+ * Best-effort delete of an object we own, addressed by its public URL. A no-op
+ * for a null / externally-hosted / unconfigured URL (via `ownedKeyFromUrl`), and
+ * failures are swallowed — it's only cleanup of a replaced/removed object, never
+ * something that should fail the action that triggered it.
+ */
+export async function deleteOwnedObject(
+	url: string | null | undefined,
+	prefix: string
+): Promise<void> {
+	const key = ownedKeyFromUrl(url, prefix);
+	if (key) {
+		await deleteObject(key).catch(() => {});
+	}
+}
+
 /** The public URL an object is served from. */
 export function publicUrl(key: string): string {
 	return `${getStorageConfig().publicUrl}/${key}`;

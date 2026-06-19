@@ -37,7 +37,7 @@ import {
 	removeAdminOrgLogo,
 	updateAdminOrg,
 	uploadAdminOrgLogo,
-} from "@/server/orgs";
+} from "@/server/admin/orgs";
 
 // The /admin org editor — a right-side slideout opened from a list row. The list
 // already carries the full AdminOrgRow, so identity edits read and write that row

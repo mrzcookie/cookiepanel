@@ -30,7 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { authClient } from "@/lib/auth-client";
 import { formatDate } from "@/lib/format";
 import { nextOrgDestination } from "@/lib/org";
-import { removeOrgLogo, uploadOrgLogo } from "@/server/org";
+import { removeOrgLogo, uploadOrgLogo } from "@/server/organization";
 
 export const Route = createFileRoute("/_app/settings/")({
 	component: SettingsGeneral,

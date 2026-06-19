@@ -81,6 +81,36 @@ utils.ts status.ts format.ts slug.ts list-view.ts nav.ts admin-nav.ts
           utils.ts (cn) is the shadcn convention; don't move it.
 ```
 
+### Server feature folders
+
+Each feature under `src/server/<feature>/` is `index.ts` (the server functions —
+thin `auth + validate + delegate` shims) plus `repository.ts` (the only layer
+that touches the DB; see `panel.md`). The folder name encodes the **caller
+scope**, matching the guard every function in it uses:
+
+- `user/` — the caller's own user, `requireSession` (self-service).
+- `organization/`, `nodes/`, … — the caller's active org, `requireOrg` (the
+  default for domain entities; don't nest them under a shared `org/` parent —
+  org-scope is the default, so the prefix carries no information).
+- `admin/<entity>/` — cross-tenant platform admin, `requirePlatformAdmin`. **Everything
+  under `admin/` gates on `requirePlatformAdmin`** — that's the checkable invariant.
+  Mirrors `routes/admin/` and `components/admin/`.
+
+Names are the domain noun, and singular vs. plural marks the scope: the
+**singular** self-service folder is the caller's own (`user/`, `organization/`),
+the **plural** admin folder is the whole collection (`admin/users/`,
+`admin/orgs/`) — same noun, two scopes, with a different guard, repository, and
+attack surface each. The `admin/` prefix is what disambiguates them; never lean
+on a one-letter `user`/`users` difference to carry that split.
+
+`activity/` is the cross-scope audit log and the one shared-read exception:
+`record.ts` (the best-effort write helper — imports only the repository, so it
+stays out of the auth import cycle), `repository.ts`, and `index.ts` (the org /
+self / admin read feeds). The shared image-upload orchestration —
+put → persist → strand-cleanup → drop-the-previous — lives once in
+`storage/managed-image.ts` (`replaceManagedImage`), behind which each avatar/logo
+call site passes only a one-line `persist` callback.
+
 ### The server import boundary
 
 `src/server` may import `@/lib/domain/*` and the root pure helpers, but **must

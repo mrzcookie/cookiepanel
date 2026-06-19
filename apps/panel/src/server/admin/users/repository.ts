@@ -19,11 +19,11 @@ import {
  * needs: Better Auth's admin plugin has no endpoint to list or unlink another
  * user's OAuth login, so that one operation touches the `account` table directly
  * here — the deliberate, isolated exception to the auth-through-Better-Auth rule
- * (the service that calls it gates on `requireAdmin` and audits the removal).
+ * (the service that calls it gates on `requirePlatformAdmin` and audits the removal).
  *
  * Unlike the org-scoped repositories, this is **deliberately not org-scoped**:
  * the platform admin surface spans every org. Its server fns gate on
- * `requireAdmin` instead (see ./index.ts).
+ * `requirePlatformAdmin` instead (see ./index.ts).
  */
 export const usersRepository = {
 	/** Org memberships (with org names + the per-org role) grouped by user id. */

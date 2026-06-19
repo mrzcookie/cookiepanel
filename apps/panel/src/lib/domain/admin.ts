@@ -12,7 +12,7 @@ export type MemberRole = "owner" | "admin" | "member";
  * their memberships. `admin` is the global superadmin capability the /admin
  * console gates on (Better Auth's admin plugin role), NOT org ownership.
  */
-export type AdminPlatformRole = "user" | "admin";
+export type PlatformAdminRole = "user" | "admin";
 
 /** Whether an audit entry is an admin (platform) action or a tenant action. */
 export type AdminActivityScope = "platform" | "tenant";
@@ -64,8 +64,8 @@ export type AdminUserRow = {
 	email: string;
 	image: string | null;
 	emailVerified: boolean;
-	/** Platform role (see {@link AdminPlatformRole}) — NOT the per-org membership role. */
-	role: AdminPlatformRole;
+	/** Platform role (see {@link PlatformAdminRole}) — NOT the per-org membership role. */
+	role: PlatformAdminRole;
 	status: AdminUserStatus;
 	/** ISO 8601 — when the account was created. */
 	createdAt: string;

@@ -1,7 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { ActivityCategory, ActivityEntry } from "@/lib/domain/activity";
-import { requireAdmin, requireOrg, requireSession } from "@/server/auth/guards";
+import {
+	requireOrg,
+	requirePlatformAdmin,
+	requireSession,
+} from "@/server/auth/guards";
 import { type ActivityRecord, activityRepository } from "./repository";
 
 /**
@@ -63,7 +67,7 @@ export const listMyActivity = createServerFn({ method: "GET" })
 export const listAllActivity = createServerFn({ method: "GET" })
 	.validator(pageInput)
 	.handler(async ({ data }) => {
-		await requireAdmin();
+		await requirePlatformAdmin();
 		const rows = await activityRepository.listAll(toPage(data));
 		return rows.map(toActivityEntry);
 	});

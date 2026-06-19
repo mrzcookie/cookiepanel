@@ -42,11 +42,11 @@ import {
 	adminUserSessionsQueryOptions,
 } from "@/lib/admin-users-queries";
 import type {
-	AdminPlatformRole,
 	AdminUserConnection,
 	AdminUserRow,
 	AdminUserSession,
 	AdminUserStatus,
+	PlatformAdminRole,
 } from "@/lib/domain/admin";
 import { formatDate, formatRelativeTime, initials } from "@/lib/format";
 import type { StatusMeta } from "@/lib/status";
@@ -61,7 +61,7 @@ import {
 	setAdminUserStatus,
 	unlinkAdminUserAccount,
 	updateAdminUser,
-} from "@/server/users";
+} from "@/server/admin/users";
 
 // The /admin user editor — a right-side slideout opened from a list row. The list
 // already carries the full AdminUserRow, so identity + profile edits read and
@@ -292,7 +292,7 @@ function ProfileSection({ user }: { user: AdminUserRow }) {
 	const [name, setName] = useState(user.name);
 	const [email, setEmail] = useState(user.email);
 	const [verified, setVerified] = useState(user.emailVerified);
-	const [role, setRole] = useState<AdminPlatformRole>(user.role);
+	const [role, setRole] = useState<PlatformAdminRole>(user.role);
 	const [saving, setSaving] = useState(false);
 
 	const trimmedName = name.trim();
@@ -399,7 +399,7 @@ function ProfileSection({ user }: { user: AdminUserRow }) {
 			</Field>
 			<Field htmlFor="user-role" label="Platform role">
 				<Select
-					onValueChange={(value) => setRole(value as AdminPlatformRole)}
+					onValueChange={(value) => setRole(value as PlatformAdminRole)}
 					value={role}
 				>
 					<SelectTrigger className="w-full" id="user-role">

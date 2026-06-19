@@ -1,32 +1,26 @@
-import { randomUUID } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { recordActivity } from "@/server/activity/record";
 import { auth } from "@/server/auth";
 import { requireSession } from "@/server/auth/guards";
-import {
-	deleteObject,
-	isStorageConfigured,
-	ownedKeyFromUrl,
-	publicUrl,
-	putObject,
-} from "@/server/storage";
-import { sniffImage, validateImageUpload } from "@/server/storage/image-upload";
+import { deleteOwnedObject } from "@/server/storage";
+import { validateImageUpload } from "@/server/storage/image-upload";
+import { replaceManagedImage } from "@/server/storage/managed-image";
 
 /**
- * User server functions for the avatar — the typed boundary the account page
- * calls. Avatars are **user-level** (they belong to the User, not an
- * organization), so every function scopes strictly by the authenticated session
- * `userId` (`requireSession`) and never trusts a client-supplied id. The storage
- * key is minted server-side and namespaced by `userId`, so users can't collide
- * with or overwrite one another.
+ * User (self-service) server functions for the avatar — the typed boundary the
+ * account page calls. Avatars are **user-level** (they belong to the User,
+ * not an organization), so every function scopes strictly by the authenticated
+ * session `userId` (`requireSession`) and never trusts a client-supplied id;
+ * `replaceManagedImage` mints the storage key server-side, namespaced by `userId`.
+ * (The cross-tenant admin equivalent — setting any user's avatar — lives in
+ * `server/admin/users`.)
  *
  * The `image` column is owned by Better Auth (a core field on its generated
  * `user` table), so the avatar URL is persisted through `auth.api.updateUser`
  * rather than a direct DB write. That keeps Better Auth's session/cookie cache
  * consistent — the `tanstackStartCookies` plugin forwards the refreshed cookie
  * even for this server-side call — and avoids reaching behind the auth layer.
- * These functions only add the S3 upload + old-object cleanup around that call.
  *
  * Both return `{ image }` (the new URL, or null). The panel reads the avatar from
  * the Better Auth session (`user.image`), not a query cache, so a consumer must
@@ -40,50 +34,19 @@ const AVATAR_PREFIX = "avatars";
 export const uploadAvatar = createServerFn({ method: "POST" })
 	.validator(validateImageUpload)
 	.handler(async ({ data }) => {
-		const { file } = data;
 		const session = await requireSession();
+		const headers = getRequest().headers;
 
-		if (!isStorageConfigured()) {
-			// Operator/config condition, not user error — keep it presentable.
-			throw new Error("Image uploads aren't available right now");
-		}
-
-		// Re-read + magic-byte check (defense in depth past the validator's MIME
-		// check); yields the bytes and a safe extension.
-		const { bytes, ext } = await sniffImage(file);
-		// The key is never client-controlled and is namespaced by `userId`, so
-		// users can't collide with or overwrite each other's objects.
-		const key = `${AVATAR_PREFIX}/${session.user.id}/${randomUUID()}.${ext}`;
-
-		await putObject({
-			key,
-			body: bytes,
-			contentType: file.type,
-			cacheControl: "public, max-age=31536000, immutable",
-		});
-
-		const url = publicUrl(key);
-		try {
+		const { url } = await replaceManagedImage({
+			prefix: AVATAR_PREFIX,
+			ownerId: session.user.id,
+			file: data.file,
+			previousUrl: session.user.image,
 			// Persist through Better Auth (it owns `user.image`) so the session +
 			// cookie cache stay current.
-			await auth.api.updateUser({
-				body: { image: url },
-				headers: getRequest().headers,
-			});
-		} catch (error) {
-			// The profile never moved — don't strand the object we just uploaded
-			// with no row referencing it (and no way to reclaim it).
-			await deleteObject(key).catch(() => {});
-			throw new Error("Couldn't update your avatar. Please try again.", {
-				cause: error,
-			});
-		}
-
-		// Best-effort: clean up the prior avatar, but only when it's one we own.
-		const prevKey = ownedKeyFromUrl(session.user.image, AVATAR_PREFIX);
-		if (prevKey) {
-			await deleteObject(prevKey).catch(() => {});
-		}
+			persist: (image) => auth.api.updateUser({ body: { image }, headers }),
+			errorMessage: "Couldn't update your avatar. Please try again.",
+		});
 
 		await recordActivity({
 			category: "account",
@@ -108,11 +71,7 @@ export const removeAvatar = createServerFn({ method: "POST" }).handler(
 		});
 
 		// Best-effort: drop the prior object only when it's one we own.
-		// `ownedKeyFromUrl` already yields null when storage is unconfigured.
-		const prevKey = ownedKeyFromUrl(previous, AVATAR_PREFIX);
-		if (prevKey) {
-			await deleteObject(prevKey).catch(() => {});
-		}
+		await deleteOwnedObject(previous, AVATAR_PREFIX);
 
 		// Only audit a real removal — no spurious entry when there was no avatar.
 		if (previous) {

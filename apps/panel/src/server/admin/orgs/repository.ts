@@ -20,7 +20,7 @@ export type OrgMemberRecord = {
  * The only module that touches the DB for the admin orgs views. Unlike the
  * org-scoped repositories (nodes, …), this is **deliberately not org-scoped**:
  * the platform admin surface spans every organization, so it reads and writes
- * org rows across tenants. Its service gates on `requireAdmin` instead (see
+ * org rows across tenants. Its service gates on `requirePlatformAdmin` instead (see
  * ./index.ts).
  *
  * It also owns the org **mutations** that the admin panel needs (rename / logo /
@@ -29,7 +29,7 @@ export type OrgMemberRecord = {
  * of that org with permission — so a platform admin who isn't a member can't go
  * through it. These writes therefore touch the `organization` table directly: the
  * deliberate, isolated exception to the auth-through-Better-Auth rule (the service
- * that calls them gates on `requireAdmin` and audits every change). It's safe
+ * that calls them gates on `requirePlatformAdmin` and audits every change). It's safe
  * because the org row isn't mirrored into the session/cookie cache the way user
  * identity is — only the active-org *id* is, and that's reconciled on read by
  * `requireOrg`.

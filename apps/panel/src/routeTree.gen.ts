@@ -33,6 +33,7 @@ import { Route as AppServersIndexRouteImport } from './routes/_app/servers/index
 import { Route as AppNodesIndexRouteImport } from './routes/_app/nodes/index'
 import { Route as AppNetworksIndexRouteImport } from './routes/_app/networks/index'
 import { Route as AppAccountIndexRouteImport } from './routes/_app/account/index'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AdminTemplatesNewRouteImport } from './routes/admin/templates/new'
 import { Route as AdminTemplatesTemplateIdRouteImport } from './routes/admin/templates/$templateId'
 import { Route as AdminNodesNodeIdRouteImport } from './routes/admin/nodes/$nodeId'
@@ -182,6 +183,11 @@ const AppAccountIndexRoute = AppAccountIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppAccountRouteRoute,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminTemplatesNewRoute = AdminTemplatesNewRouteImport.update({
   id: '/templates/new',
@@ -368,6 +374,7 @@ export interface FileRoutesByFullPath {
   '/admin/nodes/$nodeId': typeof AdminNodesNodeIdRoute
   '/admin/templates/$templateId': typeof AdminTemplatesTemplateIdRoute
   '/admin/templates/new': typeof AdminTemplatesNewRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/account/': typeof AppAccountIndexRoute
   '/networks/': typeof AppNetworksIndexRoute
   '/nodes/': typeof AppNodesIndexRoute
@@ -417,6 +424,7 @@ export interface FileRoutesByTo {
   '/admin/nodes/$nodeId': typeof AdminNodesNodeIdRoute
   '/admin/templates/$templateId': typeof AdminTemplatesTemplateIdRoute
   '/admin/templates/new': typeof AdminTemplatesNewRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/account': typeof AppAccountIndexRoute
   '/networks': typeof AppNetworksIndexRoute
   '/nodes': typeof AppNodesIndexRoute
@@ -473,6 +481,7 @@ export interface FileRoutesById {
   '/admin/nodes/$nodeId': typeof AdminNodesNodeIdRoute
   '/admin/templates/$templateId': typeof AdminTemplatesTemplateIdRoute
   '/admin/templates/new': typeof AdminTemplatesNewRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/_app/account/': typeof AppAccountIndexRoute
   '/_app/networks/': typeof AppNetworksIndexRoute
   '/_app/nodes/': typeof AppNodesIndexRoute
@@ -529,6 +538,7 @@ export interface FileRouteTypes {
     | '/admin/nodes/$nodeId'
     | '/admin/templates/$templateId'
     | '/admin/templates/new'
+    | '/api/auth/$'
     | '/account/'
     | '/networks/'
     | '/nodes/'
@@ -578,6 +588,7 @@ export interface FileRouteTypes {
     | '/admin/nodes/$nodeId'
     | '/admin/templates/$templateId'
     | '/admin/templates/new'
+    | '/api/auth/$'
     | '/account'
     | '/networks'
     | '/nodes'
@@ -633,6 +644,7 @@ export interface FileRouteTypes {
     | '/admin/nodes/$nodeId'
     | '/admin/templates/$templateId'
     | '/admin/templates/new'
+    | '/api/auth/$'
     | '/_app/account/'
     | '/_app/networks/'
     | '/_app/nodes/'
@@ -667,6 +679,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
   AcceptInvitationInvitationIdRoute: typeof AcceptInvitationInvitationIdRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -838,6 +851,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/account/'
       preLoaderRoute: typeof AppAccountIndexRouteImport
       parentRoute: typeof AppAccountRouteRoute
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/admin/templates/new': {
       id: '/admin/templates/new'
@@ -1206,6 +1226,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
   AcceptInvitationInvitationIdRoute: AcceptInvitationInvitationIdRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

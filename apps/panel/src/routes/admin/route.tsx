@@ -9,15 +9,15 @@ import {
 import { AdminShell } from "@/components/layout/admin-shell";
 import { ErrorScreen } from "@/components/layout/error-screen";
 import { Button } from "@/components/ui/button";
-import { fetchIsAdmin, fetchSession } from "@/server/auth/session";
+import { fetchIsPlatformAdmin, fetchSession } from "@/server/auth/session";
 
 export const Route = createFileRoute("/admin")({
 	// The platform-admin surface is gated here. Admin is a GLOBAL capability (an
 	// admin-plugin role or an env-bootstrapped id), NOT org membership — the check
-	// is server-verified via `fetchIsAdmin`, the same predicate `requireAdmin`
+	// is server-verified via `fetchIsPlatformAdmin`, the same predicate `requirePlatformAdmin`
 	// enforces on every admin server fn, so the env-bootstrapped admin list never
 	// reaches the client. Runs on the server during SSR and on the client on
-	// navigation. This is the UX gate; each admin server fn re-checks `requireAdmin`
+	// navigation. This is the UX gate; each admin server fn re-checks `requirePlatformAdmin`
 	// as the hard backstop (defense in depth), so the surface is never open.
 	beforeLoad: async ({ location }) => {
 		const session = await fetchSession();
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/admin")({
 		// exist, so its existence can't be probed (the generic-not-found principle
 		// in security.md). Target the root boundary so they see the plain app 404 —
 		// no admin chrome, no "Back to admin" link that would give the surface away.
-		if (!(await fetchIsAdmin())) {
+		if (!(await fetchIsPlatformAdmin())) {
 			throw notFound({ routeId: rootRouteId });
 		}
 	},

@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type {
@@ -7,15 +6,10 @@ import type {
 	MemberRole,
 } from "@/lib/domain/admin";
 import { recordActivity } from "@/server/activity/record";
-import { requireAdmin } from "@/server/auth/guards";
-import {
-	deleteObject,
-	isStorageConfigured,
-	ownedKeyFromUrl,
-	publicUrl,
-	putObject,
-} from "@/server/storage";
-import { sniffImage, validateImageUpload } from "@/server/storage/image-upload";
+import { requirePlatformAdmin } from "@/server/auth/guards";
+import { deleteOwnedObject } from "@/server/storage";
+import { validateImageUpload } from "@/server/storage/image-upload";
+import { replaceManagedImage } from "@/server/storage/managed-image";
 import {
 	type OrgMemberRecord,
 	type OrgRecord,
@@ -25,7 +19,7 @@ import {
 /**
  * Platform orgs service + server functions — the typed boundary the /admin orgs
  * panel calls. Each is a thin `auth + validate + delegate` shim: gate on
- * `requireAdmin` (the global capability, NOT org membership — see guards.ts),
+ * `requirePlatformAdmin` (the global capability, NOT org membership — see guards.ts),
  * validate input (Zod), and delegate.
  *
  * Reads + writes go through ./repository, which is **deliberately not org-scoped**
@@ -89,7 +83,7 @@ const orgIdInput = z.object({ orgId: z.string().min(1) });
 
 export const listAdminOrgs = createServerFn({ method: "GET" }).handler(
 	async (): Promise<AdminOrgRow[]> => {
-		await requireAdmin();
+		await requirePlatformAdmin();
 		const orgs = await orgsRepository.list();
 		const ids = orgs.map((org) => org.id);
 		const [members, nodes] = await Promise.all([
@@ -105,7 +99,7 @@ export const listAdminOrgs = createServerFn({ method: "GET" }).handler(
 export const getAdminOrgMembers = createServerFn({ method: "GET" })
 	.validator(orgIdInput)
 	.handler(async ({ data }): Promise<AdminOrgMember[]> => {
-		await requireAdmin();
+		await requirePlatformAdmin();
 		const rows = await orgsRepository.membersForOrg(data.orgId);
 		return rows
 			.map(toAdminOrgMember)
@@ -123,7 +117,7 @@ const updateInput = z.object({
 export const updateAdminOrg = createServerFn({ method: "POST" })
 	.validator(updateInput)
 	.handler(async ({ data }) => {
-		const admin = await requireAdmin();
+		const admin = await requirePlatformAdmin();
 
 		const updated = await orgsRepository.updateName(data.orgId, data.name);
 		if (!updated) {
@@ -162,52 +156,37 @@ function validateOrgLogoUpload(input: unknown): { file: File; orgId: string } {
 export const uploadAdminOrgLogo = createServerFn({ method: "POST" })
 	.validator(validateOrgLogoUpload)
 	.handler(async ({ data }) => {
-		const admin = await requireAdmin();
-
-		if (!isStorageConfigured()) {
-			// Operator/config condition, not user error — keep it presentable.
-			throw new Error("Image uploads aren't available right now");
-		}
+		const admin = await requirePlatformAdmin();
 
 		// Load first: a generic not-found on a bad id, plus the prior logo to clean up.
 		const before = await loadOrgRow(data.orgId);
 
-		// Re-read + magic-byte check past the validator's MIME check; yields the
-		// bytes and a safe extension. The key is server-minted and namespaced by the
-		// org, so it can't collide with another org's objects.
-		const { bytes, ext } = await sniffImage(data.file);
-		const key = `${ORG_LOGO_PREFIX}/${data.orgId}/${randomUUID()}.${ext}`;
-
-		await putObject({
-			key,
-			body: bytes,
-			contentType: data.file.type,
-			cacheControl: "public, max-age=31536000, immutable",
+		await replaceManagedImage({
+			prefix: ORG_LOGO_PREFIX,
+			ownerId: data.orgId,
+			file: data.file,
+			previousUrl: before.logo,
+			// Direct DB write: the admin isn't a member, so Better Auth's
+			// updateOrganization would reject them (see ./repository). A null return
+			// means the org vanished between the load and the write — surface it as a
+			// not-found (the helper cleans up the just-uploaded object first).
+			persist: async (logo) => {
+				const updated = await orgsRepository.updateLogo(data.orgId, logo);
+				if (!updated) {
+					throw new Error("Not found");
+				}
+			},
 		});
-
-		const url = publicUrl(key);
-		const updated = await orgsRepository.updateLogo(data.orgId, url);
-		if (!updated) {
-			// The org vanished between the load and the write — don't strand the object.
-			await deleteObject(key).catch(() => {});
-			throw new Error("Not found");
-		}
-
-		// Best-effort: drop the prior logo, but only when it's one we own.
-		const prevKey = ownedKeyFromUrl(before.logo, ORG_LOGO_PREFIX);
-		if (prevKey) {
-			await deleteObject(prevKey).catch(() => {});
-		}
 
 		await recordActivity({
 			category: "organization",
 			action: "organization.logo_updated",
-			organizationId: updated.id,
+			organizationId: before.id,
 			userId: admin.userId,
 			actorName: admin.userName,
 			targetType: "organization",
-			targetId: updated.id,
-			targetLabel: updated.name,
+			targetId: before.id,
+			targetLabel: before.name,
 		});
 		return loadOrgRow(data.orgId);
 	});
@@ -215,7 +194,7 @@ export const uploadAdminOrgLogo = createServerFn({ method: "POST" })
 export const removeAdminOrgLogo = createServerFn({ method: "POST" })
 	.validator(orgIdInput)
 	.handler(async ({ data }) => {
-		const admin = await requireAdmin();
+		const admin = await requirePlatformAdmin();
 		const before = await loadOrgRow(data.orgId);
 
 		const updated = await orgsRepository.updateLogo(data.orgId, null);
@@ -223,10 +202,8 @@ export const removeAdminOrgLogo = createServerFn({ method: "POST" })
 			throw new Error("Not found");
 		}
 
-		const prevKey = ownedKeyFromUrl(before.logo, ORG_LOGO_PREFIX);
-		if (prevKey) {
-			await deleteObject(prevKey).catch(() => {});
-		}
+		// Best-effort: drop the prior logo, but only when it's one we own.
+		await deleteOwnedObject(before.logo, ORG_LOGO_PREFIX);
 
 		// Only audit a real removal — no spurious entry when there was no logo.
 		if (before.logo) {
@@ -247,7 +224,7 @@ export const removeAdminOrgLogo = createServerFn({ method: "POST" })
 export const deleteAdminOrg = createServerFn({ method: "POST" })
 	.validator(orgIdInput)
 	.handler(async ({ data }) => {
-		const admin = await requireAdmin();
+		const admin = await requirePlatformAdmin();
 
 		// Capture the logo before the row (and its objects' provenance) is gone.
 		const logo = await orgsRepository.currentLogo(data.orgId);
@@ -257,10 +234,7 @@ export const deleteAdminOrg = createServerFn({ method: "POST" })
 		}
 
 		// Best-effort: drop the org's logo object, when it's one we own.
-		const logoKey = ownedKeyFromUrl(logo, ORG_LOGO_PREFIX);
-		if (logoKey) {
-			await deleteObject(logoKey).catch(() => {});
-		}
+		await deleteOwnedObject(logo, ORG_LOGO_PREFIX);
 
 		// `organizationId` is intentionally null: the org's own activity rows
 		// cascade away with it, so an entry pinned to the deleted org would be

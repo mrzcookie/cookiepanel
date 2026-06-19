@@ -46,7 +46,7 @@ export function orgActivityQueryOptions() {
 /**
  * The whole platform's activity (every org + account-level events), newest first,
  * with keyset "load more". Backed by `listAllActivity`, which is admin-gated
- * server-side (`requireAdmin`); the key carries no scope because the feed is
+ * server-side (`requirePlatformAdmin`); the key carries no scope because the feed is
  * unconditionally global — only the /admin console reads it.
  */
 export function allActivityQueryOptions() {

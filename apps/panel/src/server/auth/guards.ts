@@ -56,7 +56,7 @@ export async function requireOrg() {
 /**
  * Whether a user holds the platform-admin capability — an admin-plugin role or an
  * env-bootstrapped id. A global capability, distinct from org membership. The
- * single predicate both `requireAdmin` (enforcement) and the account menu's
+ * single predicate both `requirePlatformAdmin` (enforcement) and the account menu's
  * server-verified gating read, so the /admin entry shows to exactly who the guard
  * admits. Non-throwing, so it's safe to call for a "should I show this?" check.
  */
@@ -67,7 +67,7 @@ export function isPlatformAdmin(user: { id: string; role?: string | null }) {
 /** A platform admin (admin-plugin role, or an env-bootstrapped admin id). The
  * `sessionToken` lets a caller tell the admin's own current session apart from the
  * others it lists (e.g. flagging "this device" when editing your own account). */
-export async function requireAdmin() {
+export async function requirePlatformAdmin() {
 	const session = await requireSession();
 	if (!isPlatformAdmin(session.user)) {
 		throw new Error("Forbidden");

@@ -15,7 +15,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { authClient } from "@/lib/auth-client";
 import { initials } from "@/lib/format";
-import { fetchIsAdmin } from "@/server/auth/session";
+import { fetchIsPlatformAdmin } from "@/server/auth/session";
 
 export function AccountMenu() {
 	const navigate = useNavigate();
@@ -24,12 +24,12 @@ export function AccountMenu() {
 	const user = session?.user;
 
 	// Whether to show the /admin entry: a server-verified capability (the same
-	// check `requireAdmin` enforces), not a client guess — so it matches exactly
+	// check `requirePlatformAdmin` enforces), not a client guess — so it matches exactly
 	// who the admin guard admits, including env-bootstrapped admins. Hidden until
 	// confirmed.
-	const { data: isAdmin } = useQuery({
+	const { data: isPlatformAdmin } = useQuery({
 		queryKey: ["auth", "is-admin"],
-		queryFn: () => fetchIsAdmin(),
+		queryFn: () => fetchIsPlatformAdmin(),
 		staleTime: 5 * 60 * 1000,
 	});
 
@@ -94,7 +94,7 @@ export function AccountMenu() {
 						Account
 					</Link>
 				</DropdownMenuItem>
-				{isAdmin ? (
+				{isPlatformAdmin ? (
 					<DropdownMenuItem asChild>
 						<Link to="/admin">
 							<Shield />
