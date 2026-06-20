@@ -1,3 +1,4 @@
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CreditCard } from "lucide-react";
 import type { ReactNode } from "react";
@@ -9,21 +10,27 @@ import { PaymentMethod } from "@/components/billing/payment-method";
 import { PortalButton } from "@/components/billing/portal-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
+import { billingQueryOptions } from "@/lib/billing-queries";
 import {
-	attachPaymentMethod,
-	recoverFromPastDue,
-	resumeSubscription,
-	useBilling,
-} from "@/lib/stores/billing-store";
-import { useActiveOrg } from "@/lib/stores/orgs-store";
+	openBillingPortal,
+	resumeNodePlan,
+	startNodeCheckout,
+} from "@/server/billing";
 
 export const Route = createFileRoute("/_app/settings/billing")({
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(billingQueryOptions()),
 	component: SettingsBilling,
 });
 
 function SettingsBilling() {
-	const org = useActiveOrg();
-	const billing = useBilling(org.id);
+	const { data: billing } = useSuspenseQuery(billingQueryOptions());
+	const queryClient = useQueryClient();
+
+	// Refetch after an in-place mutation (resume/cancel). Checkout/portal leave
+	// the page, so their result is picked up by the refetch-on-focus return.
+	const refresh = () =>
+		queryClient.invalidateQueries({ queryKey: ["billing"] });
 
 	if (billing.status === "none") {
 		return (
@@ -53,19 +60,20 @@ function SettingsBilling() {
 			summaryActions = (
 				<>
 					<PortalButton
+						action={() => startNodeCheckout()}
 						icon={<CreditCard />}
 						label={label}
-						onReturn={() => attachPaymentMethod(org.id)}
-						successMessage="Payment method saved."
 					/>
-					<CancelPlanDialog orgId={org.id} periodEnd={billing.trialEndsAt} />
+					<CancelPlanDialog
+						onCanceled={refresh}
+						periodEnd={billing.trialEndsAt}
+					/>
 				</>
 			);
 			paymentAction = (
 				<PortalButton
+					action={() => startNodeCheckout()}
 					label={billing.paymentMethod ? "Update" : "Add card"}
-					onReturn={() => attachPaymentMethod(org.id)}
-					successMessage="Payment method saved."
 					variant="outline"
 				/>
 			);
@@ -74,18 +82,21 @@ function SettingsBilling() {
 		case "active": {
 			summaryActions = (
 				<>
-					<PortalButton label="Manage billing" variant="outline" />
+					<PortalButton
+						action={() => openBillingPortal()}
+						label="Manage billing"
+						variant="outline"
+					/>
 					<CancelPlanDialog
-						orgId={org.id}
+						onCanceled={refresh}
 						periodEnd={billing.currentPeriodEnd}
 					/>
 				</>
 			);
 			paymentAction = (
 				<PortalButton
+					action={() => openBillingPortal()}
 					label="Update"
-					onReturn={() => attachPaymentMethod(org.id)}
-					successMessage="Payment method updated."
 					variant="outline"
 				/>
 			);
@@ -94,18 +105,13 @@ function SettingsBilling() {
 		case "past_due": {
 			summaryActions = (
 				<PortalButton
+					action={() => openBillingPortal()}
 					icon={<CreditCard />}
 					label="Update payment method"
-					onReturn={() => recoverFromPastDue(org.id)}
-					successMessage="Payment method updated — you're all set."
 				/>
 			);
 			paymentAction = (
-				<PortalButton
-					label="Update"
-					onReturn={() => recoverFromPastDue(org.id)}
-					successMessage="Payment method updated — you're all set."
-				/>
+				<PortalButton action={() => openBillingPortal()} label="Update" />
 			);
 			break;
 		}
@@ -113,23 +119,35 @@ function SettingsBilling() {
 			summaryActions = (
 				<>
 					<Button
-						onClick={() => {
-							resumeSubscription(org.id);
-							toast.success("Plan resumed.");
+						onClick={async () => {
+							try {
+								await resumeNodePlan();
+								toast.success("Plan resumed.");
+								refresh();
+							} catch (error) {
+								toast.error(
+									error instanceof Error
+										? error.message
+										: "Couldn't resume the plan."
+								);
+							}
 						}}
 						size="sm"
 						type="button"
 					>
 						Resume plan
 					</Button>
-					<PortalButton label="Manage billing" variant="outline" />
+					<PortalButton
+						action={() => openBillingPortal()}
+						label="Manage billing"
+						variant="outline"
+					/>
 				</>
 			);
 			paymentAction = (
 				<PortalButton
+					action={() => openBillingPortal()}
 					label="Update"
-					onReturn={() => attachPaymentMethod(org.id)}
-					successMessage="Payment method updated."
 					variant="outline"
 				/>
 			);

@@ -1,63 +1,54 @@
 import { Loader2 } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
-// A button that hands off to Polar's hosted, PCI-scoped checkout/portal and comes
-// back. Today it simulates that round-trip (a short pending state, like the
-// connect-node wizard's first heartbeat); the real version redirects the browser
-// to a `polar.customerSessions` / `polar.checkouts` URL and reconciles the result
-// from the webhook. `onReturn` runs when we're "back" — wire it to the store
-// mutation the return implies (a card attached, a past-due plan recovered).
-
-const ROUNDTRIP_MS = 1100;
-
+// Hands off to Polar's hosted, PCI-scoped checkout/portal: `action` calls a
+// server fn that returns the hosted URL (`startNodeCheckout` / `openBillingPortal`),
+// then we redirect the browser there. Polar returns to /settings/billing and the
+// webhook reconciles the result, so there's nothing to do on the way back beyond
+// the refetch the billing query already does on focus. We never touch card data.
 export function PortalButton({
 	icon,
 	label,
-	onReturn,
+	action,
 	openingMessage = "Opening Polar's secure billing portal…",
-	successMessage,
 	size = "sm",
 	variant = "default",
 	className,
 }: {
 	icon?: ReactNode;
 	label: string;
-	onReturn?: () => void;
+	/** Returns the hosted Polar URL to redirect to. */
+	action: () => Promise<{ url: string }>;
 	openingMessage?: string;
-	successMessage?: string;
 	size?: ComponentProps<typeof Button>["size"];
 	variant?: ComponentProps<typeof Button>["variant"];
 	className?: string;
 }) {
 	const [pending, setPending] = useState(false);
-	const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-	useEffect(
-		() => () => {
-			if (timer.current) {
-				clearTimeout(timer.current);
-			}
-		},
-		[]
-	);
 
 	return (
 		<Button
 			className={className}
 			disabled={pending}
-			onClick={() => {
+			onClick={async () => {
 				setPending(true);
 				toast.info(openingMessage);
-				timer.current = setTimeout(() => {
-					onReturn?.();
-					if (successMessage) {
-						toast.success(successMessage);
-					}
+				try {
+					const { url } = await action();
+					// Leaves the page — keep `pending` so the button stays disabled
+					// through the navigation.
+					window.location.href = url;
+				} catch (error) {
+					toast.error(
+						error instanceof Error
+							? error.message
+							: "Couldn't open billing. Please try again."
+					);
 					setPending(false);
-				}, ROUNDTRIP_MS);
+				}
 			}}
 			size={size}
 			type="button"

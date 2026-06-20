@@ -34,7 +34,7 @@ export async function requireOrg() {
 	}
 
 	const [membership] = await db
-		.select({ id: member.id })
+		.select({ id: member.id, role: member.role })
 		.from(member)
 		.where(
 			and(eq(member.userId, session.user.id), eq(member.organizationId, orgId))
@@ -50,6 +50,10 @@ export async function requireOrg() {
 		userId: session.user.id,
 		userName: session.user.name,
 		orgId,
+		// The member's role in this org (owner / admin / member). Role-gating is
+		// deferred panel-wide, but billing actions (checkout, cancel) are
+		// owner/admin-only, so the verified role is surfaced for that guard.
+		role: membership.role,
 	};
 }
 

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { node } from "@/server/db/schema/nodes";
 
@@ -40,6 +40,14 @@ export const nodesRepository = {
 			.where(and(eq(node.id, id), eq(node.organizationId, orgId)))
 			.limit(1)
 			.then((rows) => rows.at(0)),
+
+	/** How many nodes the org runs — the seat count billing gates against. */
+	count: (orgId: string): Promise<number> =>
+		db
+			.select({ value: count() })
+			.from(node)
+			.where(eq(node.organizationId, orgId))
+			.then((rows) => rows.at(0)?.value ?? 0),
 
 	create: async (orgId: string, values: NewNodeValues) => {
 		const [row] = await db

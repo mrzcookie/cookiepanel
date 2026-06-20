@@ -15,6 +15,30 @@ export type BillingStatus =
 	| "past_due" // a charge failed; inside the dunning grace window
 	| "canceled"; // set to end at period close (access holds until then)
 
+/**
+ * The things an org can be entitled to — one Polar product/subscription each.
+ * Today there's only the per-node subscription; addons (extra backup storage,
+ * priority support, …) land as new keys here, each its own `orgEntitlement` row,
+ * without reshaping the billing tables. Keep this the single source for the set.
+ */
+export const ENTITLEMENT_KEYS = ["nodes"] as const;
+export type EntitlementKey = (typeof ENTITLEMENT_KEYS)[number];
+
+/** The per-node subscription — the entitlement that gates node creation. */
+export const NODE_ENTITLEMENT: EntitlementKey = "nodes";
+
+/**
+ * Thrown by the node-create gate when the org isn't entitled to another node.
+ * A distinct type (and a user-facing `message`) so the UI can surface the
+ * billing nudge — e.g. link to /settings/billing — rather than a generic error.
+ */
+export class NodeBillingError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "NodeBillingError";
+	}
+}
+
 export type CardBrand = "Visa" | "Mastercard" | "Amex" | "Discover";
 
 /** The card funding the org's plan. A display projection of Polar's payment

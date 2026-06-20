@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { polar, webhooks } from "@polar-sh/better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import type { BetterAuthOptions } from "better-auth/minimal";
 import { betterAuth } from "better-auth/minimal";
@@ -10,6 +11,8 @@ import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { THEME_OPTIONS } from "@/lib/theme";
 import { recordActivity } from "@/server/activity/record";
+import { polarClient } from "@/server/billing/polar";
+import { reconcileFromSubscription } from "@/server/billing/reconcile";
 import { db } from "@/server/db";
 import * as schema from "@/server/db/schema";
 import { sendEmail } from "@/server/email";
@@ -39,6 +42,37 @@ const csv = (value: string | undefined) =>
 
 const trustedOrigins = csv(env.AUTH_TRUSTED_ORIGINS);
 const adminUserIds = csv(env.AUTH_ADMIN_USER_IDS);
+
+/**
+ * Polar billing — mounted **for webhooks only**. CookiePanel bills the org, not
+ * the user, so checkout/portal/seats are driven through the SDK with
+ * `externalCustomerId = orgId` (see server/billing); the plugin's own
+ * checkout/portal endpoints are user-scoped and intentionally unused. This adds
+ * `POST /api/auth/polar/webhooks`, which reconciles the billing cache from
+ * subscription events. Present only when Polar is configured (token + webhook
+ * secret) so the panel runs without billing.
+ */
+const polarSdk = polarClient();
+const polarPlugins =
+	polarSdk && env.POLAR_WEBHOOK_SECRET
+		? [
+				polar({
+					client: polarSdk,
+					use: [
+						webhooks({
+							secret: env.POLAR_WEBHOOK_SECRET,
+							onSubscriptionCreated: (p) => reconcileFromSubscription(p.data),
+							onSubscriptionUpdated: (p) => reconcileFromSubscription(p.data),
+							onSubscriptionActive: (p) => reconcileFromSubscription(p.data),
+							onSubscriptionCanceled: (p) => reconcileFromSubscription(p.data),
+							onSubscriptionRevoked: (p) => reconcileFromSubscription(p.data),
+							onSubscriptionUncanceled: (p) =>
+								reconcileFromSubscription(p.data),
+						}),
+					],
+				}),
+			]
+		: [];
 
 /**
  * The Better Auth server instance (server-only). Minimal entry (no Kysely) with
@@ -289,6 +323,8 @@ export const auth = betterAuth({
 				});
 			},
 		}),
+		...polarPlugins,
+		// Must stay LAST so Set-Cookie is forwarded.
 		tanstackStartCookies(),
 	],
 });

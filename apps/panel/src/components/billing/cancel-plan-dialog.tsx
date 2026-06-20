@@ -11,18 +11,37 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/components/ui/dialog";
-import { cancelSubscription } from "@/lib/stores/billing-store";
+import { cancelNodePlan } from "@/server/billing";
 
 // Cancel a plan — set to end at the period close, not killed on the spot. Access
-// (and the running servers) hold until `periodEnd`; nothing is deleted.
+// (and the running servers) hold until `periodEnd`; nothing is deleted. The
+// actual cancellation goes through Polar (cancel-at-period-end); `onCanceled`
+// refetches the billing query so the UI reflects it.
 export function CancelPlanDialog({
-	orgId,
 	periodEnd,
+	onCanceled,
 }: {
-	orgId: string;
 	periodEnd: string | null;
+	onCanceled: () => void;
 }) {
 	const [open, setOpen] = useState(false);
+	const [busy, setBusy] = useState(false);
+
+	async function confirm() {
+		setBusy(true);
+		try {
+			await cancelNodePlan();
+			toast.success("Plan canceled. It stays active until the period ends.");
+			setOpen(false);
+			onCanceled();
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't cancel the plan."
+			);
+		} finally {
+			setBusy(false);
+		}
+	}
 
 	return (
 		<Dialog onOpenChange={setOpen} open={open}>
@@ -47,13 +66,8 @@ export function CancelPlanDialog({
 						</Button>
 					</DialogClose>
 					<Button
-						onClick={() => {
-							cancelSubscription(orgId);
-							toast.success(
-								"Plan canceled. It stays active until the period ends."
-							);
-							setOpen(false);
-						}}
+						disabled={busy}
+						onClick={confirm}
 						type="button"
 						variant="destructive"
 					>

@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { NodeRow } from "@/lib/domain/nodes";
 import { recordActivity } from "@/server/activity/record";
 import { requireOrg } from "@/server/auth/guards";
+import { assertCanAddNode, syncNodeBilling } from "@/server/billing";
 import { env } from "@/server/env";
 import { type NodeRecord, nodesRepository } from "./repository";
 
@@ -95,6 +96,11 @@ export const createNode = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const { orgId, userId, userName } = await requireOrg();
 
+		// Entitlement gate: the org must be able to run another node before we
+		// mint one. A no-op until Polar is configured; throws NodeBillingError
+		// (a user-facing nudge) past the free first node otherwise.
+		await assertCanAddNode(orgId);
+
 		// Single-use bootstrap token: persist only its hash + expiry, and return
 		// the plaintext exactly once (for the operator's install command). It is
 		// never readable again — list/get never include it.
@@ -112,6 +118,10 @@ export const createNode = createServerFn({ method: "POST" })
 			enrollmentTokenHash,
 			enrollmentTokenExpiresAt,
 		});
+
+		// Open the free-grant window on the first node, then bump the paid seat
+		// count. No-op unless billing is configured.
+		await syncNodeBilling(orgId);
 
 		await recordActivity({
 			category: "node",
@@ -154,6 +164,11 @@ export const removeNode = createServerFn({ method: "POST" })
 		if (!removed) {
 			throw new Error("Not found");
 		}
+
+		// Drop the paid seat count to match the smaller fleet. No-op unless billing
+		// is configured / there's a paid subscription.
+		await syncNodeBilling(orgId);
+
 		await recordActivity({
 			category: "node",
 			action: "node.deleted",

@@ -54,13 +54,13 @@ function SettingsGeneral() {
 	const canManage =
 		!!role && (role.includes("owner") || role.includes("admin"));
 	const canDelete = !!role && role.includes("owner");
-	// Keep the editable shell (with its skeletons) until both the org and the
-	// session resolve, so a manager never flashes the read-only view first.
-	const ready = !!org && !!session;
 
+	// While the role resolves, every card shows its plain-member view and then
+	// upgrades for managers/owners — so loading renders the read-only org card
+	// and "Leave" together, instead of flashing the privileged controls first.
 	return (
 		<div className="max-w-2xl space-y-6">
-			<OrganizationCard editable={!ready || canManage} org={org} />
+			<OrganizationCard editable={canManage} org={org} />
 			<DetailsCard org={org} />
 			<OrgExitCard mode={canDelete ? "delete" : "leave"} org={org} />
 		</div>
@@ -182,14 +182,18 @@ function OrganizationReadOnly({ org }: { org: ActiveOrg | null }) {
 	return (
 		<CardContent>
 			<div className="flex items-center gap-4">
-				<Avatar className="size-16 rounded-md after:rounded-md">
-					{org?.logo ? (
-						<AvatarImage alt="" className="rounded-md" src={org.logo} />
-					) : null}
-					<AvatarFallback className="rounded-md">
-						<Building2 className="size-7" />
-					</AvatarFallback>
-				</Avatar>
+				{org ? (
+					<Avatar className="size-16 rounded-md after:rounded-md">
+						{org.logo ? (
+							<AvatarImage alt="" className="rounded-md" src={org.logo} />
+						) : null}
+						<AvatarFallback className="rounded-md">
+							<Building2 className="size-7" />
+						</AvatarFallback>
+					</Avatar>
+				) : (
+					<Skeleton className="size-16 rounded-md" />
+				)}
 				<div className="min-w-0 space-y-1">
 					{org ? (
 						<p className="font-medium">{org.name}</p>
