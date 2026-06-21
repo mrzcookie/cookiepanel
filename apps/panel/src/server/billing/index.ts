@@ -4,31 +4,30 @@ import type {
 	BillingStatus,
 	CardBrand,
 } from "@/lib/domain/billing";
-import {
-	FREE_NODE_GRANT,
-	NODE_ENTITLEMENT,
-	NODE_PRICE_CENTS,
-	NodeBillingError,
-} from "@/lib/domain/billing";
+import { NODE_ENTITLEMENT, NODE_PRICE_CENTS } from "@/lib/domain/billing";
 import { formatDate } from "@/lib/format";
 import { requireOrg } from "@/server/auth/guards";
 import { env } from "@/server/env";
 import { nodesRepository } from "@/server/nodes/repository";
+import { requiredSeats } from "./node-sync";
 import {
-	billingConfigured,
 	createNodeCheckoutUrl,
 	createPortalUrl,
 	setSubscriptionCancel,
-	updateSubscriptionSeats,
 } from "./polar";
 import { billingRepository } from "./repository";
 
 /**
- * Billing service + server functions — the typed boundary the settings page
- * calls, and the gate + seat-sync the nodes layer calls. SDK calls live in
- * ./polar; the Polar→cache mapping lives in ./reconcile (run from webhooks);
- * this file is the read projection, the panel-side seat math, and the
- * `auth + validate + delegate` server fns.
+ * Billing **server functions** — the typed boundary the settings page calls:
+ * the read projection + the `auth + validate + delegate` checkout/portal/cancel
+ * fns. SDK calls live in ./polar; the Polar→cache mapping in ./reconcile (run
+ * from webhooks); the node-create gate + seat sync the nodes layer calls live in
+ * ./node-sync.
+ *
+ * This file MUST export only `createServerFn`s. The client imports them via
+ * `lib/billing-queries.ts`, and the bundler can only strip the server-only
+ * internals (db, Polar SDK, env) from the browser build when nothing else is
+ * exported — see the note in ./node-sync.
  *
  * Billing is **org-scoped**: every server fn establishes the org via
  * `requireOrg`, and the mutating ones additionally require an owner/admin (the
@@ -46,102 +45,6 @@ async function requireBillingManager() {
 		throw new Error("Forbidden");
 	}
 	return ctx;
-}
-
-// --- Seat math (the first-node-free decision point) ------------------------
-
-/**
- * How many nodes the org pays for right now — the seat count pushed to Polar.
- * The first node is free during its 30-day grant, so it's excluded from the
- * count while the window is open; afterward every node is billable. This is the
- * single place the "first node free" rule shapes what Polar charges; adjust here
- * (or switch to a Polar-native trial) if the policy changes.
- */
-async function requiredSeats(orgId: string): Promise<number> {
-	const nodeCount = await nodesRepository.count(orgId);
-	const entitlement = await billingRepository.getEntitlement(
-		orgId,
-		NODE_ENTITLEMENT
-	);
-	const withinFreeWindow =
-		!!entitlement?.trialEndsAt &&
-		entitlement.trialEndsAt.getTime() > Date.now();
-	const freeNodes = withinFreeWindow ? FREE_NODE_GRANT : 0;
-	return Math.max(0, nodeCount - freeNodes);
-}
-
-/** Start the 30-day free-first-node grant the first time an org gets a node. */
-async function ensureNodeTrial(orgId: string): Promise<void> {
-	const entitlement = await billingRepository.getEntitlement(
-		orgId,
-		NODE_ENTITLEMENT
-	);
-	if (entitlement) {
-		return;
-	}
-	await billingRepository.upsertEntitlement(orgId, NODE_ENTITLEMENT, {
-		status: "trialing",
-		trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-	});
-}
-
-// --- Called by the nodes layer ---------------------------------------------
-
-/**
- * Keep billing in step with the org's node count — called after a node is
- * created or removed. Opens the free-grant window on the first node, then syncs
- * the paid seat count onto the org's subscription. A no-op until billing is
- * configured, and when there's no paid subscription yet (the checkout flow
- * creates that). The new node itself is gated separately by `assertCanAddNode`.
- */
-export async function syncNodeBilling(orgId: string): Promise<void> {
-	if (!billingConfigured()) {
-		return;
-	}
-	await ensureNodeTrial(orgId);
-	const entitlement = await billingRepository.getEntitlement(
-		orgId,
-		NODE_ENTITLEMENT
-	);
-	if (!entitlement?.polarSubscriptionId) {
-		return;
-	}
-	const seats = await requiredSeats(orgId);
-	if (seats > 0) {
-		await updateSubscriptionSeats(entitlement.polarSubscriptionId, seats);
-	}
-}
-
-/** Whether a node entitlement currently lets the org add billable usage. */
-function allowsNewUsage(status: string | undefined): boolean {
-	return status === "active" || status === "trialing";
-}
-
-/**
- * Gate node creation on the org's node entitlement. The first node is always
- * free to add — its 30-day grant begins here — so the gate only bites from the
- * second node on, where an active/trialing subscription is required. Throws a
- * `NodeBillingError` (a friendly, user-facing message) when the org isn't
- * entitled; callers surface it as-is. A no-op until billing is configured.
- */
-export async function assertCanAddNode(orgId: string): Promise<void> {
-	if (!billingConfigured()) {
-		return;
-	}
-	const current = await nodesRepository.count(orgId);
-	// The first node is free for its first 30 days — never block it.
-	if (current < FREE_NODE_GRANT) {
-		return;
-	}
-	const entitlement = await billingRepository.getEntitlement(
-		orgId,
-		NODE_ENTITLEMENT
-	);
-	if (!allowsNewUsage(entitlement?.status)) {
-		throw new NodeBillingError(
-			"Add a payment method to run more than one node."
-		);
-	}
 }
 
 // --- Read projection -------------------------------------------------------

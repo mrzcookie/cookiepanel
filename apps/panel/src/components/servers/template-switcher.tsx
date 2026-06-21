@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { TemplatePicker } from "@/components/servers/template-picker";
@@ -14,17 +15,14 @@ import {
 import type { ServerRow } from "@/lib/domain/servers";
 import { isDeployable } from "@/lib/domain/templates";
 import { switchServerTemplate } from "@/lib/stores/servers-store";
-import {
-	decrementTemplateServerCount,
-	incrementTemplateServerCount,
-	useTemplates,
-} from "@/lib/stores/templates-store";
+import { bumpTemplateServerCount, useTemplates } from "@/lib/templates-queries";
 
 // Switch the template a server runs on. Different templates have different
 // variable schemas, so switching resets the runtime + startup variables to the
 // new template's defaults (the data volume is kept) — applied on a reinstall.
 // Hidden when there's no other deployable template to switch to.
 export function ChangeTemplateButton({ server }: { server: ServerRow }) {
+	const queryClient = useQueryClient();
 	const templates = useTemplates();
 	const alternatives = templates.filter((t) => t.id !== server.templateId);
 	const canSwitch = alternatives.some(isDeployable);
@@ -55,8 +53,8 @@ export function ChangeTemplateButton({ server }: { server: ServerRow }) {
 		const previousId = server.templateId;
 		switchServerTemplate(server.id, selected);
 		if (previousId !== selected.id) {
-			decrementTemplateServerCount(previousId);
-			incrementTemplateServerCount(selected.id);
+			bumpTemplateServerCount(queryClient, previousId, -1);
+			bumpTemplateServerCount(queryClient, selected.id, 1);
 		}
 		toast.success(`Switched to ${selected.name}. Reinstall to apply.`);
 		close(false);

@@ -102,6 +102,38 @@ function describe(entry: ActivityEntry): string {
 			return entry.target
 				? `deleted the account ${entry.target}`
 				: "deleted an account";
+		case "template.created":
+			return entry.target
+				? `created the template ${entry.target}`
+				: "created a template";
+		case "template.updated":
+			return entry.target
+				? `edited the template ${entry.target}`
+				: "edited a template";
+		case "template.published":
+			return entry.target
+				? `published the template ${entry.target}`
+				: "published a template";
+		case "template.unpublished":
+			return entry.target
+				? `moved the template ${entry.target} back to draft`
+				: "unpublished a template";
+		case "template.archived":
+			return entry.target
+				? `archived the template ${entry.target}`
+				: "archived a template";
+		case "template.forked":
+			return entry.target
+				? `customized the template ${entry.target}`
+				: "customized a template";
+		case "template.imported":
+			return entry.target
+				? `imported the template ${entry.target}`
+				: "imported a template";
+		case "template.deleted":
+			return entry.target
+				? `deleted the template ${entry.target}`
+				: "deleted a template";
 		default: {
 			const phrase = entry.action.replace(/[._]/g, " ");
 			return entry.target ? `${phrase}: ${entry.target}` : phrase;

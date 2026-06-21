@@ -1,10 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CreateTemplateMenu } from "@/components/templates/create-template-menu";
 import { TemplateCatalog } from "@/components/templates/template-catalog";
-import { useTemplates } from "@/lib/stores/templates-store";
+import {
+	templatesListQueryOptions,
+	useTemplates,
+} from "@/lib/templates-queries";
 import { ORG_TEMPLATE_SCOPE } from "@/lib/templates-scope";
 
 export const Route = createFileRoute("/_app/templates")({
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(templatesListQueryOptions()),
 	component: Templates,
 });
 

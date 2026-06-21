@@ -6,8 +6,8 @@
 // strings: an image lives on a *runtime* and is an authoring detail, surfaced
 // only inside the editor (write-gated), never on the catalog or a server.
 //
-// This module is pure (no stub data, no React). The mutable client store lives
-// in `templates-store.ts`; the stub records live in `stubs.ts`.
+// This module is pure (no data, no React). The data layer lives under
+// `server/templates`, surfaced to the UI via `lib/templates-queries.ts`.
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 

@@ -77,6 +77,38 @@ function describe(entry: ActivityEntry): string {
 			return entry.target
 				? `Removed the node ${entry.target}`
 				: "Removed a node";
+		case "template.created":
+			return entry.target
+				? `Created the template ${entry.target}`
+				: "Created a template";
+		case "template.updated":
+			return entry.target
+				? `Edited the template ${entry.target}`
+				: "Edited a template";
+		case "template.published":
+			return entry.target
+				? `Published the template ${entry.target}`
+				: "Published a template";
+		case "template.unpublished":
+			return entry.target
+				? `Moved the template ${entry.target} back to draft`
+				: "Unpublished a template";
+		case "template.archived":
+			return entry.target
+				? `Archived the template ${entry.target}`
+				: "Archived a template";
+		case "template.forked":
+			return entry.target
+				? `Customized the template ${entry.target}`
+				: "Customized a template";
+		case "template.imported":
+			return entry.target
+				? `Imported the template ${entry.target}`
+				: "Imported a template";
+		case "template.deleted":
+			return entry.target
+				? `Deleted the template ${entry.target}`
+				: "Deleted a template";
 		default: {
 			const phrase = entry.action.replace(/[._]/g, " ");
 			const base = phrase.charAt(0).toUpperCase() + phrase.slice(1);

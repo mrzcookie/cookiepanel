@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { LayoutTemplate, Plus, Server, SlidersHorizontal } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -39,10 +40,7 @@ import { formatBytes } from "@/lib/format";
 import { addAllocation, portInUse } from "@/lib/stores/allocations-store";
 import { useNodes } from "@/lib/stores/nodes-store";
 import { addServer } from "@/lib/stores/servers-store";
-import {
-	incrementTemplateServerCount,
-	useTemplates,
-} from "@/lib/stores/templates-store";
+import { bumpTemplateServerCount, useTemplates } from "@/lib/templates-queries";
 
 const STEPS: WizardStep[] = [
 	{ id: "template", label: "Template" },
@@ -120,6 +118,7 @@ function nextFreePort(
 // Placement.
 export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const templates = useTemplates();
 	const nodes = useNodes();
 
@@ -304,7 +303,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 			serverId: server.id,
 			serverName: server.name,
 		});
-		incrementTemplateServerCount(template.id);
+		bumpTemplateServerCount(queryClient, template.id, 1);
 		toast.success(`Setting up “${draft.name.trim()}” on ${node.name}.`);
 		navigate({ params: { serverId: server.id }, to: "/servers/$serverId" });
 	}

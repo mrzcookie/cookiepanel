@@ -11,6 +11,7 @@
 		"typecheck": "tsc --noEmit",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
+		"db:seed": "tsx --env-file=.env ./src/server/db/seed.ts",
 		"db:push": "drizzle-kit push",
 		"db:studio": "drizzle-kit studio",
 		"auth:generate": "better-auth generate --config src/server/auth/index.ts --output src/server/db/schema/auth.ts -y"
@@ -69,6 +70,7 @@
 		"babel-plugin-react-compiler": "^1.0.0",
 		"drizzle-kit": "^0.31.10",
 		"rollup-plugin-visualizer": "^7.0.1",
+		"tsx": "^4.22.4",
 		"typescript": "^6.0.3",
 		"vite": "^8.0.16"
 	}

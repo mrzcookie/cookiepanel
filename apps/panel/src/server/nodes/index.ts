@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { NodeRow } from "@/lib/domain/nodes";
 import { recordActivity } from "@/server/activity/record";
 import { requireOrg } from "@/server/auth/guards";
-import { assertCanAddNode, syncNodeBilling } from "@/server/billing";
+import { assertCanAddNode, syncNodeBilling } from "@/server/billing/node-sync";
 import { env } from "@/server/env";
 import { type NodeRecord, nodesRepository } from "./repository";
 

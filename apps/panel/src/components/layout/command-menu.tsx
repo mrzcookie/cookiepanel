@@ -22,7 +22,7 @@ import { NAV } from "@/lib/nav";
 import { useNetworks } from "@/lib/stores/networks-store";
 import { useNodes } from "@/lib/stores/nodes-store";
 import { useServers } from "@/lib/stores/servers-store";
-import { useTemplates } from "@/lib/stores/templates-store";
+import { useTemplates } from "@/lib/templates-queries";
 
 // A search-bar-styled launcher in the topbar that opens a command palette for
 // jumping around the panel. Presentational + client-state only (no backend):

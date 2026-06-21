@@ -563,9 +563,11 @@ export const NETWORKS: NetworkRow[] = [
 
 // — Templates —————————————————————————————————————————————————————————————————
 // Full authoring records (the panel's "eggs"). Domain types + helpers live in
-// lib/templates.ts; the mutable client store is lib/templates-store.ts. Image
-// strings appear here because the *author* sees them in the editor — they're
-// never surfaced on the catalog, the detail page, or a server.
+// lib/domain/templates.ts. These now seed the *official* (platform-owned)
+// templates in the database — see server/db/seed.ts — so the catalog renders the
+// same library the UI-first phase showed. Image strings appear here because the
+// *author* sees them in the editor; they're never surfaced on the catalog, the
+// detail page, or a server.
 
 export const TEMPLATES: Template[] = [
 	{

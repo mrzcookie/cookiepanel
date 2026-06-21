@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
 	Boxes,
@@ -48,7 +49,7 @@ import {
 	type EditorVariable,
 	stateToInput,
 } from "@/lib/domain/templates-editor";
-import { createTemplate, updateTemplate } from "@/lib/stores/templates-store";
+import { invalidateTemplates, templateActions } from "@/lib/templates-queries";
 import type { TemplateScope } from "@/lib/templates-scope";
 import { cn } from "@/lib/utils";
 
@@ -83,8 +84,10 @@ export function TemplateEditor({
 	scope: TemplateScope;
 }) {
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const [state, setState] = useState<EditorState>(initial);
 	const [tab, setTab] = useState<TabKey>("overview");
+	const [saving, setSaving] = useState(false);
 	// Once the Install tab is opened, keep its (heavy) Monaco editor mounted so
 	// switching tabs doesn't unmount and reload it.
 	const [installMounted, setInstallMounted] = useState(false);
@@ -98,23 +101,33 @@ export function TemplateEditor({
 		setState((current) => ({ ...current, ...next }));
 	}
 
-	function save() {
+	async function save() {
 		if (!state.name.trim()) {
 			toast.error("Give your template a name.");
 			setTab("overview");
 			return;
 		}
 		const input = stateToInput(state);
-		if (mode === "create") {
-			const created = createTemplate(input, { official: scope.official });
-			toast.success(`Created “${created.name}”.`);
-			navigate({
-				params: { templateId: created.id },
-				to: scope.editPath,
-			} as never);
-		} else if (templateId) {
-			updateTemplate(templateId, input);
-			toast.success("Changes saved.");
+		const actions = templateActions(scope);
+		setSaving(true);
+		try {
+			if (mode === "create") {
+				const created = await actions.create(input);
+				await invalidateTemplates(queryClient);
+				toast.success(`Created “${created.name}”.`);
+				navigate({
+					params: { templateId: created.id },
+					to: scope.editPath,
+				} as never);
+			} else if (templateId) {
+				await actions.update(templateId, input);
+				await invalidateTemplates(queryClient);
+				toast.success("Changes saved.");
+			}
+		} catch {
+			toast.error("Couldn't save the template. Try again.");
+		} finally {
+			setSaving(false);
 		}
 	}
 
@@ -182,7 +195,7 @@ export function TemplateEditor({
 						<Link to={scope.listPath as never}>Cancel</Link>
 					)}
 				</Button>
-				<Button onClick={save}>
+				<Button disabled={saving} onClick={save}>
 					{mode === "create" ? "Create template" : "Save changes"}
 				</Button>
 			</div>

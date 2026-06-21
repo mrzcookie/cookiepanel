@@ -1,27 +1,34 @@
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ErrorScreen } from "@/components/layout/error-screen";
 import { PageHeader } from "@/components/shared/page-header";
 import { TemplateEditor } from "@/components/templates/template-editor";
 import { TemplateManagement } from "@/components/templates/template-management";
 import { Button } from "@/components/ui/button";
-import { isEditable } from "@/lib/domain/templates";
 import { templateToState } from "@/lib/domain/templates-editor";
-import { useTemplate } from "@/lib/stores/templates-store";
+import { templateEditQueryOptions } from "@/lib/templates-queries";
 import { ORG_TEMPLATE_SCOPE } from "@/lib/templates-scope";
 
 // Trailing underscore on `$templateId_` opts this route OUT of nesting under the
 // detail route, so `/templates/X/edit` renders the editor, not the detail page.
 export const Route = createFileRoute("/_app/templates_/$templateId_/edit")({
+	loader: ({ context, params }) =>
+		context.queryClient.ensureQueryData(
+			templateEditQueryOptions(params.templateId)
+		),
 	component: EditTemplate,
 });
 
 function EditTemplate() {
 	const { templateId } = Route.useParams();
-	const template = useTemplate(templateId);
+	// The edit view carries raw image strings and resolves only for a template
+	// this org owns; a missing or official (read-only) one comes back null, and
+	// resolves to the same friendly screen so the two are indistinguishable.
+	const { data: template } = useSuspenseQuery(
+		templateEditQueryOptions(templateId)
+	);
 
-	// Editing is owner-only; a missing or official (read-only) template resolves
-	// to the same friendly screen so the two are indistinguishable.
-	if (!template || !isEditable(template)) {
+	if (!template) {
 		return (
 			<ErrorScreen
 				action={

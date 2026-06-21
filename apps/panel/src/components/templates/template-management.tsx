@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Download } from "lucide-react";
 import { useState } from "react";
@@ -27,12 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { deployBlockers, type Template } from "@/lib/domain/templates";
 import { templateStatus } from "@/lib/status";
-import {
-	archiveTemplate,
-	deleteTemplate,
-	publishTemplate,
-	unpublishTemplate,
-} from "@/lib/stores/templates-store";
+import { invalidateTemplates, templateActions } from "@/lib/templates-queries";
 import type { TemplateScope } from "@/lib/templates-scope";
 
 /** Lifecycle + danger-zone actions for an owned template. */
@@ -44,21 +40,61 @@ export function TemplateManagement({
 	scope: TemplateScope;
 }) {
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
+	const actions = templateActions(scope);
 	const [archiveOpen, setArchiveOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
+	// One in-flight guard for every lifecycle action, so a double-click can't fire
+	// a second publish/delete (matching the editor/import/customize flows).
+	const [busy, setBusy] = useState(false);
 
 	const blockers = deployBlockers(template);
 	const status = templateStatus(template.status);
 
-	function publish() {
+	async function publish() {
 		if (blockers.length > 0) {
 			toast.error(`Can't publish yet: ${blockers[0]}`);
 			return;
 		}
-		publishTemplate(template.id);
-		toast.success(
-			template.status === "published" ? "Re-published." : "Published."
-		);
+		setBusy(true);
+		try {
+			await actions.publish(template.id);
+			await invalidateTemplates(queryClient);
+			toast.success(
+				template.status === "published" ? "Re-published." : "Published."
+			);
+		} catch {
+			toast.error("Couldn't publish the template. Try again.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function unpublish(message: string) {
+		setBusy(true);
+		try {
+			await actions.unpublish(template.id);
+			await invalidateTemplates(queryClient);
+			toast.success(message);
+		} catch {
+			toast.error("Something went wrong. Try again.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function archive() {
+		setBusy(true);
+		try {
+			await actions.archive(template.id);
+			await invalidateTemplates(queryClient);
+			toast.success("Archived.");
+			setArchiveOpen(false);
+		} catch {
+			toast.error("Couldn't archive the template. Try again.");
+		} finally {
+			setBusy(false);
+		}
 	}
 
 	function exportEgg() {
@@ -106,17 +142,25 @@ export function TemplateManagement({
 		URL.revokeObjectURL(url);
 	}
 
-	function remove() {
-		const result = deleteTemplate(template.id);
-		if (!result.ok) {
-			toast.error(
-				`${result.refCount} server${result.refCount === 1 ? "" : "s"} still use this template. Archive it instead.`
-			);
-			setDeleteOpen(false);
-			return;
+	async function remove() {
+		setBusy(true);
+		try {
+			const result = await actions.remove(template.id);
+			if (!result.ok) {
+				toast.error(
+					`${result.refCount} server${result.refCount === 1 ? "" : "s"} still use this template. Archive it instead.`
+				);
+				setDeleteOpen(false);
+				return;
+			}
+			await invalidateTemplates(queryClient);
+			toast.success("Template deleted.");
+			navigate({ to: scope.listPath as never });
+		} catch {
+			toast.error("Couldn't delete the template. Try again.");
+		} finally {
+			setBusy(false);
 		}
-		toast.success("Template deleted.");
-		navigate({ to: scope.listPath as never });
 	}
 
 	return (
@@ -149,10 +193,8 @@ export function TemplateManagement({
 					<div className="flex flex-wrap gap-2">
 						{template.status === "published" ? (
 							<Button
-								onClick={() => {
-									unpublishTemplate(template.id);
-									toast.success("Moved back to draft.");
-								}}
+								disabled={busy}
+								onClick={() => unpublish("Moved back to draft.")}
 								size="sm"
 								variant="outline"
 							>
@@ -160,7 +202,7 @@ export function TemplateManagement({
 							</Button>
 						) : (
 							<Button
-								disabled={blockers.length > 0}
+								disabled={busy || blockers.length > 0}
 								onClick={publish}
 								size="sm"
 							>
@@ -180,10 +222,8 @@ export function TemplateManagement({
 						<DangerRow
 							action={
 								<Button
-									onClick={() => {
-										unpublishTemplate(template.id);
-										toast.success("Restored to draft.");
-									}}
+									disabled={busy}
+									onClick={() => unpublish("Restored to draft.")}
 									size="sm"
 									variant="outline"
 								>
@@ -240,14 +280,7 @@ export function TemplateManagement({
 								Cancel
 							</Button>
 						</DialogClose>
-						<Button
-							onClick={() => {
-								archiveTemplate(template.id);
-								toast.success("Archived.");
-								setArchiveOpen(false);
-							}}
-							type="button"
-						>
+						<Button disabled={busy} onClick={archive} type="button">
 							Archive
 						</Button>
 					</DialogFooter>
@@ -269,7 +302,12 @@ export function TemplateManagement({
 								Cancel
 							</Button>
 						</DialogClose>
-						<Button onClick={remove} type="button" variant="destructive">
+						<Button
+							disabled={busy}
+							onClick={remove}
+							type="button"
+							variant="destructive"
+						>
 							Delete
 						</Button>
 					</DialogFooter>

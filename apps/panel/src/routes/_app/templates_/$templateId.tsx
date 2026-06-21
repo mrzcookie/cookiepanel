@@ -13,9 +13,14 @@ import {
 	isEditable,
 	type Template,
 } from "@/lib/domain/templates";
-import { useTemplate } from "@/lib/stores/templates-store";
+import {
+	templatesListQueryOptions,
+	useTemplate,
+} from "@/lib/templates-queries";
 
 export const Route = createFileRoute("/_app/templates_/$templateId")({
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(templatesListQueryOptions()),
 	component: TemplateDetail,
 });
 

@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Upload } from "lucide-react";
 import { type ChangeEvent, useRef, useState } from "react";
@@ -14,34 +15,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { importTemplate } from "@/lib/stores/templates-store";
+import { invalidateTemplates, templateActions } from "@/lib/templates-queries";
 import type { TemplateScope } from "@/lib/templates-scope";
 
 type Mode = "paste" | "url";
 
-/** Pull a friendly name out of pasted egg JSON, if one is obvious. */
-function nameFromJson(json: string): string | null {
-	try {
-		const parsed = JSON.parse(json) as { name?: unknown };
-		return typeof parsed.name === "string" && parsed.name.trim()
-			? parsed.name.trim()
-			: null;
-	} catch {
-		return null;
-	}
-}
-
-/** Derive a name from a URL's filename (e.g. egg-paper.json → "egg paper"). */
-function nameFromUrl(url: string): string {
-	const last = url.split("/").pop() ?? "";
-	const base = last.replace(/\.json$/i, "").replace(/^egg-/i, "");
-	return base.replace(/[-_]+/g, " ").trim() || "Imported template";
-}
-
 /**
- * Import a Pterodactyl/Pelican egg by pasting/uploading JSON or from a URL.
- * UI-first stub: it lands a draft (lifting a name when one is obvious) and opens
- * the editor; real parsing of the full egg lands with the data layer.
+ * Import a Pterodactyl/Pelican egg (or a CookiePanel export) by pasting/uploading
+ * JSON or from a URL. The server parses the egg into a draft — mapping runtimes,
+ * variables, startup, and install — and reports any fields it had to drop; the
+ * draft opens in the editor for review before publishing.
  */
 export function ImportTemplateDialog({
 	open,
@@ -53,10 +36,12 @@ export function ImportTemplateDialog({
 	scope: TemplateScope;
 }) {
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const fileInput = useRef<HTMLInputElement>(null);
 	const [mode, setMode] = useState<Mode>("paste");
 	const [json, setJson] = useState("");
 	const [url, setUrl] = useState("");
+	const [busy, setBusy] = useState(false);
 
 	function reset() {
 		setMode("paste");
@@ -73,30 +58,33 @@ export function ImportTemplateDialog({
 		setMode("paste");
 	}
 
-	function submit() {
-		if (mode === "paste") {
-			const name = nameFromJson(json);
-			if (!name) {
-				toast.error("That doesn't look like valid template JSON.");
-				return;
-			}
-			const created = importTemplate(name, { official: scope.official });
-			finish(created.id);
-		} else {
-			const trimmed = url.trim();
-			if (!trimmed) {
-				toast.error("Enter a URL.");
-				return;
-			}
-			const created = importTemplate(nameFromUrl(trimmed), {
-				official: scope.official,
-			});
-			finish(created.id);
+	async function submit() {
+		const actions = templateActions(scope);
+		setBusy(true);
+		try {
+			const result =
+				mode === "paste"
+					? await actions.importJson(json)
+					: await actions.importUrl(url.trim());
+			await invalidateTemplates(queryClient);
+			finish(result.id, result.warnings);
+		} catch (error) {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Couldn't import that template."
+			);
+		} finally {
+			setBusy(false);
 		}
 	}
 
-	function finish(templateId: string) {
-		toast.success("Imported as a draft. Review it before publishing.");
+	function finish(templateId: string, warnings: string[]) {
+		toast.success(
+			warnings.length > 0
+				? `Imported as a draft — ${warnings.length} note${warnings.length === 1 ? "" : "s"} to review.`
+				: "Imported as a draft. Review it before publishing."
+		);
 		onOpenChange(false);
 		reset();
 		navigate({ params: { templateId }, to: scope.editPath } as never);
@@ -192,7 +180,7 @@ export function ImportTemplateDialog({
 					>
 						Cancel
 					</Button>
-					<Button disabled={!canSubmit} onClick={submit} type="button">
+					<Button disabled={!canSubmit || busy} onClick={submit} type="button">
 						Import
 					</Button>
 				</DialogFooter>

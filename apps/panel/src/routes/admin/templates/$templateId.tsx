@@ -6,19 +6,24 @@ import { PageHeader } from "@/components/shared/page-header";
 import { TemplateDetailBody } from "@/components/templates/template-detail";
 import { Button } from "@/components/ui/button";
 import type { Template } from "@/lib/domain/templates";
-import { useTemplate } from "@/lib/stores/templates-store";
+import {
+	adminTemplatesListQueryOptions,
+	useAdminTemplate,
+} from "@/lib/templates-queries";
 
 export const Route = createFileRoute("/admin/templates/$templateId")({
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(adminTemplatesListQueryOptions()),
 	component: AdminTemplateDetail,
 });
 
 function AdminTemplateDetail() {
 	const { templateId } = Route.useParams();
-	const template = useTemplate(templateId);
+	const template = useAdminTemplate(templateId);
 
-	// Admin manages official templates only; an org-owned id (or a missing one)
-	// resolves to the same not-found so the two are indistinguishable.
-	if (!template?.official) {
+	// The admin library is official-only; a missing (or org-owned) id resolves to
+	// the same not-found so the two are indistinguishable.
+	if (!template) {
 		return (
 			<ErrorScreen
 				action={

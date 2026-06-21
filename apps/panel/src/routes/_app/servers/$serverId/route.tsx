@@ -19,9 +19,16 @@ import {
 	stopServer,
 	useServer,
 } from "@/lib/stores/servers-store";
-import { useTemplate } from "@/lib/stores/templates-store";
+import {
+	templatesListQueryOptions,
+	useTemplate,
+} from "@/lib/templates-queries";
 
 export const Route = createFileRoute("/_app/servers/$serverId")({
+	// Warm the templates cache so the per-tab template reads (startup, database)
+	// resolve without a flash. The server itself is still a stub store.
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(templatesListQueryOptions()),
 	component: ServerDetailLayout,
 	notFoundComponent: () => (
 		<ErrorScreen

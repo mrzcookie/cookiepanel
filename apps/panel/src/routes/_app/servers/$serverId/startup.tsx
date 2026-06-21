@@ -33,7 +33,7 @@ import {
 	updateServerVariables,
 	useServer,
 } from "@/lib/stores/servers-store";
-import { useTemplate } from "@/lib/stores/templates-store";
+import { useTemplate } from "@/lib/templates-queries";
 
 export const Route = createFileRoute("/_app/servers/$serverId/startup")({
 	component: ServerStartupTab,
