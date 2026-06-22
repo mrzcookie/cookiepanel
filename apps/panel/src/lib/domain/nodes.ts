@@ -43,6 +43,39 @@ export type NodeRow = {
 	caps: NodeCaps | null;
 };
 
+/** Live utilization sampled on demand from the daemon (the stats channel). */
+export type NodeLiveStats = {
+	cpuPercent: number;
+	memUsedBytes: number;
+	memTotalBytes: number;
+	diskUsedBytes: number;
+	diskTotalBytes: number;
+	load1: number;
+	load5: number;
+	load15: number;
+};
+
+/** Slow-changing host details, read on demand from the daemon. */
+export type NodeHostInfo = {
+	hostname: string;
+	platform: string;
+	platformVersion: string;
+	kernel: string;
+	cpuModel: string;
+	cpuCount: number;
+	uptimeSeconds: number;
+};
+
+/**
+ * The result of an on-demand daemon read. A box can be unreachable (offline,
+ * mid-restart, firewalled) without that being a panel error, so these reads
+ * degrade to `{ ok: false }` rather than throwing — the UI shows the box as
+ * unreachable instead of erroring the page.
+ */
+export type DaemonRead<T> =
+	| { ok: true; data: T }
+	| { ok: false; error: string };
+
 export type DriveRow = {
 	id: string;
 	nodeId: string;

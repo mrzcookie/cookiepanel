@@ -31,8 +31,9 @@ export class EnrollmentError extends Error {
 const ENROLL_REJECT = "Invalid or expired bootstrap token";
 
 // Bind each sealed secret to its node + role, so a ciphertext can't be lifted to
-// another node or swapped between the two secrets.
-const nodeKeyAad = (nodeId: string) => `node-key:${nodeId}`;
+// another node or swapped between the two secrets. `nodeKeyAad` is exported so
+// the daemon-client can unseal the node key with the same context to dial out.
+export const nodeKeyAad = (nodeId: string) => `node-key:${nodeId}`;
 const signingSecretAad = (nodeId: string) => `signing-secret:${nodeId}`;
 
 /**

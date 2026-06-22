@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
@@ -24,9 +25,11 @@ import (
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/spf13/cobra"
 
+	"github.com/cookiepanel/cookied/internal/api"
 	"github.com/cookiepanel/cookied/internal/credentials"
 	"github.com/cookiepanel/cookied/internal/remote"
 	"github.com/cookiepanel/cookied/internal/store"
+	cookietls "github.com/cookiepanel/cookied/internal/tls"
 	"github.com/cookiepanel/cookied/internal/version"
 )
 
@@ -134,9 +137,42 @@ func newRunCmd() *cobra.Command {
 				return fmt.Errorf("seed status: %w", err)
 			}
 
+			// Serving mode (not --once): provision the self-signed TLS cert whose
+			// fingerprint the panel pins, then start the panel-facing HTTPS API.
+			var fingerprint string
+			if !once {
+				if creds.FQDN == "" {
+					return fmt.Errorf("credentials missing fqdn; re-run `cookied configure --fqdn <name>`")
+				}
+				tlsMat, err := cookietls.EnsureSelfSigned(filepath.Join(stateDir, "tls"), creds.FQDN)
+				if err != nil {
+					return fmt.Errorf("provision tls: %w", err)
+				}
+				fingerprint = tlsMat.Fingerprint
+				slog.Info("tls ready", "mode", tlsMat.Mode, "fqdn", creds.FQDN, "fingerprint", fingerprint)
+
+				apiSrv := api.New(api.Config{
+					Addr:       fmt.Sprintf(":%d", apiPort),
+					NodeKey:    creds.NodeKey,
+					NodeID:     creds.NodeID,
+					StaticInfo: staticInfo,
+					StartedAt:  startedAt,
+					TLS:        tlsMat,
+				})
+				if err := apiSrv.Start(); err != nil {
+					return err
+				}
+				slog.Info("api listening", "addr", fmt.Sprintf(":%d", apiPort))
+				defer func() {
+					sCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					_ = apiSrv.Shutdown(sCtx)
+				}()
+			}
+
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
-			return heartbeatLoop(ctx, creds, st, staticInfo, apiPort, interval, once)
+			return heartbeatLoop(ctx, creds, st, staticInfo, fingerprint, apiPort, interval, once)
 		},
 	}
 	cmd.Flags().StringVar(&dataDir, "data-dir", defaultDataDir, "directory holding credentials")
@@ -152,6 +188,7 @@ func heartbeatLoop(
 	creds *credentials.Credentials,
 	st *store.Store,
 	staticInfo map[string]any,
+	certFingerprint string,
 	apiPort int,
 	interval time.Duration,
 	once bool,
@@ -163,8 +200,9 @@ func heartbeatLoop(
 		defer cancel()
 		info := composeInfo(staticInfo)
 		err := client.Heartbeat(hbCtx, creds.NodeKey, remote.HeartbeatBody{
-			SystemInfo: info,
-			DaemonPort: apiPort,
+			SystemInfo:      info,
+			CertFingerprint: certFingerprint,
+			DaemonPort:      apiPort,
 		})
 		now := time.Now().UTC()
 		updateErr := st.UpdateStatus(func(cur store.Status) store.Status {

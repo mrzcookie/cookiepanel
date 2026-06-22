@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Area, AreaChart, YAxis } from "recharts";
 import { DetailList, DetailRow } from "@/components/shared/detail-list";
@@ -14,7 +15,11 @@ import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 import type { NodeRow } from "@/lib/domain/nodes";
 import type { ServerRow } from "@/lib/domain/servers";
 import { formatBytes } from "@/lib/format";
-import { useNode } from "@/lib/node-queries";
+import {
+	nodeHostQueryOptions,
+	nodeStatsQueryOptions,
+	useNode,
+} from "@/lib/node-queries";
 import { serverStatus } from "@/lib/status";
 import { serversForNode } from "@/lib/stubs";
 import { cn } from "@/lib/utils";
@@ -34,6 +39,19 @@ function ratio(used: number | null, total: number | null) {
 	return used === null || total === null
 		? "—"
 		: `${formatBytes(used)} / ${formatBytes(total)}`;
+}
+
+function formatUptime(seconds: number): string {
+	const days = Math.floor(seconds / 86_400);
+	const hours = Math.floor((seconds % 86_400) / 3600);
+	const minutes = Math.floor((seconds % 3600) / 60);
+	if (days > 0) {
+		return `${days}d ${hours}h`;
+	}
+	if (hours > 0) {
+		return `${hours}h ${minutes}m`;
+	}
+	return `${minutes}m`;
 }
 
 function NodeOverview() {
@@ -145,36 +163,58 @@ function UsageStat({
 }
 
 function LiveUsageCard({ node }: { node: NodeRow }) {
+	// Only dial a reachable box. An offline node's heartbeat is already stale, so
+	// polling its daemon every few seconds would just pile up failed calls.
+	const live = node.status === "online" || node.status === "unhealthy";
+	const query = useQuery({ ...nodeStatsQueryOptions(node.id), enabled: live });
+	const stats = query.data?.ok ? query.data.data : null;
+
 	const stressed = node.status === "unhealthy";
-	const memPercent = percent(node.memUsedBytes, node.memTotalBytes);
-	const diskPercent = percent(node.diskUsedBytes, node.diskTotalBytes);
+	const cpuPercent = stats ? Math.round(stats.cpuPercent) : null;
+	const memPercent = stats
+		? percent(stats.memUsedBytes, stats.memTotalBytes)
+		: null;
+	const diskPercent = stats
+		? percent(stats.diskUsedBytes, stats.diskTotalBytes)
+		: null;
+
+	let description: string;
+	if (!live) {
+		description = `This node is offline${node.lastHeartbeat ? ` · last heartbeat ${node.lastHeartbeat}` : ""}.`;
+	} else if (query.isPending) {
+		description = "Reading live usage from the node…";
+	} else if (query.data && !query.data.ok) {
+		description = "Couldn't reach the node right now.";
+	} else {
+		description = "Sampled live from the node.";
+	}
 
 	return (
 		<Card>
 			<CardHeader>
 				<CardTitle>Live usage</CardTitle>
-				<CardDescription>
-					{node.status === "offline"
-						? `Last reported ${node.lastHeartbeat ?? "a while ago"}. These figures may be stale.`
-						: `Reported ${node.lastHeartbeat ?? "just now"}.`}
-				</CardDescription>
+				<CardDescription>{description}</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<div className="grid gap-6 sm:grid-cols-3">
 					<UsageStat
 						detail={node.cpuCores === null ? "—" : `${node.cpuCores} cores`}
 						label="CPU"
-						stressed={stressed || (node.cpuPercent ?? 0) >= 90}
-						value={node.cpuPercent}
+						stressed={stressed || (cpuPercent ?? 0) >= 90}
+						value={cpuPercent}
 					/>
 					<UsageStat
-						detail={ratio(node.memUsedBytes, node.memTotalBytes)}
+						detail={
+							stats ? ratio(stats.memUsedBytes, stats.memTotalBytes) : "—"
+						}
 						label="Memory"
 						stressed={stressed || (memPercent ?? 0) >= 90}
 						value={memPercent}
 					/>
 					<UsageStat
-						detail={ratio(node.diskUsedBytes, node.diskTotalBytes)}
+						detail={
+							stats ? ratio(stats.diskUsedBytes, stats.diskTotalBytes) : "—"
+						}
 						label="Disk"
 						stressed={stressed || (diskPercent ?? 0) >= 90}
 						value={diskPercent}
@@ -196,6 +236,10 @@ function LiveUsageCard({ node }: { node: NodeRow }) {
 }
 
 function IdentityCard({ node }: { node: NodeRow }) {
+	const live = node.status === "online" || node.status === "unhealthy";
+	const query = useQuery({ ...nodeHostQueryOptions(node.id), enabled: live });
+	const host = query.data?.ok ? query.data.data : null;
+
 	return (
 		<Card>
 			<CardHeader>
@@ -218,6 +262,18 @@ function IdentityCard({ node }: { node: NodeRow }) {
 						label="Operating system"
 						value={node.os ? `${node.os} · ${node.arch}` : "—"}
 					/>
+					{host?.cpuModel ? (
+						<DetailRow label="CPU" value={host.cpuModel} />
+					) : null}
+					{host?.kernel ? (
+						<DetailRow label="Kernel" value={host.kernel} />
+					) : null}
+					{host && host.uptimeSeconds > 0 ? (
+						<DetailRow
+							label="Uptime"
+							value={formatUptime(host.uptimeSeconds)}
+						/>
+					) : null}
 				</DetailList>
 			</CardContent>
 		</Card>

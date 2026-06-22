@@ -1,7 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import type { NodeRow, NodeStatus } from "@/lib/domain/nodes";
+import type {
+	DaemonRead,
+	NodeHostInfo,
+	NodeLiveStats,
+	NodeRow,
+	NodeStatus,
+} from "@/lib/domain/nodes";
 import { formatRelativeTime } from "@/lib/format";
 import { NODES_DOMAIN } from "@/lib/node-domain";
 import { slugify } from "@/lib/slug";
@@ -10,6 +16,7 @@ import { requireOrg } from "@/server/auth/guards";
 import { assertCanAddNode, syncNodeBilling } from "@/server/billing/node-sync";
 import { sha256Hex } from "@/server/crypto";
 import { env } from "@/server/env";
+import { DaemonError, getNodeHost, getNodeStats } from "./daemon-client";
 import { reconcileManagedNodeDns } from "./dns";
 import { type NodeRecord, nodesRepository } from "./repository";
 
@@ -260,4 +267,50 @@ export const removeNode = createServerFn({ method: "POST" })
 			targetId: removed.id,
 		});
 		return { id: removed.id };
+	});
+
+// ─── live daemon reads (on-demand, degrade gracefully) ───────────────────────
+// Registry reads (above) never touch the box; these dial the daemon over the
+// pinned HTTPS channel. Org scope is established first (generic not-found), then
+// the call is wrapped so an unreachable box reads back as `{ ok: false }` rather
+// than erroring the page.
+
+export const nodeStats = createServerFn({ method: "GET" })
+	.validator(idInput)
+	.handler(async ({ data }): Promise<DaemonRead<NodeLiveStats>> => {
+		const { orgId } = await requireOrg();
+		if (!(await nodesRepository.findById(orgId, data.id))) {
+			throw new Error("Not found");
+		}
+		try {
+			return { ok: true, data: await getNodeStats(data.id) };
+		} catch (error) {
+			return {
+				ok: false,
+				error:
+					error instanceof DaemonError
+						? error.message
+						: "Could not reach the node",
+			};
+		}
+	});
+
+export const nodeHost = createServerFn({ method: "GET" })
+	.validator(idInput)
+	.handler(async ({ data }): Promise<DaemonRead<NodeHostInfo>> => {
+		const { orgId } = await requireOrg();
+		if (!(await nodesRepository.findById(orgId, data.id))) {
+			throw new Error("Not found");
+		}
+		try {
+			return { ok: true, data: await getNodeHost(data.id) };
+		} catch (error) {
+			return {
+				ok: false,
+				error:
+					error instanceof DaemonError
+						? error.message
+						: "Could not reach the node",
+			};
+		}
 	});

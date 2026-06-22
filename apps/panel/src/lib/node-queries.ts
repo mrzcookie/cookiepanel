@@ -8,6 +8,8 @@ import {
 	createNode as createNodeFn,
 	getNode as getNodeFn,
 	listNodes,
+	nodeHost as nodeHostFn,
+	nodeStats as nodeStatsFn,
 	removeNode as removeNodeFn,
 	updateNode as updateNodeFn,
 } from "@/server/nodes";
@@ -47,6 +49,31 @@ export function nodeQueryOptions(id: string) {
 		// Poll a found node so its live status/heartbeat stay fresh; never poll a
 		// not-found (no data) so a bad id isn't hammered.
 		refetchInterval: (query) => (query.state.data ? 15_000 : false),
+	});
+}
+
+/**
+ * On-demand live utilization for a node — dials the daemon over the pinned
+ * channel. Keyed outside the `["nodes"]` prefix so a registry mutation doesn't
+ * trigger a box call. Polls briskly while focused; an unreachable box reads back
+ * as `{ ok: false }` (not an error), so no retry.
+ */
+export function nodeStatsQueryOptions(id: string) {
+	return queryOptions({
+		queryKey: ["node-live", "stats", id] as const,
+		queryFn: () => nodeStatsFn({ data: { id } }),
+		refetchInterval: 5_000,
+		retry: false,
+	});
+}
+
+/** On-demand host details for a node (slow-changing; lighter polling). */
+export function nodeHostQueryOptions(id: string) {
+	return queryOptions({
+		queryKey: ["node-live", "host", id] as const,
+		queryFn: () => nodeHostFn({ data: { id } }),
+		staleTime: 30_000,
+		retry: false,
 	});
 }
 
