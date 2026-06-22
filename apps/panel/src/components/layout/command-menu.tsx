@@ -19,8 +19,8 @@ import {
 	CommandSeparator,
 } from "@/components/ui/command";
 import { NAV } from "@/lib/nav";
+import { useNodes } from "@/lib/node-queries";
 import { useNetworks } from "@/lib/stores/networks-store";
-import { useNodes } from "@/lib/stores/nodes-store";
 import { useServers } from "@/lib/stores/servers-store";
 import { useTemplates } from "@/lib/templates-queries";
 

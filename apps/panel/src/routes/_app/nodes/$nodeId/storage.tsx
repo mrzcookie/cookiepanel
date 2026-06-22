@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/select";
 import type { DriveRow } from "@/lib/domain/nodes";
 import { formatBytes, pluralize } from "@/lib/format";
+import { useNode } from "@/lib/node-queries";
 import {
 	formatDrive,
 	mountDrive,
@@ -47,7 +48,6 @@ import {
 	unmountDrive,
 	useDrives,
 } from "@/lib/stores/node-resources-store";
-import { useNode } from "@/lib/stores/nodes-store";
 
 const FILESYSTEMS = ["ext4", "xfs", "btrfs"];
 

@@ -2,18 +2,21 @@ import { createHash, randomBytes } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { NodeRow } from "@/lib/domain/nodes";
+import { NODES_DOMAIN } from "@/lib/node-domain";
+import { slugify } from "@/lib/slug";
 import { recordActivity } from "@/server/activity/record";
 import { requireOrg } from "@/server/auth/guards";
 import { assertCanAddNode, syncNodeBilling } from "@/server/billing/node-sync";
 import { env } from "@/server/env";
+import { reconcileManagedNodeDns } from "./dns";
 import { type NodeRecord, nodesRepository } from "./repository";
 
 /**
- * Nodes service + server functions — the typed boundary the UI calls (the UI
- * wiring itself is intentionally left for later). Each function is a thin
- * `auth + validate + delegate` shim: establish the org scope (`requireOrg`),
- * validate input (Zod), delegate to the org-scoped repository, and project to
- * the client-safe `NodeRow`. No SQL here; that stays in the repository.
+ * Nodes service + server functions — the typed boundary the UI calls (via
+ * `lib/node-queries`). Each function is a thin `auth + validate + delegate`
+ * shim: establish the org scope (`requireOrg`), validate input (Zod), delegate
+ * to the org-scoped repository, and project to the client-safe `NodeRow`. No
+ * SQL here; that stays in the repository.
  */
 
 /**
@@ -60,7 +63,9 @@ function toNodeRow(record: NodeRecord): NodeRow {
 
 const createInput = z.object({
 	name: z.string().trim().min(1).max(100),
-	fqdn: z.string().trim().min(1).max(253),
+	// Required for an operator-pointed node; ignored for a managed one, whose
+	// address the panel owns and derives server-side from the base domain.
+	fqdn: z.string().trim().min(1).max(253).optional(),
 	daemonPort: z.number().int().min(1).max(65535).default(8443),
 	managed: z.boolean().default(false),
 });
@@ -72,6 +77,16 @@ const updateInput = z.object({
 	name: z.string().trim().min(1).max(100).optional(),
 	fqdn: z.string().trim().min(1).max(253).optional(),
 	daemonPort: z.number().int().min(1).max(65535).optional(),
+	// Operator-set allocatable ceilings. Bounded against detected hardware in the
+	// UI; only reachable once the daemon reports that hardware, so this stays
+	// dormant in the registry-only phase. Mapped to the cap_* columns below.
+	caps: z
+		.object({
+			cpuCores: z.number().int().min(1),
+			memBytes: z.number().int().min(1),
+			diskBytes: z.number().int().min(1),
+		})
+		.optional(),
 });
 
 export const listNodes = createServerFn({ method: "GET" }).handler(async () => {
@@ -101,6 +116,27 @@ export const createNode = createServerFn({ method: "POST" })
 		// (a user-facing nudge) past the free first node otherwise.
 		await assertCanAddNode(orgId);
 
+		// Resolve the address. A managed node's subdomain is panel-owned: derive it
+		// from the node name + configured base domain and ignore any client value,
+		// so the operator can't redirect the panel at an address it doesn't control.
+		// An operator-pointed node keeps the address they gave.
+		let fqdn: string;
+		let daemonPort: number;
+		if (data.managed) {
+			const slug = slugify(data.name);
+			if (!slug) {
+				throw new Error("Node name must include a letter or number.");
+			}
+			fqdn = `${slug}.${NODES_DOMAIN}`;
+			daemonPort = 8443;
+		} else {
+			if (!data.fqdn) {
+				throw new Error("An address is required.");
+			}
+			fqdn = data.fqdn;
+			daemonPort = data.daemonPort;
+		}
+
 		// Single-use bootstrap token: persist only its hash + expiry, and return
 		// the plaintext exactly once (for the operator's install command). It is
 		// never readable again — list/get never include it.
@@ -112,8 +148,8 @@ export const createNode = createServerFn({ method: "POST" })
 
 		const record = await nodesRepository.create(orgId, {
 			name: data.name,
-			fqdn: data.fqdn,
-			daemonPort: data.daemonPort,
+			fqdn,
+			daemonPort,
 			managed: data.managed,
 			enrollmentTokenHash,
 			enrollmentTokenExpiresAt,
@@ -148,8 +184,17 @@ export const updateNode = createServerFn({ method: "POST" })
 	.validator(updateInput)
 	.handler(async ({ data }) => {
 		const { orgId } = await requireOrg();
-		const { id, ...patch } = data;
-		const record = await nodesRepository.update(orgId, id, patch);
+		const { id, caps, ...patch } = data;
+		const record = await nodesRepository.update(orgId, id, {
+			...patch,
+			...(caps
+				? {
+						capCpuCores: caps.cpuCores,
+						capMemBytes: caps.memBytes,
+						capDiskBytes: caps.diskBytes,
+					}
+				: {}),
+		});
 		if (!record) {
 			throw new Error("Not found");
 		}
@@ -163,6 +208,13 @@ export const removeNode = createServerFn({ method: "POST" })
 		const removed = await nodesRepository.remove(orgId, data.id);
 		if (!removed) {
 			throw new Error("Not found");
+		}
+
+		// Tear down the panel-managed subdomain's DNS record. Best-effort + a no-op
+		// unless Cloudflare is configured; operator-pointed nodes own their own DNS,
+		// so we never touch those.
+		if (removed.managed) {
+			await reconcileManagedNodeDns(removed.fqdn, null);
 		}
 
 		// Drop the paid seat count to match the smaller fleet. No-op unless billing

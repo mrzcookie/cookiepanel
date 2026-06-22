@@ -51,6 +51,7 @@ import type {
 	NetworkRow,
 } from "@/lib/domain/networks";
 import type { FirewallRow, NodeRow } from "@/lib/domain/nodes";
+import { useNode } from "@/lib/node-queries";
 import { useNetworks } from "@/lib/stores/networks-store";
 import {
 	addAllocation,
@@ -61,7 +62,6 @@ import {
 	useAllocations,
 	useFirewall,
 } from "@/lib/stores/node-resources-store";
-import { useNode } from "@/lib/stores/nodes-store";
 
 export const Route = createFileRoute("/_app/nodes/$nodeId/networking")({
 	component: NodeNetworking,

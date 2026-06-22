@@ -72,6 +72,10 @@ export const nodesRepository = {
 		db
 			.delete(node)
 			.where(and(eq(node.id, id), eq(node.organizationId, orgId)))
-			.returning({ id: node.id })
+			.returning({
+				id: node.id,
+				fqdn: node.fqdn,
+				managed: node.managed,
+			})
 			.then((rows) => rows.at(0)),
 };

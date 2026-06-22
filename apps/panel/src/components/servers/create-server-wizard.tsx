@@ -37,8 +37,8 @@ import {
 	type Template,
 } from "@/lib/domain/templates";
 import { formatBytes } from "@/lib/format";
+import { useNodes } from "@/lib/node-queries";
 import { addAllocation, portInUse } from "@/lib/stores/allocations-store";
-import { useNodes } from "@/lib/stores/nodes-store";
 import { addServer } from "@/lib/stores/servers-store";
 import { bumpTemplateServerCount, useTemplates } from "@/lib/templates-queries";
 

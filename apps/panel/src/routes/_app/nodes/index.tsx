@@ -21,10 +21,12 @@ import {
 import type { NodeRow } from "@/lib/domain/nodes";
 import { formatBytes } from "@/lib/format";
 import { useListView } from "@/lib/list-view";
+import { nodesListQueryOptions, useNodes } from "@/lib/node-queries";
 import { nodeStatus } from "@/lib/status";
-import { useNodes } from "@/lib/stores/nodes-store";
 
 export const Route = createFileRoute("/_app/nodes/")({
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(nodesListQueryOptions()),
 	component: Nodes,
 });
 

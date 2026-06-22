@@ -60,6 +60,17 @@ export const env = createEnv({
 		POLAR_SERVER: z.enum(["sandbox", "production"]).default("sandbox"),
 		POLAR_NODE_PRODUCT_ID: z.string().optional(),
 
+		// --- Managed-node DNS — Cloudflare (optional; the CookiePanel-subdomain path) ---
+		// When both are set, the panel auto-manages each managed node's subdomain
+		// A record (created at enrollment, when the node's public IP is first
+		// observed; removed when the node is). Absent = auto-DNS is a no-op and the
+		// operator points DNS themselves. The subdomain's base domain is separate,
+		// non-secret public config — see VITE_NODES_DOMAIN / src/lib/node-domain.ts.
+		// The token needs Zone:DNS:Edit on the zone below.
+		CLOUDFLARE_API_TOKEN: z.string().optional(),
+		// The Cloudflare zone id that owns the nodes' base domain.
+		CLOUDFLARE_ZONE_ID: z.string().optional(),
+
 		// --- Object storage — S3-compatible (optional; template icons + uploads) ---
 		// Works with Cloudflare R2 / AWS S3 / MinIO. Omit S3_ENDPOINT for AWS S3.
 		S3_ENDPOINT: z.url().optional(),

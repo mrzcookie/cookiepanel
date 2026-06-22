@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Check, ChevronRight } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
@@ -12,22 +13,20 @@ import { TerminalBlock } from "@/components/wizard/terminal-block";
 import { WizardFrame } from "@/components/wizard/wizard-frame";
 import type { WizardStep } from "@/components/wizard/wizard-stepper";
 import type { NodeRow } from "@/lib/domain/nodes";
-import { formatBytes } from "@/lib/format";
+import { NODES_DOMAIN } from "@/lib/node-domain";
+import { createNode, invalidateNodes, removeNode } from "@/lib/node-queries";
 import { slugify } from "@/lib/slug";
 import { nodeStatus } from "@/lib/status";
-import {
-	addNode,
-	connectNode,
-	removeNode,
-	useNode,
-} from "@/lib/stores/nodes-store";
 import { cn } from "@/lib/utils";
 
 // The connect-a-node wizard, written for someone who has never done this before.
 // Step 1 (Set up) names the node and picks how the panel reaches it; choosing
 // "your own domain" inserts a from-zero "Point your domain" tutorial step before
-// Install. Install hands over the one-line command; Connect watches the
-// (simulated) first heartbeat flip the node online. The managed path stays three
+// Install. Install hands over the real one-line command (carrying the single-use
+// enrollment token the panel minted at registration). The node is registered the
+// moment Set up completes and stays `pending` until its daemon reports in — and
+// there's no daemon yet, so Connect is an honest "run it, your node will appear"
+// hand-off rather than a live heartbeat watch. The managed path stays three
 // effortless steps and never shows any domain copy.
 
 type Mode = "managed" | "own";
@@ -77,10 +76,6 @@ const REQUIREMENTS: [string, string][] = [
 	],
 ];
 
-function bootstrapToken() {
-	return `cpb_${crypto.randomUUID().replace(/-/g, "")}`;
-}
-
 // The part of a hostname before the registrable domain — the "Name" / "Host" an
 // A record needs (node1.example.com -> "node1"; a bare example.com -> "@").
 function recordName(fqdn: string): string {
@@ -92,28 +87,32 @@ function recordName(fqdn: string): string {
 	return parts.length > 2 ? (parts[0] ?? "@") : "@";
 }
 
-// The DNS pre-flight on the domain step. Optimistic: the heartbeat is the real
-// validator, so the check only ever encourages — it never blocks Continue.
+// The DNS pre-flight on the domain step. Optimistic: the real first heartbeat is
+// the actual validator, so the check only ever encourages — it never blocks
+// Continue.
 type DnsState = "idle" | "checking" | "pointed";
-// The IP the simulated check (and the simulated heartbeat) report, kept in sync
-// so the story stays consistent across the two steps.
+// The IP the simulated DNS check reports, so the story stays consistent on the
+// domain step.
 const DETECTED_IP = "203.0.113.24";
 
 export function ConnectNodeWizard() {
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const [stepId, setStepId] = useState<StepId>("prereqs");
 	const [name, setName] = useState("");
 	const [mode, setMode] = useState<Mode>("managed");
 	const [fqdn, setFqdn] = useState("");
 	const [port, setPort] = useState("8443");
 	const [dnsState, setDnsState] = useState<DnsState>("idle");
+	const [generating, setGenerating] = useState(false);
 	const [created, setCreated] = useState<{
-		id: string;
+		node: NodeRow;
 		command: string;
 	} | null>(null);
 
-	const node = useNode(created?.id ?? "");
-	const connected = stepId === "connect" && node?.status === "online";
+	// The just-registered node (pending). Drives the Install/Connect recaps; there
+	// is no live "online" flip without a daemon.
+	const node = created?.node;
 
 	const steps = stepsFor(mode);
 	const current = Math.max(
@@ -122,7 +121,7 @@ export function ConnectNodeWizard() {
 	);
 
 	const slug = slugify(name);
-	const subdomain = `${slug || "your-node"}.nodes.cookiepanel.app`;
+	const subdomain = `${slug || "your-node"}.${NODES_DOMAIN}`;
 	const portNum = Number(port);
 	const nameValid = name.trim().length >= 2 && slug.length > 0;
 	const ownValid =
@@ -131,16 +130,6 @@ export function ConnectNodeWizard() {
 		portNum >= 1 &&
 		portNum <= 65535;
 	const configureValid = nameValid && (mode === "managed" || ownValid);
-
-	// On the Connect step, stand in for the daemon's first heartbeat: after a
-	// short delay the pending node flips online and its hardware appears.
-	useEffect(() => {
-		if (stepId !== "connect" || !created) {
-			return;
-		}
-		const timer = setTimeout(() => connectNode(created.id), 3500);
-		return () => clearTimeout(timer);
-	}, [stepId, created]);
 
 	// Simulate the DNS lookup the "Check domain" button kicks off.
 	useEffect(() => {
@@ -151,37 +140,49 @@ export function ConnectNodeWizard() {
 		return () => clearTimeout(timer);
 	}, [dnsState]);
 
-	function generate() {
-		if (!configureValid) {
+	async function generate() {
+		if (!configureValid || generating) {
 			return;
 		}
-		// Re-minting after a back-edit: drop the stale pending node + token and its
-		// DNS check so we never orphan a half-set-up node or carry a stale result.
-		if (created) {
-			removeNode(created.id);
+		setGenerating(true);
+		try {
+			// Re-minting after a back-edit: drop the stale pending node + token so we
+			// never orphan a half-set-up node or carry a stale install command.
+			if (created) {
+				await removeNode(created.node.id);
+			}
+			const resolvedFqdn =
+				mode === "managed"
+					? `${slug}.${NODES_DOMAIN}`
+					: fqdn.trim().toLowerCase();
+			const result = await createNode({
+				name,
+				fqdn: resolvedFqdn,
+				daemonPort: mode === "managed" ? 8443 : portNum,
+				managed: mode === "managed",
+			});
+			await invalidateNodes(queryClient);
+			setDnsState("idle");
+			setCreated({ node: result.node, command: result.enrollment.command });
+			setStepId(mode === "own" ? "dns" : "install");
+		} catch (error) {
+			// Surfaces validation and the billing entitlement gate (a friendly
+			// past-the-free-node nudge) alike.
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't set up the node."
+			);
+		} finally {
+			setGenerating(false);
 		}
-		setDnsState("idle");
-		const resolvedFqdn =
-			mode === "managed"
-				? `${slug}.nodes.cookiepanel.app`
-				: fqdn.trim().toLowerCase();
-		const fresh = addNode({
-			name,
-			fqdn: resolvedFqdn,
-			daemonPort: mode === "managed" ? 8443 : portNum,
-			managed: mode === "managed",
-		});
-		const command = `curl -fsSL https://get.cookiepanel.app/install.sh | sudo bash -s -- --token ${bootstrapToken()}`;
-		setCreated({ id: fresh.id, command });
-		setStepId(mode === "own" ? "dns" : "install");
 	}
 
 	// Discard the pending node + token (so the next forward run mints fresh ones)
 	// and leave. Back between steps preserves them — the install command must stay
 	// stable while the operator is mid-flow.
-	function cancelSetup() {
+	async function cancelSetup() {
 		if (created) {
-			removeNode(created.id);
+			await removeNode(created.node.id);
+			await invalidateNodes(queryClient);
 		}
 		toast.info("Stopped connecting the node.");
 		navigate({ to: "/nodes" });
@@ -189,9 +190,10 @@ export function ConnectNodeWizard() {
 
 	// Leaving from the first step: if a node was already minted (the operator went
 	// forward then back), discard it so we don't leave a pending orphan behind.
-	function cancelFromSetup() {
+	async function cancelFromSetup() {
 		if (created) {
-			removeNode(created.id);
+			await removeNode(created.node.id);
+			await invalidateNodes(queryClient);
 		}
 		navigate({ to: "/nodes" });
 	}
@@ -206,8 +208,8 @@ export function ConnectNodeWizard() {
 		setStepId("prereqs");
 	}
 
-	const heading = stepHeading(stepId, name, Boolean(connected));
-	const status = stepStatus(stepId, fqdn, dnsState, Boolean(connected));
+	const heading = stepHeading(stepId, name);
+	const status = stepStatus(stepId, fqdn, dnsState);
 
 	let footer: ReactNode;
 	if (stepId === "prereqs") {
@@ -229,10 +231,10 @@ export function ConnectNodeWizard() {
 				</Button>
 				<Button
 					className="ml-auto"
-					disabled={!configureValid}
+					disabled={!configureValid || generating}
 					onClick={generate}
 				>
-					Continue
+					{generating ? "Setting up…" : "Continue"}
 				</Button>
 			</>
 		);
@@ -261,7 +263,7 @@ export function ConnectNodeWizard() {
 				</Button>
 			</>
 		);
-	} else if (connected && created) {
+	} else if (stepId === "connect" && created) {
 		footer = (
 			<>
 				<Button asChild variant="ghost">
@@ -271,7 +273,7 @@ export function ConnectNodeWizard() {
 					Connect another
 				</Button>
 				<Button asChild>
-					<Link params={{ nodeId: created.id }} to="/nodes/$nodeId">
+					<Link params={{ nodeId: created.node.id }} to="/nodes/$nodeId">
 						Go to node
 					</Link>
 				</Button>
@@ -334,7 +336,6 @@ export function ConnectNodeWizard() {
 				{stepId === "connect" ? (
 					<ConnectStep
 						command={created?.command ?? ""}
-						connected={Boolean(connected)}
 						mode={mode}
 						name={name}
 						node={node}
@@ -346,7 +347,7 @@ export function ConnectNodeWizard() {
 	);
 }
 
-function stepHeading(stepId: StepId, name: string, connected: boolean) {
+function stepHeading(stepId: StepId, name: string) {
 	if (stepId === "prereqs") {
 		return {
 			title: "Before you start",
@@ -375,24 +376,16 @@ function stepHeading(stepId: StepId, name: string, connected: boolean) {
 				"Open a terminal on the node as root and paste this. The command works once.",
 		};
 	}
-	if (connected) {
-		return {
-			title: "Connected",
-			description: `${name || "Your node"} is online and ready to run servers.`,
-		};
-	}
 	return {
-		title: "Waiting for your node",
-		description:
-			"Run the command, then leave this open. Your node's hardware and live usage appear here the moment it reports in.",
+		title: "You're all set",
+		description: `${name || "Your node"} is in your fleet. Run the command, and it comes online the moment its agent reports in.`,
 	};
 }
 
 function stepStatus(
 	stepId: StepId,
 	fqdn: string,
-	dnsState: DnsState,
-	connected: boolean
+	dnsState: DnsState
 ): string | undefined {
 	if (stepId === "dns") {
 		if (dnsState === "checking") {
@@ -404,9 +397,7 @@ function stepStatus(
 		return undefined;
 	}
 	if (stepId === "connect") {
-		return connected
-			? "Node connected."
-			: "Waiting for the agent to report in.";
+		return "Node registered. Awaiting first report.";
 	}
 	return undefined;
 }
@@ -948,69 +939,46 @@ function InstallStep({
 
 function ConnectStep({
 	command,
-	connected,
 	mode,
 	name,
 	node,
 	port,
 }: {
 	command: string;
-	connected: boolean;
 	mode: Mode;
 	name: string;
 	node: NodeRow | undefined;
 	port: string;
 }) {
-	if (connected && node) {
-		return (
-			<div className="max-w-2xl space-y-5">
-				<div className="flex items-center gap-3 rounded-lg border border-ok/40 bg-ok-wash/40 px-4 py-3">
-					<StatusIndicator live status={nodeStatus("online")} />
-					<p className="text-sm">{node.name} is online and reporting in.</p>
-				</div>
+	return (
+		<div className="max-w-2xl space-y-5">
+			<div className="flex items-center gap-3 rounded-lg border px-4 py-3">
+				<StatusIndicator live status={nodeStatus("pending")} />
+				<p className="text-sm">
+					{node?.name || name || "Your node"} is in your fleet, waiting for its
+					first report.
+				</p>
+			</div>
+			<p className="text-muted-foreground text-sm">
+				Run the command on your machine if you haven't yet. The node comes
+				online on its own the moment its agent reports in — you don't need to
+				keep this page open. You'll find it under Nodes either way.
+			</p>
+			{node ? (
 				<DetailList>
 					<DetailRow
 						copyable
 						label="Address"
 						value={`${node.fqdn}:${node.daemonPort}`}
 					/>
-					<DetailRow label="Public IP" value={node.publicIp ?? "—"} />
 					<DetailRow
-						label="System"
-						value={node.os ? `${node.os} · ${node.arch}` : "—"}
-					/>
-					<DetailRow
-						label="CPU"
-						value={node.cpuCores != null ? `${node.cpuCores} cores` : "—"}
-					/>
-					<DetailRow
-						label="Memory"
+						label="Reachability"
 						value={
-							node.memTotalBytes != null ? formatBytes(node.memTotalBytes) : "—"
+							mode === "managed" ? "CookiePanel subdomain" : "Your own domain"
 						}
 					/>
-					<DetailRow
-						label="Daemon"
-						value={node.daemonVersion ? `cookied ${node.daemonVersion}` : "—"}
-					/>
 				</DetailList>
-				<p className="text-muted-foreground text-sm">
-					That is it. You can deploy a server to this node now, or connect
-					another machine.
-				</p>
-			</div>
-		);
-	}
-
-	return (
-		<div className="max-w-2xl space-y-5">
-			<div className="flex items-center gap-3">
-				<StatusIndicator live status={nodeStatus("pending")} />
-				<p className="text-muted-foreground text-sm">
-					Waiting for the first report from {name || "your node"}. This usually
-					takes a few seconds after the command finishes.
-				</p>
-			</div>
+			) : null}
 			<Collapsible summary="// not showing up?">
 				<ul className="space-y-1">
 					<li>
@@ -1026,7 +994,7 @@ function ConnectStep({
 							<li>Cloudflare users: the proxy (orange cloud) must be off.</li>
 						</>
 					) : null}
-					<li>Still waiting after a minute? Run the command below again.</li>
+					<li>Still nothing after a minute? Run the command below again.</li>
 				</ul>
 			</Collapsible>
 			<div className="space-y-2">

@@ -9,7 +9,7 @@ import {
 	SidebarRail,
 } from "@/components/ui/sidebar";
 import { NAV } from "@/lib/nav";
-import { useNodeCounts } from "@/lib/stores/nodes-store";
+import { useNodeCounts } from "@/lib/node-queries";
 
 // The sidebar footer's instrument readout: how many of the fleet's boxes are
 // reporting, in mono with an alpha-only pulse on the live count.

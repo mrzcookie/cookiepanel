@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -28,11 +29,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { NodeCaps, NodeRow } from "@/lib/domain/nodes";
 import {
+	invalidateNodes,
 	removeNode,
 	updateNode,
 	updateNodeCaps,
 	useNode,
-} from "@/lib/stores/nodes-store";
+} from "@/lib/node-queries";
 
 const GiB = 1024 ** 3;
 
@@ -86,29 +88,32 @@ function DetailsCard({ node }: { node: NodeRow }) {
 }
 
 function GeneralCard({ node }: { node: NodeRow }) {
+	const queryClient = useQueryClient();
 	const [name, setName] = useState(node.name);
 	const [fqdn, setFqdn] = useState(node.fqdn);
-	const [publicIp, setPublicIp] = useState(node.publicIp ?? "");
+	const [saving, setSaving] = useState(false);
 
 	useEffect(() => {
 		setName(node.name);
 		setFqdn(node.fqdn);
-		setPublicIp(node.publicIp ?? "");
-	}, [node.name, node.fqdn, node.publicIp]);
+	}, [node.name, node.fqdn]);
 
-	const changed =
-		name !== node.name ||
-		fqdn !== node.fqdn ||
-		publicIp !== (node.publicIp ?? "");
+	const changed = name !== node.name || fqdn !== node.fqdn;
 	const valid = name.trim() !== "" && fqdn.trim() !== "";
 
-	function save() {
-		updateNode(node.id, {
-			name: name.trim(),
-			fqdn: fqdn.trim(),
-			publicIp: publicIp.trim() || null,
-		});
-		toast.success("Node details saved.");
+	async function save() {
+		setSaving(true);
+		try {
+			await updateNode(node.id, { name: name.trim(), fqdn: fqdn.trim() });
+			await invalidateNodes(queryClient);
+			toast.success("Node details saved.");
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't save the node."
+			);
+		} finally {
+			setSaving(false);
+		}
 	}
 
 	return (
@@ -144,18 +149,8 @@ function GeneralCard({ node }: { node: NodeRow }) {
 							value={fqdn}
 						/>
 					</div>
-					<div className="grid gap-2">
-						<Label htmlFor="node-ip">Public IP</Label>
-						<Input
-							className="font-mono text-sm"
-							id="node-ip"
-							onChange={(event) => setPublicIp(event.target.value)}
-							placeholder="Not set"
-							value={publicIp}
-						/>
-					</div>
 					<div className="flex justify-end">
-						<Button disabled={!(changed && valid)} type="submit">
+						<Button disabled={saving || !(changed && valid)} type="submit">
 							Save
 						</Button>
 					</div>
@@ -210,6 +205,7 @@ function CapacityForm({
 	maxMemBytes: number;
 	nodeId: string;
 }) {
+	const queryClient = useQueryClient();
 	const maxMemGb = Math.floor(maxMemBytes / GiB);
 	const maxDiskGb = Math.floor(maxDiskBytes / GiB);
 	const seedMemGb = Math.round(caps.memBytes / GiB);
@@ -218,6 +214,7 @@ function CapacityForm({
 	const [cpu, setCpu] = useState(caps.cpuCores);
 	const [memGb, setMemGb] = useState(seedMemGb);
 	const [diskGb, setDiskGb] = useState(seedDiskGb);
+	const [saving, setSaving] = useState(false);
 
 	useEffect(() => {
 		setCpu(caps.cpuCores);
@@ -228,13 +225,23 @@ function CapacityForm({
 	const changed =
 		cpu !== caps.cpuCores || memGb !== seedMemGb || diskGb !== seedDiskGb;
 
-	function save() {
-		updateNodeCaps(nodeId, {
-			cpuCores: cpu,
-			memBytes: memGb * GiB,
-			diskBytes: diskGb * GiB,
-		});
-		toast.success("Allocatable capacity updated.");
+	async function save() {
+		setSaving(true);
+		try {
+			await updateNodeCaps(nodeId, {
+				cpuCores: cpu,
+				memBytes: memGb * GiB,
+				diskBytes: diskGb * GiB,
+			});
+			await invalidateNodes(queryClient);
+			toast.success("Allocatable capacity updated.");
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't update capacity."
+			);
+		} finally {
+			setSaving(false);
+		}
 	}
 
 	return (
@@ -264,7 +271,7 @@ function CapacityForm({
 				value={diskGb}
 			/>
 			<div className="flex justify-end border-t pt-4">
-				<Button disabled={!changed} onClick={save}>
+				<Button disabled={saving || !changed} onClick={save}>
 					Save
 				</Button>
 			</div>
@@ -310,13 +317,24 @@ function CapField({
 
 function DangerZone({ node }: { node: NodeRow }) {
 	const navigate = Route.useNavigate();
+	const queryClient = useQueryClient();
 	const [removeOpen, setRemoveOpen] = useState(false);
+	const [removing, setRemoving] = useState(false);
 	const reachable = node.status === "online" || node.status === "unhealthy";
 
-	function remove() {
-		removeNode(node.id);
-		toast.success(`Removed “${node.name}”.`);
-		navigate({ to: "/nodes" });
+	async function remove() {
+		setRemoving(true);
+		try {
+			await removeNode(node.id);
+			await invalidateNodes(queryClient);
+			toast.success(`Removed “${node.name}”.`);
+			navigate({ to: "/nodes" });
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't remove the node."
+			);
+			setRemoving(false);
+		}
 	}
 
 	return (
@@ -418,7 +436,7 @@ function DangerZone({ node }: { node: NodeRow }) {
 								Cancel
 							</Button>
 						</DialogClose>
-						<Button onClick={remove} variant="destructive">
+						<Button disabled={removing} onClick={remove} variant="destructive">
 							Remove node
 						</Button>
 					</DialogFooter>

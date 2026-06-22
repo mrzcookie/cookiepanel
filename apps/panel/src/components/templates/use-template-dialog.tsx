@@ -25,8 +25,8 @@ import {
 } from "@/components/ui/select";
 import { capacityLabel } from "@/lib/domain/deploy";
 import { deployVariables, type Template } from "@/lib/domain/templates";
+import { useNodes } from "@/lib/node-queries";
 import { nodeStatus } from "@/lib/status";
-import { useNodes } from "@/lib/stores/nodes-store";
 
 /** "Use template": pick a node, name the server, fill in settings, deploy. */
 export function UseTemplateDialog({ template }: { template: Template }) {

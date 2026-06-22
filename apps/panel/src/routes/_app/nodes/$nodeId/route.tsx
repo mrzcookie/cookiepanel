@@ -6,10 +6,22 @@ import { StatusIndicator } from "@/components/shared/status-indicator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { NodeRow } from "@/lib/domain/nodes";
+import { nodeQueryOptions, useNode } from "@/lib/node-queries";
 import { nodeStatus } from "@/lib/status";
-import { useNode } from "@/lib/stores/nodes-store";
 
 export const Route = createFileRoute("/_app/nodes/$nodeId")({
+	// Warm the per-node query for the tabs below. A missing / cross-org id throws
+	// a generic not-found; swallow it so the component renders its own screen
+	// instead of bubbling to the router error boundary.
+	loader: async ({ context, params }) => {
+		try {
+			await context.queryClient.ensureQueryData(
+				nodeQueryOptions(params.nodeId)
+			);
+		} catch {
+			// Not found — handled in the component.
+		}
+	},
 	component: NodeDetailLayout,
 	notFoundComponent: () => (
 		<ErrorScreen

@@ -8,6 +8,7 @@ import { PastDueBanner } from "@/components/billing/past-due-banner";
 import { AppShell } from "@/components/layout/app-shell";
 import { ErrorScreen } from "@/components/layout/error-screen";
 import { Button } from "@/components/ui/button";
+import { nodesListQueryOptions } from "@/lib/node-queries";
 import { fetchSession } from "@/server/auth/session";
 
 export const Route = createFileRoute("/_app")({
@@ -25,6 +26,13 @@ export const Route = createFileRoute("/_app")({
 			throw redirect({ to: "/onboarding" });
 		}
 	},
+	// Warm the fleet so the sidebar's node count renders on first paint. The whole
+	// shell shouldn't fall over if this read fails, so swallow errors and let the
+	// count fetch lazily instead.
+	loader: ({ context }) =>
+		context.queryClient
+			.ensureQueryData(nodesListQueryOptions())
+			.catch(() => undefined),
 	component: AppLayout,
 	// Fallback for any unmatched path inside the shell (e.g. a stray segment off a
 	// leaf detail route, which can't render its own notFoundComponent). Tabbed

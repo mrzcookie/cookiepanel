@@ -14,8 +14,8 @@ import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 import type { NodeRow } from "@/lib/domain/nodes";
 import type { ServerRow } from "@/lib/domain/servers";
 import { formatBytes } from "@/lib/format";
+import { useNode } from "@/lib/node-queries";
 import { serverStatus } from "@/lib/status";
-import { useNode } from "@/lib/stores/nodes-store";
 import { serversForNode } from "@/lib/stubs";
 import { cn } from "@/lib/utils";
 
