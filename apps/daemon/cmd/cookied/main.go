@@ -1,8 +1,8 @@
 // Command cookied is the CookiePanel daemon that runs on each managed Linux box.
 //
-// This is a bare-minimal scaffold: it builds, runs, and reports its version.
-// The real agent (HTTPS/WS API, Docker, networking, firewall, scheduler,
-// heartbeat) is implemented in a later phase, once the panel is matured.
+// It is built in vertical slices: enrollment + heartbeat first (this slice),
+// then the HTTPS control API, Docker, networking, the firewall, the scheduler,
+// and the local IPC socket. See .claude/rules/daemon.md for the target runtime.
 package main
 
 import (

@@ -32,8 +32,8 @@ wire format is pinned by a **shared API contract** so the two never drift. See
 
 - `apps/panel` — `@cookiepanel/panel`: TanStack Start (SSR) + React 19 +
   Tailwind v4 web app & API. Server-only code lives under `src/server`.
-- `apps/daemon` — `cookied`: the Go agent for each managed box (currently a
-  stdlib-only stub; the real runtime lands in a later phase).
+- `apps/daemon` — `cookied`: the Go agent for each managed box (an active,
+  phased build — it enrolls + heartbeats today; the rest lands slice by slice).
 - Tooling: pnpm workspaces + Turborepo + Go workspace (`go.work`) + Biome +
   lefthook.
 
@@ -54,26 +54,33 @@ wire format is pinned by a **shared API contract** so the two never drift. See
 
 Full glossary, fields, and relationships: `.claude/rules/domain.md`.
 
-## Current phase: wiring the panel's data layer
+## Current phase: building the daemon + the panel↔daemon connection
 
-The panel UI is mature; we're now **building its data/server layer behind it** —
-the database, auth, and server functions — **feature by feature**, behind the
-same component props the UI already renders from. `src/server`, the DB, and auth
-are now in-scope to build, but much of the panel still runs on stub stores until
-each feature is wired, so treat it as **half-stubbed, half-real**:
+The panel's data/server layer is **essentially complete** — every panel-owned,
+DB-backed entity (organizations, members, users, activity, the node registry,
+templates, billing, the admin surface) is wired through the real
+repository → service → server-function layers. What's left in the panel are the
+**daemon-derived** features (servers, networks, drives, firewall, files, SFTP,
+schedules, backups), which by design can't be real until `cookied` exists.
 
-- **A feature whose backend doesn't exist yet is still UI work.** Keep it
-  presentational against its stub store; don't invent a backend for it. **When
-  it's unclear whether a request means the UI or a backend that may not exist
-  yet, assume the UI and ask.**
-- **A feature being wired** gets the real `src/server` data layer (repository →
-  service → server function) from `panel.md`, swapped in behind the existing props.
+So the current phase is **the daemon and the wire to it**, built in vertical
+slices — each slice ships one capability end-to-end (a daemon subsystem + its
+panel-side connection + the UI swapped off its stub) and is independently
+committable:
 
-The **daemon stays a later phase** — `apps/daemon` is still a stub and the
-panel↔daemon connection isn't built, so anything that needs a live box (server
-console/stats, real enrollment/heartbeat, on-box files/firewall/backups) stays
-stubbed until then. The rules files describe the *target* architecture; `panel.md`
-and `security.md` are now the spec for the panel layer we're actively building.
+- **Slices 0–1** — scaffolding + enrollment/heartbeat: a box pairs with the panel
+  and flips `pending → online` with real hardware/Docker info.
+- **Slice 2** — the panel→daemon control channel (the daemon's HTTPS API + the
+  panel's node-client seam, with cert pinning).
+- **Slices 3+** — Docker/servers, the console WebSocket, networks/firewall/ports,
+  files/SFTP, schedules/backups, host maintenance — each swapping its
+  `lib/stores/*` stub for real daemon-backed data.
+
+Until a feature's slice lands it **stays on its stub store** — keep it
+presentational, don't half-wire it. When it's unclear whether a request means the
+UI or a daemon capability that isn't built yet, assume the UI and ask. `apps/daemon`
+is now an active build (no longer a stub); the rules files describe the *target*
+architecture it's converging on.
 
 ## Non-negotiable rules
 

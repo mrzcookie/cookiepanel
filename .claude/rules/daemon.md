@@ -1,10 +1,13 @@
 # The daemon — `cookied`
 
-> **Status.** Today `apps/daemon` is a **stdlib-only stub**: it builds, prints
-> its version, and has a no-op `run`. Everything below is the *target* runtime,
-> drawn from the complete prior daemon in `../cookiepanel-old`. Build it in a
-> later phase, once the panel is matured. Treat the **design** as the durable
-> signal; exact deps, ports, paths, and route prefixes are incidental.
+> **Status.** `apps/daemon` has moved from a stdlib-only stub into an **active,
+> phased build** (the panel's data layer is now mature). The target runtime is
+> below, drawn from the complete prior daemon in `../cookiepanel-old`; it's being
+> ported subsystem-by-subsystem in vertical slices — enrollment/heartbeat → HTTPS
+> API + cert pinning → Docker/servers → console WebSocket → networks/firewall/
+> ports → files/SFTP → schedules/backups → host maintenance → offline TUI. Treat
+> the **design** as the durable signal; exact deps, ports, paths, and route
+> prefixes are incidental.
 
 `cookied` is a single Go binary that runs on each managed Linux box, **as root**.
 It is the thing that does real work: Docker containers, host networking,
@@ -79,9 +82,12 @@ Because the daemon is root, validation is consistent and up front:
   firewall rule tagged, so the daemon never touches the operator's own host
   config.
 
-## Build & run (current stub)
+## Build & run
 
 - Module `github.com/cookiepanel/cookied`, Go (see `apps/daemon/go.mod`).
 - `pnpm daemon:build` / `pnpm daemon:run` (Make targets). `make cross` builds
   linux amd64/arm64.
 - `gofmt` + `go vet` are enforced by the lefthook pre-commit hook and CI.
+- Current subcommands: `configure` (exchange a bootstrap token for durable
+  credentials), `run` (heartbeat loop), `diagnostics`, `version`. The HTTPS API,
+  IPC socket, TLS, Docker, and scheduler land in later slices.

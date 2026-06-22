@@ -1,10 +1,11 @@
 # Domain model
 
 > **Status.** This is the product's *conceptual* model — what the nouns are and
-> how they relate. The panel-owned entities (below) are now being turned into
-> real Postgres tables; the daemon-derived ones stay stubbed until the daemon
-> exists. Field lists are the intended shape, drawn from the prior rewrite; treat
-> exact field names as a strong starting point, not a frozen schema.
+> how they relate. The panel-owned entities (below) are **now real Postgres
+> tables**; the daemon-derived ones are being brought to life as the daemon is
+> built, slice by slice — until a given slice lands they stay stubbed. Field lists
+> are the intended shape, drawn from the prior rewrite; treat exact field names as
+> a strong starting point, not a frozen schema.
 
 Everything is scoped to an **Organization**. The model splits cleanly into two
 halves, and that split is the important, durable part:

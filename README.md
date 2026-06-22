@@ -31,11 +31,13 @@ apps/
   daemon/   cookied — the Go agent that runs on each managed box
 ```
 
-> **Status: structural rewrite in progress.** The panel UI is mature; we're now
-> **building its data layer** (auth, persistence, server functions) behind it,
-> feature by feature — much of the panel still runs on stub data until each
-> feature is wired. The **real daemon is a later phase**; `cookied` is currently
-> a buildable stub.
+> **Status: structural rewrite in progress.** The panel's data layer (auth,
+> persistence, server functions) is essentially complete for every panel-owned
+> entity. We're now **building the daemon and the panel↔daemon connection** in
+> vertical slices: `cookied` can already enroll against the panel and heartbeat
+> live system info; its HTTPS control API, Docker/server management, console, and
+> the rest land slice by slice. The daemon-derived panel features (servers,
+> networks, files, …) stay on stub data until their slice is wired.
 
 ## Prerequisites
 
@@ -56,7 +58,7 @@ pnpm dev                     # run the panel (Vite dev) on :3000
 pnpm dev:down                # stop the dev infra when done
 
 pnpm daemon:build            # build the cookied binary
-pnpm daemon:run              # run the daemon (stub for now)
+pnpm daemon:run              # run the daemon (heartbeat loop; needs `cookied configure` first)
 ```
 
 ## Commands

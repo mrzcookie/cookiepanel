@@ -1,9 +1,11 @@
 # Architecture — the two halves and how they talk
 
-> **Status.** The panel↔daemon connection below is the *target* protocol and is
-> **not built yet**: `apps/daemon` is still a stub, so the daemon side and the
-> wire between them don't exist. The panel side (auth, data layer) is now being
-> built; this is the protocol it builds toward, not what exists.
+> **Status.** The panel↔daemon connection below is the **target protocol, now
+> being built** in vertical slices. The panel side (auth + data layer) is mature;
+> `apps/daemon` has moved from a stub into an active build. Enrollment + heartbeat
+> land first (a box pairs and flips `pending → online`), then the HTTPS control
+> channel + cert pinning, then the per-subsystem surface. Where a piece isn't
+> built yet, this is the spec it's converging on.
 
 CookiePanel is one product split into two programs that run in different places
 and trust each other over the network.
