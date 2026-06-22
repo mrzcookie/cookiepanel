@@ -1,5 +1,9 @@
+import {
+	useSuspenseInfiniteQuery,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CircleCheck, CreditCard, HardDrive } from "lucide-react";
+import { CircleCheck, CreditCard } from "lucide-react";
 import {
 	Area,
 	AreaChart,
@@ -10,7 +14,10 @@ import {
 	YAxis,
 } from "recharts";
 import { StatTile } from "@/components/admin/stat-tile";
-import { ActivityList } from "@/components/shared/activity-list";
+import {
+	ActivityList,
+	toActivityItem,
+} from "@/components/shared/activity-list";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,18 +35,20 @@ import {
 	ChartTooltip,
 	ChartTooltipContent,
 } from "@/components/ui/chart";
+import { allActivityQueryOptions } from "@/lib/activity-queries";
+import { adminBillingQueryOptions } from "@/lib/admin-billing-queries";
+import { adminUsersQueryOptions } from "@/lib/admin-users-queries";
 import { billableNodeCount, monthlyTotalCents } from "@/lib/domain/billing";
 import { formatMoney, pluralize } from "@/lib/format";
-import { EMPTY_STATE, useAllBilling } from "@/lib/stores/billing-store";
-import { useOrgs } from "@/lib/stores/orgs-store";
-import {
-	ADMIN_ACTIVITY,
-	ADMIN_NODES,
-	ADMIN_USERS,
-	MONTHLY,
-} from "@/lib/stubs/admin";
+import { MONTHLY } from "@/lib/stubs/admin";
 
 export const Route = createFileRoute("/admin/")({
+	loader: ({ context }) =>
+		Promise.all([
+			context.queryClient.ensureQueryData(adminBillingQueryOptions()),
+			context.queryClient.ensureQueryData(adminUsersQueryOptions()),
+			context.queryClient.ensureInfiniteQueryData(allActivityQueryOptions()),
+		]),
 	component: AdminOverview,
 });
 
@@ -52,31 +61,36 @@ const GROWTH_CONFIG = {
 	orgs: { label: "Organizations", color: "var(--chart-4)" },
 } satisfies ChartConfig;
 
+// Historical trend points are still illustrative: a monthly revenue/growth series
+// needs time-series we don't record yet (the cache holds only current state). The
+// tiles, table, and activity below are real; these two charts stay sampled until
+// we persist history.
 const REVENUE_DATA = MONTHLY.map((point) => ({
 	month: point.month,
 	revenue: Math.round(point.mrrCents / 100),
 }));
 
 function AdminOverview() {
-	const orgs = useOrgs();
-	const billing = useAllBilling();
-	const states = orgs.map((org) => billing[org.id] ?? EMPTY_STATE);
+	const billing = useSuspenseQuery(adminBillingQueryOptions()).data;
+	const users = useSuspenseQuery(adminUsersQueryOptions()).data;
+	const activity = useSuspenseInfiniteQuery(allActivityQueryOptions());
 
-	const mrrCents = states.reduce(
-		(sum, plan) => sum + monthlyTotalCents(plan),
+	const mrrCents = billing.reduce(
+		(sum, row) => sum + monthlyTotalCents(row.billing),
 		0
 	);
-	const billableNodes = states.reduce(
-		(sum, plan) => sum + billableNodeCount(plan),
+	const billableNodes = billing.reduce(
+		(sum, row) => sum + billableNodeCount(row.billing),
 		0
 	);
-	const nodesOnline = ADMIN_NODES.filter(
-		(node) => node.status === "online"
-	).length;
-	const pastDueOrgs = orgs.filter(
-		(org) => (billing[org.id] ?? EMPTY_STATE).status === "past_due"
+	const totalNodes = billing.reduce(
+		(sum, row) => sum + row.billing.nodeCount,
+		0
 	);
-	const problemNodes = ADMIN_NODES.filter((node) => node.status !== "online");
+	const pastDueOrgs = billing.filter(
+		(row) => row.billing.status === "past_due"
+	);
+	const recent = activity.data.pages.flat().slice(0, 5).map(toActivityItem);
 
 	return (
 		<>
@@ -90,17 +104,17 @@ function AdminOverview() {
 				<StatTile
 					detail="tenants"
 					label="Organizations"
-					value={String(orgs.length)}
+					value={String(billing.length)}
 				/>
 				<StatTile
 					detail="accounts"
 					label="Users"
-					value={String(ADMIN_USERS.length)}
+					value={String(users.length)}
 				/>
 				<StatTile
-					detail="online"
+					detail="registered"
 					label="Nodes"
-					value={`${nodesOnline} / ${ADMIN_NODES.length}`}
+					value={String(totalNodes)}
 				/>
 				<StatTile
 					detail={`${pluralize(billableNodes, "node")} billed`}
@@ -209,49 +223,26 @@ function AdminOverview() {
 					<CardHeader>
 						<CardTitle>Needs attention</CardTitle>
 						<CardDescription>
-							Accounts and nodes that may need a look.
+							Organizations that may need a look.
 						</CardDescription>
 					</CardHeader>
 					<CardContent>
-						{pastDueOrgs.length === 0 && problemNodes.length === 0 ? (
+						{pastDueOrgs.length === 0 ? (
 							<div className="flex items-center gap-2 text-muted-foreground text-sm">
 								<CircleCheck className="size-4 text-ok" />
 								All clear — nothing needs attention.
 							</div>
 						) : (
 							<ul className="divide-y">
-								{pastDueOrgs.map((org) => (
+								{pastDueOrgs.map((row) => (
 									<li
-										className="flex items-center gap-3 py-3 first:pt-0"
-										key={org.id}
+										className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+										key={row.orgId}
 									>
 										<CreditCard className="size-4 shrink-0 text-destructive" />
 										<span className="flex-1 text-sm">
-											<span className="font-medium">{org.name}</span>{" "}
+											<span className="font-medium">{row.orgName}</span>{" "}
 											<span className="text-muted-foreground">is past due</span>
-										</span>
-									</li>
-								))}
-								{problemNodes.map((node) => (
-									<li
-										className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
-										key={node.id}
-									>
-										<HardDrive className="size-4 shrink-0 text-muted-foreground" />
-										<span className="flex-1 text-sm">
-											<Link
-												className="font-medium hover:underline"
-												params={{ nodeId: node.id }}
-												to="/admin/nodes/$nodeId"
-											>
-												{node.name}
-											</Link>{" "}
-											<span className="text-muted-foreground">
-												is {node.status}
-											</span>
-										</span>
-										<span className="shrink-0 text-muted-foreground text-xs">
-											{node.orgName}
 										</span>
 									</li>
 								))}
@@ -268,7 +259,7 @@ function AdminOverview() {
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-4">
-						<ActivityList items={ADMIN_ACTIVITY.slice(0, 5)} />
+						<ActivityList items={recent} />
 						<Button asChild size="sm" variant="outline">
 							<Link to="/admin/activity">View all activity</Link>
 						</Button>

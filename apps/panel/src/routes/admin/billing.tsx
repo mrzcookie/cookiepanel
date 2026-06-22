@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { StatTile } from "@/components/admin/stat-tile";
 import { PageHeader } from "@/components/shared/page-header";
@@ -11,6 +12,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { adminBillingQueryOptions } from "@/lib/admin-billing-queries";
 import {
 	type BillingState,
 	type BillingStatus,
@@ -19,14 +21,12 @@ import {
 } from "@/lib/domain/billing";
 import { formatMoney, pluralize } from "@/lib/format";
 import { billingStatus } from "@/lib/status";
-import { EMPTY_STATE, useAllBilling } from "@/lib/stores/billing-store";
-import { type Org, useOrgs } from "@/lib/stores/orgs-store";
 
 export const Route = createFileRoute("/admin/billing")({
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(adminBillingQueryOptions()),
 	component: AdminBilling,
 });
-
-type Account = { org: Org; billing: BillingState };
 
 // Attention first: surface the orgs that need action (past due, then trials)
 // above the healthy ones, and "no plan" last.
@@ -54,34 +54,33 @@ function nextDate(billing: BillingState): string {
 }
 
 function AdminBilling() {
-	const orgs = useOrgs();
-	const billing = useAllBilling();
+	const rows = useSuspenseQuery(adminBillingQueryOptions()).data;
 
-	const accounts: Account[] = orgs
-		.map((org) => ({ org, billing: billing[org.id] ?? EMPTY_STATE }))
-		.sort(
-			(a, b) =>
-				STATUS_RANK[a.billing.status] - STATUS_RANK[b.billing.status] ||
-				monthlyTotalCents(b.billing) - monthlyTotalCents(a.billing)
-		);
+	const accounts = [...rows].sort(
+		(a, b) =>
+			STATUS_RANK[a.billing.status] - STATUS_RANK[b.billing.status] ||
+			monthlyTotalCents(b.billing) - monthlyTotalCents(a.billing)
+	);
 
 	const mrrCents = accounts.reduce(
-		(sum, { billing: b }) => sum + monthlyTotalCents(b),
+		(sum, { billing }) => sum + monthlyTotalCents(billing),
 		0
 	);
 	const billableNodes = accounts.reduce(
-		(sum, { billing: b }) => sum + billableNodeCount(b),
+		(sum, { billing }) => sum + billableNodeCount(billing),
 		0
 	);
 	const activeCount = accounts.filter(
-		({ billing: b }) => b.status === "active"
+		({ billing }) => billing.status === "active"
 	).length;
 	const trialingCount = accounts.filter(
-		({ billing: b }) => b.status === "trialing"
+		({ billing }) => billing.status === "trialing"
 	).length;
-	const pastDue = accounts.filter(({ billing: b }) => b.status === "past_due");
+	const pastDue = accounts.filter(
+		({ billing }) => billing.status === "past_due"
+	);
 	const pastDueCents = pastDue.reduce(
-		(sum, { billing: b }) => sum + monthlyTotalCents(b),
+		(sum, { billing }) => sum + monthlyTotalCents(billing),
 		0
 	);
 
@@ -130,22 +129,22 @@ function AdminBilling() {
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{accounts.map(({ org, billing: b }) => (
-								<TableRow key={org.id}>
+							{accounts.map(({ orgId, orgName, billing }) => (
+								<TableRow key={orgId}>
 									<TableCell>
-										<span className="font-medium">{org.name}</span>
+										<span className="font-medium">{orgName}</span>
 									</TableCell>
 									<TableCell className="text-right text-muted-foreground tabular-nums">
-										{b.nodeCount === 0 ? "—" : b.nodeCount}
+										{billing.nodeCount === 0 ? "—" : billing.nodeCount}
 									</TableCell>
 									<TableCell className="text-right font-mono tabular-nums">
-										{formatMoney(monthlyTotalCents(b))}
+										{formatMoney(monthlyTotalCents(billing))}
 									</TableCell>
 									<TableCell className="text-right text-muted-foreground tabular-nums">
-										{nextDate(b)}
+										{nextDate(billing)}
 									</TableCell>
 									<TableCell className="text-right">
-										<StatusIndicator status={billingStatus(b.status)} />
+										<StatusIndicator status={billingStatus(billing.status)} />
 									</TableCell>
 								</TableRow>
 							))}

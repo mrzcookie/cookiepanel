@@ -2,10 +2,17 @@
 // renders. Client-safe: no secrets, no Polar ids, no raw image strings. The
 // concrete seed data lives in `lib/stubs/admin.ts`.
 
-import type { LucideIcon } from "lucide-react";
+import type { BillingState } from "@/lib/domain/billing";
 import type { NodeRow } from "@/lib/domain/nodes";
 
 export type MemberRole = "owner" | "admin" | "member";
+
+/** One org's billing, for the admin cross-org dashboard + billing table. */
+export type AdminBillingRow = {
+	orgId: string;
+	orgName: string;
+	billing: BillingState;
+};
 
 /**
  * A user's **platform-wide** role — distinct from the per-org `MemberRole` in
@@ -13,20 +20,6 @@ export type MemberRole = "owner" | "admin" | "member";
  * console gates on (Better Auth's admin plugin role), NOT org ownership.
  */
 export type PlatformAdminRole = "user" | "admin";
-
-/** Whether an audit entry is an admin (platform) action or a tenant action. */
-export type AdminActivityScope = "platform" | "tenant";
-
-/** One row of the platform audit feed. Superset of the shared ActivityItem, so
- * it renders directly in ActivityList; `scope` drives the feed's filter. */
-export type AdminActivityEntry = {
-	id: string;
-	icon: LucideIcon;
-	actor: string;
-	description: string;
-	time: string;
-	scope: AdminActivityScope;
-};
 
 /** Account standing, platform-wide (not per-org). */
 export type AdminUserStatus = "active" | "invited" | "suspended";
@@ -38,25 +31,11 @@ export type AdminMembership = {
 	role: MemberRole;
 };
 
-export type AdminUser = {
-	id: string;
-	name: string;
-	email: string;
-	status: AdminUserStatus;
-	memberships: AdminMembership[];
-	/** Pre-formatted for the UI-first phase. */
-	joinedAt: string;
-	/** Pre-formatted relative time, or null for never (e.g. an open invite). */
-	lastSeenAt: string | null;
-};
-
 /**
- * The **wired**, client-safe view of a platform user — the real data layer's
- * projection (`src/server/users`). Distinct from the stub `AdminUser` above,
- * which still backs the (stubbed) orgs + overview sections; this one carries the
- * real fields the admin user panel reads/edits. Timestamps are ISO 8601 — the UI
- * formats them. Status comes only as `active` | `suspended` from real data
- * (`invited` is a stub-only notion: a pending invitation isn't a user row).
+ * The client-safe view of a platform user — the real data layer's projection
+ * (`src/server/users`), which the admin user panel reads/edits. Timestamps are
+ * ISO 8601 — the UI formats them. Status comes only as `active` | `suspended`
+ * from real data (`invited` would be a pending invitation, not a user row).
  */
 export type AdminUserRow = {
 	id: string;
@@ -76,11 +55,10 @@ export type AdminUserRow = {
 
 /**
  * The **wired**, client-safe view of a platform organization — the real data
- * layer's projection (`src/server/orgs`). Distinct from the stub `Org` in
- * `lib/stores/orgs-store` (still backing the stubbed billing + overview), this
- * one carries the real org identity the admin orgs panel reads/edits plus the
- * counts it derives from real tables. `createdAt` is ISO 8601 — the UI formats
- * it; `memberCount`/`nodeCount` come from the `member` and `node` tables.
+ * layer's projection (`src/server/orgs`). Carries the real org identity the
+ * admin orgs panel reads/edits plus the counts it derives from real tables.
+ * `createdAt` is ISO 8601 — the UI formats it; `memberCount`/`nodeCount` come
+ * from the `member` and `node` tables.
  */
 export type AdminOrgRow = {
 	id: string;
@@ -174,25 +152,3 @@ export type MonthlyMetric = {
 	users: number;
 	orgs: number;
 };
-
-// ─── Derivations ─────────────────────────────────────────────────────────────
-
-/** Members of an org, derived from the user list (the single source of truth for
- * membership). Owners first, then admins, then members; each rank alphabetical. */
-const ROLE_RANK: Record<MemberRole, number> = { owner: 0, admin: 1, member: 2 };
-
-export function membersOf(
-	users: AdminUser[],
-	orgId: string
-): { user: AdminUser; role: MemberRole }[] {
-	return users
-		.flatMap((user) => {
-			const membership = user.memberships.find((m) => m.orgId === orgId);
-			return membership ? [{ user, role: membership.role }] : [];
-		})
-		.sort(
-			(a, b) =>
-				ROLE_RANK[a.role] - ROLE_RANK[b.role] ||
-				a.user.name.localeCompare(b.user.name)
-		);
-}

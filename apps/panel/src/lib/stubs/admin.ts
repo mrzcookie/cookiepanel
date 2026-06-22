@@ -1,35 +1,14 @@
-// Platform-wide seed data for the /admin console (UI-first phase). One coherent
-// dataset: the same four orgs as the org switcher + billing, the users that
-// belong to them, the fleet those orgs run (node counts match each org's billing
-// seat count), the panel-minted subdomains for the managed nodes, the audit
-// feed, and 12 months of trend points for the overview charts. Replaced by the
-// data layer; everything here is client-safe.
+// Platform-wide seed data for the still-stubbed /admin surfaces (UI-first phase):
+// the fleet those orgs run (cross-org nodes), the panel-minted subdomains for the
+// managed nodes, and 12 months of trend points for the overview charts. The users,
+// orgs, billing, and activity feeds are wired to the real data layer now; what
+// remains here is replaced as those surfaces land. Everything here is client-safe.
 
-import {
-	Archive,
-	Building2,
-	CreditCard,
-	Globe,
-	HardDrive,
-	LayoutTemplate,
-	Server,
-	Trash2,
-	UserPlus,
-	UserX,
-} from "lucide-react";
-import type {
-	AdminActivityEntry,
-	AdminMembership,
-	AdminNode,
-	AdminUser,
-	MemberRole,
-	MonthlyMetric,
-	Subdomain,
-} from "@/lib/domain/admin";
+import type { AdminNode, MonthlyMetric, Subdomain } from "@/lib/domain/admin";
 
 const GiB = 1024 ** 3;
 
-// Org id + name, mirroring lib/stores/orgs-store + lib/stores/billing-store.
+// Org id + name for the still-stubbed admin surfaces (nodes, subdomains, charts).
 const ORG = {
 	acme: { id: "7c9e6a52-3f1b-4d8a-9e2c-1a4b6d8f0e21", name: "Acme Gaming" },
 	northwind: {
@@ -45,127 +24,6 @@ const ORG = {
 		name: "Lone Pine Studio",
 	},
 } as const;
-
-/** Build a membership from an ORG entry (keys `orgId`/`orgName`, not `id`/`name`). */
-function m(
-	org: { id: string; name: string },
-	role: MemberRole
-): AdminMembership {
-	return { orgId: org.id, orgName: org.name, role };
-}
-
-// ─── Users ───────────────────────────────────────────────────────────────────
-
-export const ADMIN_USERS: AdminUser[] = [
-	{
-		id: "11111111-0001-4a00-8a00-000000000001",
-		name: "Jane Cooper",
-		email: "jane@example.com",
-		status: "active",
-		memberships: [m(ORG.acme, "owner")],
-		joinedAt: "May 1, 2026",
-		lastSeenAt: "Just now",
-	},
-	{
-		id: "11111111-0002-4a00-8a00-000000000002",
-		name: "Marco Diaz",
-		email: "marco@example.com",
-		status: "active",
-		memberships: [m(ORG.acme, "admin")],
-		joinedAt: "May 3, 2026",
-		lastSeenAt: "2 hours ago",
-	},
-	{
-		id: "11111111-0003-4a00-8a00-000000000003",
-		name: "Aisha Khan",
-		email: "aisha@acme.example",
-		status: "active",
-		memberships: [m(ORG.acme, "member")],
-		joinedAt: "May 14, 2026",
-		lastSeenAt: "Yesterday",
-	},
-	{
-		id: "11111111-0004-4a00-8a00-000000000004",
-		name: "Elena Rossi",
-		email: "elena@example.com",
-		status: "active",
-		memberships: [m(ORG.acme, "member"), m(ORG.northwind, "member")],
-		joinedAt: "May 20, 2026",
-		lastSeenAt: "3 hours ago",
-	},
-	{
-		id: "11111111-0005-4a00-8a00-000000000005",
-		name: "Priya Patel",
-		email: "priya@northwind.example",
-		status: "active",
-		memberships: [m(ORG.northwind, "owner")],
-		joinedAt: "Jun 2, 2026",
-		lastSeenAt: "Yesterday",
-	},
-	{
-		id: "11111111-0006-4a00-8a00-000000000006",
-		name: "Tom Becker",
-		email: "tom@northwind.example",
-		status: "active",
-		memberships: [m(ORG.northwind, "member")],
-		joinedAt: "Jun 3, 2026",
-		lastSeenAt: "5 days ago",
-	},
-	{
-		id: "11111111-0007-4a00-8a00-000000000007",
-		name: "Liam Chen",
-		email: "liam@pixelforge.example",
-		status: "active",
-		memberships: [m(ORG.pixelforge, "owner")],
-		joinedAt: "Jun 11, 2026",
-		lastSeenAt: "Yesterday",
-	},
-	{
-		id: "11111111-0008-4a00-8a00-000000000008",
-		name: "Sofia Marquez",
-		email: "sofia@pixelforge.example",
-		status: "active",
-		memberships: [m(ORG.pixelforge, "admin")],
-		joinedAt: "Jun 11, 2026",
-		lastSeenAt: "4 hours ago",
-	},
-	{
-		id: "11111111-0009-4a00-8a00-000000000009",
-		name: "Dustin Carver",
-		email: "dustin@pixelforge.example",
-		status: "active",
-		memberships: [m(ORG.pixelforge, "member")],
-		joinedAt: "Jun 12, 2026",
-		lastSeenAt: "2 days ago",
-	},
-	{
-		id: "11111111-0010-4a00-8a00-000000000010",
-		name: "Noah Williams",
-		email: "noah@lonepine.example",
-		status: "active",
-		memberships: [m(ORG.lonePine, "owner")],
-		joinedAt: "Jun 13, 2026",
-		lastSeenAt: "6 hours ago",
-	},
-	{
-		id: "11111111-0011-4a00-8a00-000000000011",
-		name: "Owen Fletcher",
-		email: "owen@acme.example",
-		status: "invited",
-		memberships: [m(ORG.acme, "member")],
-		joinedAt: "Jun 10, 2026",
-		lastSeenAt: null,
-	},
-	{
-		id: "11111111-0012-4a00-8a00-000000000012",
-		name: "Reza Akbari",
-		email: "dev@spam-co.example",
-		status: "suspended",
-		memberships: [],
-		joinedAt: "Jun 6, 2026",
-		lastSeenAt: "Jun 8, 2026",
-	},
-];
 
 // ─── Fleet (node counts match each org's billing seat count) ──────────────────
 
@@ -413,91 +271,6 @@ export const SUBDOMAINS: Subdomain[] = [
 		orgId: ORG.pixelforge.id,
 		orgName: ORG.pixelforge.name,
 		createdAt: "Jun 14, 2026",
-	},
-];
-
-// ─── Audit feed ──────────────────────────────────────────────────────────────
-
-export const ADMIN_ACTIVITY: AdminActivityEntry[] = [
-	{
-		id: "ac-1",
-		icon: LayoutTemplate,
-		actor: "Jane Cooper",
-		description: "published the official template “Valheim Dedicated” (v3)",
-		time: "11 minutes ago",
-		scope: "platform",
-	},
-	{
-		id: "ac-2",
-		icon: Server,
-		actor: "Marco Diaz",
-		description: "created server “mc-survival” in Acme Gaming",
-		time: "40 minutes ago",
-		scope: "tenant",
-	},
-	{
-		id: "ac-3",
-		icon: UserX,
-		actor: "Jane Cooper",
-		description: "suspended the account dev@spam-co.example",
-		time: "2 hours ago",
-		scope: "platform",
-	},
-	{
-		id: "ac-4",
-		icon: CreditCard,
-		actor: "Pixelforge Collective",
-		description: "payment failed — the account entered its grace window",
-		time: "5 hours ago",
-		scope: "tenant",
-	},
-	{
-		id: "ac-5",
-		icon: Globe,
-		actor: "Jane Cooper",
-		description: "minted the subdomain eu-west-01.northwind.cookiepanel.app",
-		time: "Yesterday",
-		scope: "platform",
-	},
-	{
-		id: "ac-6",
-		icon: HardDrive,
-		actor: "Priya Patel",
-		description: "connected node “eu-west-01” in Northwind Servers",
-		time: "Yesterday",
-		scope: "tenant",
-	},
-	{
-		id: "ac-7",
-		icon: Archive,
-		actor: "Jane Cooper",
-		description: "archived the official template “CS:GO Legacy”",
-		time: "Jun 12, 2026",
-		scope: "platform",
-	},
-	{
-		id: "ac-8",
-		icon: Building2,
-		actor: "Liam Chen",
-		description: "created the organization “Pixelforge Collective”",
-		time: "Jun 11, 2026",
-		scope: "tenant",
-	},
-	{
-		id: "ac-9",
-		icon: UserPlus,
-		actor: "Marco Diaz",
-		description: "invited owen@acme.example to Acme Gaming",
-		time: "Jun 10, 2026",
-		scope: "tenant",
-	},
-	{
-		id: "ac-10",
-		icon: Trash2,
-		actor: "Jane Cooper",
-		description: "removed the organization “Defunct LLC” and its 2 nodes",
-		time: "Jun 9, 2026",
-		scope: "platform",
 	},
 ];
 

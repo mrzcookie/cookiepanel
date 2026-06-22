@@ -1,20 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
-import type {
-	BillingState,
-	BillingStatus,
-	CardBrand,
-} from "@/lib/domain/billing";
-import { NODE_ENTITLEMENT, NODE_PRICE_CENTS } from "@/lib/domain/billing";
-import { formatDate } from "@/lib/format";
+import { NODE_ENTITLEMENT } from "@/lib/domain/billing";
 import { requireOrg } from "@/server/auth/guards";
 import { env } from "@/server/env";
-import { nodesRepository } from "@/server/nodes/repository";
 import { requiredSeats } from "./node-sync";
 import {
 	createNodeCheckoutUrl,
 	createPortalUrl,
 	setSubscriptionCancel,
 } from "./polar";
+import { projectOrgBilling } from "./projection";
 import { billingRepository } from "./repository";
 
 /**
@@ -47,72 +41,13 @@ async function requireBillingManager() {
 	return ctx;
 }
 
-// --- Read projection -------------------------------------------------------
-
-/** Project the org's cached billing rows to the client-safe `BillingState` the
- * settings page renders. Dates are pre-formatted (the UI's contract); secrets
- * (Polar ids, card tokens) never appear. */
-async function getOrgBilling(orgId: string): Promise<BillingState> {
-	const [nodeCount, entitlement, customer] = await Promise.all([
-		nodesRepository.count(orgId),
-		billingRepository.getEntitlement(orgId, NODE_ENTITLEMENT),
-		billingRepository.getCustomer(orgId),
-	]);
-
-	const contact = customer?.billingContactUserId
-		? await billingRepository.getContact(customer.billingContactUserId)
-		: null;
-
-	const paymentMethod =
-		customer?.cardBrand &&
-		customer.cardLast4 &&
-		customer.cardExpMonth &&
-		customer.cardExpYear
-			? {
-					brand: customer.cardBrand as CardBrand,
-					last4: customer.cardLast4,
-					expMonth: customer.cardExpMonth,
-					expYear: customer.cardExpYear,
-				}
-			: null;
-
-	// An entitlement row's status when present; otherwise derive from node count
-	// (an org with nodes but no row yet is inside its free window → trialing).
-	const status: BillingStatus = entitlement
-		? (entitlement.status as BillingStatus)
-		: nodeCount > 0
-			? "trialing"
-			: "none";
-
-	return {
-		status,
-		nodeCount,
-		pricePerNodeCents: entitlement?.unitPriceCents ?? NODE_PRICE_CENTS,
-		trialEndsAt: entitlement?.trialEndsAt
-			? formatDate(entitlement.trialEndsAt)
-			: null,
-		currentPeriodEnd: entitlement?.currentPeriodEnd
-			? formatDate(entitlement.currentPeriodEnd)
-			: null,
-		cancelAtPeriodEnd: entitlement?.cancelAtPeriodEnd ?? false,
-		graceEndsAt: entitlement?.graceEndsAt
-			? formatDate(entitlement.graceEndsAt)
-			: null,
-		paymentMethod,
-		// Invoices come from Polar's orders API (deferred); the portal lists them
-		// in the meantime.
-		invoices: [],
-		billingContact: contact,
-	};
-}
-
 // --- Server functions ------------------------------------------------------
 
 /** The active org's billing snapshot. Any member may read it. */
 export const getBilling = createServerFn({ method: "GET" }).handler(
 	async () => {
 		const { orgId } = await requireOrg();
-		return getOrgBilling(orgId);
+		return projectOrgBilling(orgId);
 	}
 );
 

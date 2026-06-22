@@ -1,5 +1,19 @@
-import { Activity, type LucideIcon } from "lucide-react";
+import {
+	Activity,
+	Box,
+	Building2,
+	CreditCard,
+	LayoutTemplate,
+	LogIn,
+	type LucideIcon,
+	Network,
+	Server,
+	UserRound,
+	Users,
+} from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
+import type { ActivityCategory, ActivityEntry } from "@/lib/domain/activity";
+import { formatRelativeTime } from "@/lib/format";
 
 export type ActivityItem = {
 	id: string;
@@ -54,4 +68,136 @@ export function ActivityList({ items }: { items: ActivityItem[] }) {
 			))}
 		</ol>
 	);
+}
+
+const ICON_BY_CATEGORY: Record<ActivityCategory, LucideIcon> = {
+	auth: LogIn,
+	account: UserRound,
+	organization: Building2,
+	member: Users,
+	node: Server,
+	server: Box,
+	network: Network,
+	template: LayoutTemplate,
+	billing: CreditCard,
+};
+
+/**
+ * A third-person verb phrase for one action — the actor name renders separately
+ * (bold) ahead of it, so phrases start lowercase ("invited …"); with no actor the
+ * caller capitalizes it. Spans every org (the platform/admin voice). Unmapped
+ * actions fall back to a humanized key so a new action still reads sensibly
+ * rather than vanishing.
+ */
+function describe(entry: ActivityEntry): string {
+	switch (entry.action) {
+		case "login":
+			return entry.ip ? `logged in from ${entry.ip}` : "logged in";
+		case "organization.created":
+			return entry.target
+				? `created the organization ${entry.target}`
+				: "created the organization";
+		case "organization.updated":
+			return entry.target
+				? `updated the organization ${entry.target}`
+				: "updated the organization";
+		case "organization.logo_updated":
+			return "updated the organization logo";
+		case "organization.logo_removed":
+			return "removed the organization logo";
+		case "organization.deleted":
+			return entry.target
+				? `deleted the organization ${entry.target}`
+				: "deleted an organization";
+		case "member.joined":
+			return "joined the organization";
+		case "member.invited":
+			return entry.target ? `invited ${entry.target}` : "invited a member";
+		case "node.created":
+			return entry.target
+				? `connected the node ${entry.target}`
+				: "connected a node";
+		case "node.deleted":
+			return entry.target
+				? `removed the node ${entry.target}`
+				: "removed a node";
+		case "account.updated":
+			return entry.target
+				? `updated the account ${entry.target}`
+				: "updated an account";
+		case "account.role_changed":
+			return entry.target
+				? `changed the platform role of ${entry.target}`
+				: "changed an account's platform role";
+		case "account.suspended":
+			return entry.target
+				? `suspended the account ${entry.target}`
+				: "suspended an account";
+		case "account.reactivated":
+			return entry.target
+				? `reactivated the account ${entry.target}`
+				: "reactivated an account";
+		case "account.deleted":
+			return entry.target
+				? `deleted the account ${entry.target}`
+				: "deleted an account";
+		case "template.created":
+			return entry.target
+				? `created the template ${entry.target}`
+				: "created a template";
+		case "template.updated":
+			return entry.target
+				? `edited the template ${entry.target}`
+				: "edited a template";
+		case "template.published":
+			return entry.target
+				? `published the template ${entry.target}`
+				: "published a template";
+		case "template.unpublished":
+			return entry.target
+				? `moved the template ${entry.target} back to draft`
+				: "unpublished a template";
+		case "template.archived":
+			return entry.target
+				? `archived the template ${entry.target}`
+				: "archived a template";
+		case "template.forked":
+			return entry.target
+				? `customized the template ${entry.target}`
+				: "customized a template";
+		case "template.imported":
+			return entry.target
+				? `imported the template ${entry.target}`
+				: "imported a template";
+		case "template.deleted":
+			return entry.target
+				? `deleted the template ${entry.target}`
+				: "deleted a template";
+		default: {
+			const phrase = entry.action.replace(/[._]/g, " ");
+			return entry.target ? `${phrase}: ${entry.target}` : phrase;
+		}
+	}
+}
+
+/**
+ * Map a raw audit `ActivityEntry` to the presentational `ActivityItem` — an icon
+ * per category and a verb phrase per action. The platform/admin projection (org
+ * actions in third person); the account feed has its own first-person mapping.
+ */
+export function toActivityItem(entry: ActivityEntry): ActivityItem {
+	const phrase = describe(entry);
+	return {
+		id: entry.id,
+		// Fallback covers a runtime category outside the known set (the server
+		// projects it as a string).
+		icon: ICON_BY_CATEGORY[entry.category] ?? Activity,
+		actor: entry.actor ?? undefined,
+		// With an actor, the phrase trails the bold name; without one, it stands
+		// alone, so capitalize it.
+		description: entry.actor
+			? phrase
+			: phrase.charAt(0).toUpperCase() + phrase.slice(1),
+		time: formatRelativeTime(entry.createdAt),
+	};
 }

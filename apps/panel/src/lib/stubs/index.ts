@@ -15,8 +15,6 @@ import type { Template } from "@/lib/domain/templates";
 const GiB = 1024 ** 3;
 const TiB = 1024 ** 4;
 
-export const CURRENT_USER = { name: "Jane Cooper", email: "jane@example.com" };
-
 // — Nodes ————————————————————————————————————————————————————————————————————
 
 // Node UUIDs, referenced by servers (by name/address) and networks (by id).
