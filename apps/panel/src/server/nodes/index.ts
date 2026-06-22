@@ -1,12 +1,14 @@
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import type { NodeRow } from "@/lib/domain/nodes";
+import type { NodeRow, NodeStatus } from "@/lib/domain/nodes";
+import { formatRelativeTime } from "@/lib/format";
 import { NODES_DOMAIN } from "@/lib/node-domain";
 import { slugify } from "@/lib/slug";
 import { recordActivity } from "@/server/activity/record";
 import { requireOrg } from "@/server/auth/guards";
 import { assertCanAddNode, syncNodeBilling } from "@/server/billing/node-sync";
+import { sha256Hex } from "@/server/crypto";
 import { env } from "@/server/env";
 import { reconcileManagedNodeDns } from "./dns";
 import { type NodeRecord, nodesRepository } from "./repository";
@@ -19,10 +21,36 @@ import { type NodeRecord, nodesRepository } from "./repository";
  * SQL here; that stays in the repository.
  */
 
+// A node is "online" only while its last heartbeat is recent; older than a few
+// missed beats (the daemon beats every ~30s) it's stale → offline. No heartbeat
+// yet → still pending.
+const HEARTBEAT_STALE_MS = 90_000;
+
+function deriveStatus(lastHeartbeatAt: Date | null): NodeStatus {
+	if (!lastHeartbeatAt) {
+		return "pending";
+	}
+	return Date.now() - lastHeartbeatAt.getTime() < HEARTBEAT_STALE_MS
+		? "online"
+		: "offline";
+}
+
+function normalizeArch(arch: string | undefined): NodeRow["arch"] {
+	if (arch === "amd64" || arch === "x86_64") {
+		return "x86_64";
+	}
+	if (arch === "arm64" || arch === "aarch64") {
+		return "arm64";
+	}
+	return null;
+}
+
 /**
- * Project a registry row to the client-safe `NodeRow` the UI renders. Live,
- * daemon-derived fields default to the "pending / never reported" shape until
- * the daemon lands and heartbeats are merged in here.
+ * Project a registry row to the client-safe `NodeRow` the UI renders. The
+ * daemon-derived fields are merged from the heartbeat's `systemInfo` (null until
+ * the box first reports), and status is derived from the last heartbeat. Live
+ * usage (cpu%/mem/disk used, real server counts) arrives on the stats channel in
+ * a later slice, so it stays null here.
  */
 function toNodeRow(record: NodeRecord): NodeRow {
 	const caps =
@@ -36,27 +64,32 @@ function toNodeRow(record: NodeRecord): NodeRow {
 				}
 			: null;
 
+	const sys = record.systemInfo;
+	const docker = sys?.docker;
+
 	return {
 		id: record.id,
 		name: record.name,
 		fqdn: record.fqdn,
 		daemonPort: record.daemonPort,
 		managed: record.managed,
-		status: "pending",
-		publicIp: null,
-		os: null,
-		arch: null,
-		cpuCores: null,
-		memTotalBytes: null,
-		diskTotalBytes: null,
+		status: deriveStatus(record.lastHeartbeatAt),
+		publicIp: record.publicIp,
+		os: sys?.os ?? null,
+		arch: normalizeArch(sys?.arch),
+		cpuCores: sys?.cpus ?? null,
+		memTotalBytes: sys?.memTotalBytes ?? null,
+		diskTotalBytes: sys?.diskTotalBytes ?? null,
 		cpuPercent: null,
 		memUsedBytes: null,
 		diskUsedBytes: null,
-		serversRunning: null,
-		serversTotal: null,
-		daemonVersion: null,
+		serversRunning: docker?.running ?? null,
+		serversTotal: docker?.containers ?? null,
+		daemonVersion: sys?.daemonVersion ?? null,
 		updateAvailable: false,
-		lastHeartbeat: null,
+		lastHeartbeat: record.lastHeartbeatAt
+			? formatRelativeTime(record.lastHeartbeatAt)
+			: null,
 		caps,
 	};
 }
@@ -137,23 +170,17 @@ export const createNode = createServerFn({ method: "POST" })
 			daemonPort = data.daemonPort;
 		}
 
-		// Single-use bootstrap token: persist only its hash + expiry, and return
-		// the plaintext exactly once (for the operator's install command). It is
-		// never readable again — list/get never include it.
-		const token = randomBytes(32).toString("base64url");
-		const enrollmentTokenHash = createHash("sha256")
-			.update(token)
-			.digest("hex");
-		const enrollmentTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
+		// Single-use bootstrap token: persist only its hash + expiry (in the
+		// sibling node_credential row), and return the plaintext exactly once — for
+		// the operator's install command. It's never readable again.
+		const token = `bst_${randomBytes(32).toString("base64url")}`;
+		const bootstrapExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
-		const record = await nodesRepository.create(orgId, {
-			name: data.name,
-			fqdn,
-			daemonPort,
-			managed: data.managed,
-			enrollmentTokenHash,
-			enrollmentTokenExpiresAt,
-		});
+		const record = await nodesRepository.create(
+			orgId,
+			{ name: data.name, fqdn, daemonPort, managed: data.managed },
+			{ bootstrapTokenHash: sha256Hex(token), bootstrapExpiresAt }
+		);
 
 		// Open the free-grant window on the first node, then bump the paid seat
 		// count. No-op unless billing is configured.
@@ -170,12 +197,14 @@ export const createNode = createServerFn({ method: "POST" })
 			targetLabel: record.name,
 		});
 
+		// The one-line install command carries everything the daemon's `configure`
+		// needs: the panel URL, the node id, the single-use token, and the address.
 		return {
 			node: toNodeRow(record),
 			enrollment: {
 				token,
-				expiresAt: enrollmentTokenExpiresAt.toISOString(),
-				command: `curl -fsSL ${env.AUTH_URL}/install.sh | sh -s -- --token ${token}`,
+				expiresAt: bootstrapExpiresAt.toISOString(),
+				command: `curl -fsSL ${env.AUTH_URL}/install.sh | sudo sh -s -- --panel ${env.AUTH_URL} --node ${record.id} --token ${token} --fqdn ${fqdn}`,
 			},
 		};
 	});

@@ -28,9 +28,11 @@ export function nodesListQueryOptions() {
 	return queryOptions({
 		queryKey: ["nodes", "list"] as const,
 		queryFn: () => listNodes(),
-		// The registry changes only on explicit create/rename/remove; keep it warm
-		// so the sidebar count and cross-page reads don't refetch on navigation.
+		// The registry changes only on explicit create/rename/remove, but live
+		// status is heartbeat-derived — poll (while focused) so a node's
+		// pending → online flip and stale → offline show without a manual refresh.
 		staleTime: 10_000,
+		refetchInterval: 15_000,
 	});
 }
 
@@ -42,6 +44,9 @@ export function nodeQueryOptions(id: string) {
 		// A missing / cross-org id is a generic not-found; don't hammer it. The
 		// detail layout renders its own not-found screen when this has no data.
 		retry: false,
+		// Poll a found node so its live status/heartbeat stay fresh; never poll a
+		// not-found (no data) so a bad id isn't hammered.
+		refetchInterval: (query) => (query.state.data ? 15_000 : false),
 	});
 }
 

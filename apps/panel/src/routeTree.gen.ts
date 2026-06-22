@@ -50,6 +50,7 @@ import { Route as AppServersServerIdRouteRouteImport } from './routes/_app/serve
 import { Route as AppNodesNodeIdRouteRouteImport } from './routes/_app/nodes/$nodeId/route'
 import { Route as AppServersServerIdIndexRouteImport } from './routes/_app/servers/$serverId/index'
 import { Route as AppNodesNodeIdIndexRouteImport } from './routes/_app/nodes/$nodeId/index'
+import { Route as ApiDaemonV1HeartbeatRouteImport } from './routes/api/daemon/v1/heartbeat'
 import { Route as AdminTemplatesTemplateIdEditRouteImport } from './routes/admin/templates/$templateId_/edit'
 import { Route as AppTemplatesTemplateIdEditRouteImport } from './routes/_app/templates_/$templateId_/edit'
 import { Route as AppServersServerIdStartupRouteImport } from './routes/_app/servers/$serverId/startup'
@@ -63,6 +64,7 @@ import { Route as AppServersServerIdActivityRouteImport } from './routes/_app/se
 import { Route as AppNodesNodeIdStorageRouteImport } from './routes/_app/nodes/$nodeId/storage'
 import { Route as AppNodesNodeIdSettingsRouteImport } from './routes/_app/nodes/$nodeId/settings'
 import { Route as AppNodesNodeIdNetworkingRouteImport } from './routes/_app/nodes/$nodeId/networking'
+import { Route as ApiDaemonV1NodesActivateRouteImport } from './routes/api/daemon/v1/nodes/activate'
 
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
@@ -270,6 +272,11 @@ const AppNodesNodeIdIndexRoute = AppNodesNodeIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppNodesNodeIdRouteRoute,
 } as any)
+const ApiDaemonV1HeartbeatRoute = ApiDaemonV1HeartbeatRouteImport.update({
+  id: '/api/daemon/v1/heartbeat',
+  path: '/api/daemon/v1/heartbeat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminTemplatesTemplateIdEditRoute =
   AdminTemplatesTemplateIdEditRouteImport.update({
     id: '/templates/$templateId_/edit',
@@ -345,6 +352,12 @@ const AppNodesNodeIdNetworkingRoute =
     path: '/networking',
     getParentRoute: () => AppNodesNodeIdRouteRoute,
   } as any)
+const ApiDaemonV1NodesActivateRoute =
+  ApiDaemonV1NodesActivateRouteImport.update({
+    id: '/api/daemon/v1/nodes/activate',
+    path: '/api/daemon/v1/nodes/activate',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -398,8 +411,10 @@ export interface FileRoutesByFullPath {
   '/servers/$serverId/startup': typeof AppServersServerIdStartupRoute
   '/templates/$templateId/edit': typeof AppTemplatesTemplateIdEditRoute
   '/admin/templates/$templateId/edit': typeof AdminTemplatesTemplateIdEditRoute
+  '/api/daemon/v1/heartbeat': typeof ApiDaemonV1HeartbeatRoute
   '/nodes/$nodeId/': typeof AppNodesNodeIdIndexRoute
   '/servers/$serverId/': typeof AppServersServerIdIndexRoute
+  '/api/daemon/v1/nodes/activate': typeof ApiDaemonV1NodesActivateRoute
 }
 export interface FileRoutesByTo {
   '/home': typeof HomeRoute
@@ -448,8 +463,10 @@ export interface FileRoutesByTo {
   '/servers/$serverId/startup': typeof AppServersServerIdStartupRoute
   '/templates/$templateId/edit': typeof AppTemplatesTemplateIdEditRoute
   '/admin/templates/$templateId/edit': typeof AdminTemplatesTemplateIdEditRoute
+  '/api/daemon/v1/heartbeat': typeof ApiDaemonV1HeartbeatRoute
   '/nodes/$nodeId': typeof AppNodesNodeIdIndexRoute
   '/servers/$serverId': typeof AppServersServerIdIndexRoute
+  '/api/daemon/v1/nodes/activate': typeof ApiDaemonV1NodesActivateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -505,8 +522,10 @@ export interface FileRoutesById {
   '/_app/servers/$serverId/startup': typeof AppServersServerIdStartupRoute
   '/_app/templates_/$templateId_/edit': typeof AppTemplatesTemplateIdEditRoute
   '/admin/templates/$templateId_/edit': typeof AdminTemplatesTemplateIdEditRoute
+  '/api/daemon/v1/heartbeat': typeof ApiDaemonV1HeartbeatRoute
   '/_app/nodes/$nodeId/': typeof AppNodesNodeIdIndexRoute
   '/_app/servers/$serverId/': typeof AppServersServerIdIndexRoute
+  '/api/daemon/v1/nodes/activate': typeof ApiDaemonV1NodesActivateRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -562,8 +581,10 @@ export interface FileRouteTypes {
     | '/servers/$serverId/startup'
     | '/templates/$templateId/edit'
     | '/admin/templates/$templateId/edit'
+    | '/api/daemon/v1/heartbeat'
     | '/nodes/$nodeId/'
     | '/servers/$serverId/'
+    | '/api/daemon/v1/nodes/activate'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/home'
@@ -612,8 +633,10 @@ export interface FileRouteTypes {
     | '/servers/$serverId/startup'
     | '/templates/$templateId/edit'
     | '/admin/templates/$templateId/edit'
+    | '/api/daemon/v1/heartbeat'
     | '/nodes/$nodeId'
     | '/servers/$serverId'
+    | '/api/daemon/v1/nodes/activate'
   id:
     | '__root__'
     | '/_app'
@@ -668,8 +691,10 @@ export interface FileRouteTypes {
     | '/_app/servers/$serverId/startup'
     | '/_app/templates_/$templateId_/edit'
     | '/admin/templates/$templateId_/edit'
+    | '/api/daemon/v1/heartbeat'
     | '/_app/nodes/$nodeId/'
     | '/_app/servers/$serverId/'
+    | '/api/daemon/v1/nodes/activate'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -680,6 +705,8 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   AcceptInvitationInvitationIdRoute: typeof AcceptInvitationInvitationIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiDaemonV1HeartbeatRoute: typeof ApiDaemonV1HeartbeatRoute
+  ApiDaemonV1NodesActivateRoute: typeof ApiDaemonV1NodesActivateRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -971,6 +998,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppNodesNodeIdIndexRouteImport
       parentRoute: typeof AppNodesNodeIdRouteRoute
     }
+    '/api/daemon/v1/heartbeat': {
+      id: '/api/daemon/v1/heartbeat'
+      path: '/api/daemon/v1/heartbeat'
+      fullPath: '/api/daemon/v1/heartbeat'
+      preLoaderRoute: typeof ApiDaemonV1HeartbeatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/templates/$templateId_/edit': {
       id: '/admin/templates/$templateId_/edit'
       path: '/templates/$templateId/edit'
@@ -1061,6 +1095,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/nodes/$nodeId/networking'
       preLoaderRoute: typeof AppNodesNodeIdNetworkingRouteImport
       parentRoute: typeof AppNodesNodeIdRouteRoute
+    }
+    '/api/daemon/v1/nodes/activate': {
+      id: '/api/daemon/v1/nodes/activate'
+      path: '/api/daemon/v1/nodes/activate'
+      fullPath: '/api/daemon/v1/nodes/activate'
+      preLoaderRoute: typeof ApiDaemonV1NodesActivateRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -1227,6 +1268,8 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   AcceptInvitationInvitationIdRoute: AcceptInvitationInvitationIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiDaemonV1HeartbeatRoute: ApiDaemonV1HeartbeatRoute,
+  ApiDaemonV1NodesActivateRoute: ApiDaemonV1NodesActivateRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
