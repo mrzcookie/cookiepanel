@@ -394,6 +394,13 @@ export type DaemonServerSpec = {
 		script: string;
 		env?: Record<string, string>;
 	};
+	// Managed config files merged into the data volume after install, before the
+	// container boots. The panel has already substituted {{token}} values.
+	configFiles?: Array<{
+		file: string;
+		parser: string;
+		replace: Record<string, string>;
+	}>;
 };
 
 export async function createServerOnNode(

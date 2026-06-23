@@ -46,6 +46,7 @@ export type TemplatePatch = Partial<
 		| "installContainerImage"
 		| "installEntrypoint"
 		| "features"
+		| "configFiles"
 	>
 >;
 

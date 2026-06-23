@@ -48,6 +48,28 @@ export type StopType = (typeof STOP_TYPES)[number];
 export const INSTALL_ENTRYPOINTS = ["bash", "ash", "sh"] as const;
 export type InstallEntrypoint = (typeof INSTALL_ENTRYPOINTS)[number];
 
+// ─── Config files ────────────────────────────────────────────────────────────
+// Managed config files the daemon merges into a server's data volume at deploy
+// (the panel resolves {{TOKEN}} values first). `parser` picks the in-place merge
+// strategy; `replace` maps a (possibly dotted) key to a value-with-tokens.
+
+export const CONFIG_PARSERS = [
+	"properties",
+	"ini",
+	"json",
+	"yaml",
+	"file",
+] as const;
+export type ConfigParser = (typeof CONFIG_PARSERS)[number];
+
+export type TemplateConfigFile = {
+	/** Path within the server's data volume, e.g. "server.properties". */
+	file: string;
+	parser: ConfigParser;
+	/** key → value (values may contain {{VAR}} / {{SERVER_PORT}} tokens). */
+	replace: Record<string, string>;
+};
+
 // ─── Variables (authoring form) ──────────────────────────────────────────────
 // Authors pick a friendly "type" + a single access choice; the real schema's
 // Laravel-style rule strings are an implementation detail we don't expose here.
@@ -247,6 +269,7 @@ export type Template = {
 	installContainerImage: string;
 	installEntrypoint: InstallEntrypoint;
 	features: TemplateFeature[];
+	configFiles: TemplateConfigFile[];
 };
 
 /**
@@ -270,6 +293,7 @@ export type TemplateInput = {
 	installContainerImage: string;
 	installEntrypoint: InstallEntrypoint;
 	features: TemplateFeature[];
+	configFiles: TemplateConfigFile[];
 };
 
 // ─── Derived state ───────────────────────────────────────────────────────────

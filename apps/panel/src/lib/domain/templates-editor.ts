@@ -4,6 +4,7 @@ import type {
 	StopType,
 	Template,
 	TemplateCategory,
+	TemplateConfigFile,
 	TemplateFeature,
 	TemplateInput,
 	VariableAccess,
@@ -54,6 +55,8 @@ export type EditorState = {
 	installContainerImage: string;
 	installEntrypoint: InstallEntrypoint;
 	features: TemplateFeature[];
+	/** Carried through the editor opaquely (authored via import, not the form). */
+	configFiles: TemplateConfigFile[];
 };
 
 export function emptyEditorState(): EditorState {
@@ -73,6 +76,7 @@ export function emptyEditorState(): EditorState {
 		installContainerImage: "",
 		installEntrypoint: "bash",
 		features: [],
+		configFiles: [],
 	};
 }
 
@@ -116,6 +120,7 @@ export function templateToState(template: Template): EditorState {
 		installContainerImage: template.installContainerImage,
 		installEntrypoint: template.installEntrypoint,
 		features: template.features,
+		configFiles: template.configFiles,
 	};
 }
 
@@ -135,6 +140,7 @@ export function stateToInput(state: EditorState): TemplateInput {
 		installContainerImage: state.installContainerImage.trim(),
 		installEntrypoint: state.installEntrypoint,
 		features: state.features,
+		configFiles: state.configFiles,
 		images: state.images
 			.filter((image) => image.label.trim() && image.image.trim())
 			.map((image) => ({

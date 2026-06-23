@@ -14,6 +14,7 @@ import type {
 	InstallEntrypoint,
 	StopType,
 	TemplateCategory,
+	TemplateConfigFile,
 	TemplateFeature,
 	TemplateOrigin,
 	TemplateStatus,
@@ -86,6 +87,11 @@ export const template = pgTable(
 			.$type<InstallEntrypoint>()
 			.notNull()
 			.default("bash"),
+		// Managed config files the daemon merges into the data volume at deploy.
+		configFiles: jsonb("config_files")
+			.$type<TemplateConfigFile[]>()
+			.notNull()
+			.default([]),
 		features: jsonb("features")
 			.$type<TemplateFeature[]>()
 			.notNull()

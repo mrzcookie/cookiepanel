@@ -1,12 +1,15 @@
 import dns from "node:dns/promises";
 import net from "node:net";
 import {
+	CONFIG_PARSERS,
+	type ConfigParser,
 	type DoneMatcher,
 	INSTALL_ENTRYPOINTS,
 	type InstallEntrypoint,
 	type StopType,
 	TEMPLATE_CATEGORIES,
 	type TemplateCategory,
+	type TemplateConfigFile,
 	type VariableAccess,
 	type VariableType,
 } from "@/lib/domain/templates";
@@ -387,9 +390,83 @@ export function parseEgg(raw: unknown): EggImportResult {
 			scripts.entrypoint || ourInstall.entrypoint
 		),
 		features: normalizeFeatures(root.features),
+		configFiles: normalizeConfigFiles(config.files, warnings),
 	};
 
 	return { input, name, warnings };
+}
+
+// ─── config files ────────────────────────────────────────────────────────────
+
+/** Translate a Pterodactyl config token to the panel's {{KEY}} space. Unknown
+ * tokens are left untouched (they simply won't resolve at deploy). */
+function normalizeConfigTokens(value: string): string {
+	return value.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (whole, inner: string) => {
+		const token = inner.trim();
+		if (token === "server.build.default.port") {
+			return "{{SERVER_PORT}}";
+		}
+		if (token === "server.build.default.ip") {
+			return "{{SERVER_IP}}";
+		}
+		if (
+			token === "server.build.memory" ||
+			token === "server.build.default.memory"
+		) {
+			return "{{SERVER_MEMORY}}";
+		}
+		const env = /^(?:server\.build\.)?env\.([A-Za-z0-9_]+)$/.exec(token);
+		if (env) {
+			return `{{${env[1]}}}`;
+		}
+		return whole; // leave unrecognized tokens as-is
+	});
+}
+
+/**
+ * Parse a Pterodactyl/Pelican egg's `config.files` — a map (or stringified map)
+ * of `filename → { parser, find }` — into the panel's config-file list, with
+ * tokens normalized. Files with an unknown parser or no replacements are dropped
+ * (with a warning), so a deploy never half-applies a config it can't write.
+ */
+function normalizeConfigFiles(
+	raw: unknown,
+	warnings: string[]
+): TemplateConfigFile[] {
+	let parsed = raw;
+	if (typeof raw === "string") {
+		try {
+			parsed = JSON.parse(raw);
+		} catch {
+			warnings.push("Couldn't parse the egg's config files; skipped them.");
+			return [];
+		}
+	}
+	const files = asRecord(parsed);
+	const out: TemplateConfigFile[] = [];
+	for (const [file, spec] of Object.entries(files)) {
+		const record = asRecord(spec);
+		const parser = str(record.parser).toLowerCase();
+		if (!(CONFIG_PARSERS as readonly string[]).includes(parser)) {
+			warnings.push(`Skipped config file "${file}": unsupported parser.`);
+			continue;
+		}
+		const find = asRecord(record.find);
+		const replace: Record<string, string> = {};
+		for (const [key, value] of Object.entries(find)) {
+			// Egg find-values are usually strings, occasionally numbers/booleans.
+			const asString = typeof value === "string" ? value : String(value ?? "");
+			replace[key] = normalizeConfigTokens(asString);
+		}
+		if (Object.keys(replace).length === 0) {
+			continue;
+		}
+		out.push({ file, parser: parser as ConfigParser, replace });
+		if (out.length >= 50) {
+			break;
+		}
+	}
+	return out;
 }
 
 // ─── SSRF-safe remote fetch ──────────────────────────────────────────────────

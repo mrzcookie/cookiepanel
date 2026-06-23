@@ -9,7 +9,8 @@
 // take minutes, so create is asynchronous for installs: it returns "installing"
 // immediately and runs install→create→start in the background, tracking the
 // transient state in-memory (Get/List report it until the container exists).
-// Disk-quota enforcement and config-file templating land in later slices.
+// Managed config files are merged into the data volume after install and before
+// the container starts. Disk-quota enforcement lands in a later slice.
 package server
 
 import (
@@ -21,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/cookiepanel/cookied/internal/docker"
+	"github.com/cookiepanel/cookied/internal/filesystem"
 )
 
 // nameRE validates the panel-supplied name; the container name is `cookied-<name>`.
@@ -42,6 +44,7 @@ func DataVolumeName(serverID string) string { return dataVolumePrefix + serverID
 // long-lived container for Get/List to read state from.
 type Manager struct {
 	docker *docker.Client
+	files  *filesystem.Manager // for writing managed config files into the volume
 
 	mu       sync.Mutex
 	installs map[string]*installStatus
@@ -64,7 +67,11 @@ const (
 // NewManager builds a Manager. The docker client may be nil/unavailable; the
 // lifecycle methods then surface a clear error rather than panicking.
 func NewManager(d *docker.Client) *Manager {
-	return &Manager{docker: d, installs: make(map[string]*installStatus)}
+	return &Manager{
+		docker:   d,
+		files:    filesystem.New(d),
+		installs: make(map[string]*installStatus),
+	}
 }
 
 func (m *Manager) getInstall(serverID string) *installStatus {
@@ -123,6 +130,10 @@ type CreateRequest struct {
 	// Install, when set, is an egg install step run once (in its own throwaway
 	// container, data volume at /mnt/server) before the long-lived container.
 	Install *InstallSpec `json:"install,omitempty"`
+	// ConfigFiles are merged into the data volume after install and before the
+	// container starts, so the process boots with the right config (the panel has
+	// already substituted {{token}} values into Replace).
+	ConfigFiles []ConfigFile `json:"configFiles,omitempty"`
 }
 
 // InstallSpec is an egg's installation script. The script runs as
@@ -132,6 +143,15 @@ type InstallSpec struct {
 	Entrypoint string            `json:"entrypoint"`
 	Script     string            `json:"script"`
 	Env        map[string]string `json:"env,omitempty"`
+}
+
+// ConfigFile describes a managed config file. The daemon merges Replace into the
+// existing file (creating it if absent) using the named parser. Replace values
+// are already substituted by the panel.
+type ConfigFile struct {
+	File    string            `json:"file"`
+	Parser  string            `json:"parser"`
+	Replace map[string]string `json:"replace"`
 }
 
 // Server is the daemon's snapshot of a server, returned to the panel. State and
@@ -257,6 +277,13 @@ func (m *Manager) provision(
 	}
 	if req.Install != nil {
 		if err := m.runInstall(ctx, req); err != nil {
+			return err
+		}
+	}
+	// Write managed config files into the volume after install (which may lay
+	// down the initial files) and before the container boots.
+	if len(req.ConfigFiles) > 0 {
+		if err := m.applyConfigFiles(ctx, req.ServerID, req.ConfigFiles); err != nil {
 			return err
 		}
 	}

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+	CONFIG_PARSERS,
 	INSTALL_ENTRYPOINTS,
 	STOP_TYPES,
 	TEMPLATE_CATEGORIES,
@@ -86,6 +87,12 @@ const variableSchema = z
 		}
 	});
 
+const configFileSchema = z.object({
+	file: z.string().trim().min(1).max(500),
+	parser: z.enum(CONFIG_PARSERS),
+	replace: z.record(z.string().max(500), z.string().max(4000)).default({}),
+});
+
 /** The author-editable slice of a template — what create/update accept. */
 export const templateInputSchema = z.object({
 	name: z.string().trim().min(1).max(120),
@@ -103,6 +110,7 @@ export const templateInputSchema = z.object({
 	installContainerImage: z.string().max(500).default(""),
 	installEntrypoint: z.enum(INSTALL_ENTRYPOINTS),
 	features: z.array(featureSchema).max(50).default([]),
+	configFiles: z.array(configFileSchema).max(50).default([]),
 });
 
 export type TemplateInputParsed = z.infer<typeof templateInputSchema>;

@@ -45,6 +45,7 @@ async function seed() {
 				installContainerImage: t.installContainerImage,
 				installEntrypoint: t.installEntrypoint,
 				features: t.features,
+				configFiles: t.configFiles,
 			})
 			.onConflictDoNothing({ target: template.id })
 			.returning({ id: template.id });

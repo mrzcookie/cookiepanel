@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { ServerRow, ServerState } from "@/lib/domain/servers";
+import type { TemplateConfigFile } from "@/lib/domain/templates";
 import { formatRelativeTime } from "@/lib/format";
 import { recordActivity } from "@/server/activity/record";
 import {
@@ -165,13 +166,34 @@ function buildVariables(
 	return { env, variables, secretVariables };
 }
 
-/** Substitute `{{VAR}}` tokens in the startup command with resolved env values. */
-function resolveStartup(startup: string, env: Record<string, string>): string {
-	let out = startup;
+/** Substitute `{{VAR}}` tokens in `text` with resolved env values (startup
+ * command + config-file replacements share this). */
+function resolveTokens(text: string, env: Record<string, string>): string {
+	let out = text;
 	for (const [key, value] of Object.entries(env)) {
 		out = out.replaceAll(`{{${key}}}`, value);
 	}
 	return out;
+}
+
+/** Resolve `{{token}}` values in the template's config files for the daemon. */
+function resolveConfigFiles(
+	files: TemplateConfigFile[],
+	env: Record<string, string>
+): DaemonServerSpec["configFiles"] {
+	if (files.length === 0) {
+		return undefined;
+	}
+	return files.map((cf) => ({
+		file: cf.file,
+		parser: cf.parser,
+		replace: Object.fromEntries(
+			Object.entries(cf.replace).map(([key, value]) => [
+				key,
+				resolveTokens(value, env),
+			])
+		),
+	}));
 }
 
 /** The egg install step for a template, or undefined when it has no script. */
@@ -196,20 +218,30 @@ function installSpec(
 function daemonSpec(
 	record: ServerRecord,
 	env: Record<string, string>,
-	install?: DaemonServerSpec["install"]
+	install?: DaemonServerSpec["install"],
+	configFiles: TemplateConfigFile[] = []
 ): DaemonServerSpec {
+	// Token resolution sees the template vars plus the daemon's standard SERVER_*
+	// values (so `{{SERVER_PORT}}` in a startup command or config file resolves).
+	const resolveEnv: Record<string, string> = {
+		...env,
+		SERVER_PORT: record.port !== null ? String(record.port) : "",
+		SERVER_IP: "0.0.0.0",
+		SERVER_MEMORY: String(Math.round(record.memLimitBytes / (1024 * 1024))),
+	};
 	const spec: DaemonServerSpec = {
 		// The container name is the (regex-safe) server id; the daemon keys off the
 		// server-id label, so this is just a unique, valid container name.
 		serverId: record.id,
 		name: record.id,
 		image: record.image,
-		startupCommand: resolveStartup(record.startupCommand, env),
+		startupCommand: resolveTokens(record.startupCommand, resolveEnv),
 		env,
 		nanoCpus: record.cpuLimitMillicores * 1_000_000,
 		memoryMb: Math.round(record.memLimitBytes / (1024 * 1024)),
 		stopSignal: record.stopSignal ?? undefined,
 		install,
+		configFiles: resolveConfigFiles(configFiles, resolveEnv),
 	};
 	if (record.port !== null) {
 		spec.portBinding = {
@@ -364,7 +396,7 @@ export const createServer = createServerFn({ method: "POST" })
 		try {
 			const live = await createServerOnNode(
 				data.nodeId,
-				daemonSpec(record, env, install)
+				daemonSpec(record, env, install, template.configFiles)
 			);
 			record =
 				(await serversRepository.update(orgId, serverId, {

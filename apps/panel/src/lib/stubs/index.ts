@@ -431,6 +431,17 @@ export const TEMPLATES: Template[] = [
 			'#!/bin/bash\n# Download the requested Minecraft server jar into /mnt/server.\napt-get update && apt-get install -y curl jq\ncd /mnt/server\necho "Fetching Minecraft server {{MINECRAFT_VERSION}}..."\ncurl -sSL -o {{SERVER_JARFILE}} https://launcher.example/minecraft/{{MINECRAFT_VERSION}}/server.jar\necho "eula=true" > eula.txt\n',
 		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
 		installEntrypoint: "bash",
+		configFiles: [
+			{
+				file: "server.properties",
+				parser: "properties",
+				replace: {
+					"server-port": "{{SERVER_PORT}}",
+					difficulty: "{{DIFFICULTY}}",
+					motd: "{{SERVER_MOTD}}",
+				},
+			},
+		],
 		features: [{ key: "minecraft:eula" }, { key: "minecraft:bukkit-plugins" }],
 	},
 	{
@@ -501,6 +512,7 @@ export const TEMPLATES: Template[] = [
 			"#!/bin/bash\n# Install the Valheim dedicated server via SteamCMD.\nsteamcmd +force_install_dir /mnt/server +login anonymous +app_update 896660 validate +quit\n",
 		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
 		installEntrypoint: "bash",
+		configFiles: [],
 		features: [],
 	},
 	{
@@ -571,6 +583,7 @@ export const TEMPLATES: Template[] = [
 			"#!/bin/bash\nsteamcmd +force_install_dir /mnt/server +login anonymous +app_update 2394010 validate +quit\n",
 		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
 		installEntrypoint: "bash",
+		configFiles: [],
 		features: [{ key: "steam:gslt" }],
 	},
 	{
@@ -641,6 +654,7 @@ export const TEMPLATES: Template[] = [
 			"#!/bin/bash\n# Pull the latest stable Factorio headless build into /mnt/server.\ncurl -sSL https://factorio.example/get-download/stable/headless/linux64 | tar -xJ -C /mnt/server --strip-components=1\n",
 		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
 		installEntrypoint: "bash",
+		configFiles: [],
 		features: [],
 	},
 	{
@@ -711,6 +725,7 @@ export const TEMPLATES: Template[] = [
 			"#!/bin/bash\nsteamcmd +force_install_dir /mnt/server +login anonymous +app_update 258550 validate +quit\n# Drop in our staff plugin pack.\ncp -r /tmp/oxide-pack/* /mnt/server/oxide/plugins/\n",
 		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
 		installEntrypoint: "bash",
+		configFiles: [],
 		features: [],
 	},
 	{
@@ -770,6 +785,7 @@ export const TEMPLATES: Template[] = [
 			'#!/bin/bash\ncd /mnt/server\ncurl -sSL -o forge-installer.jar "https://maven.example/forge/{{FORGE_VERSION}}/installer.jar"\njava -jar forge-installer.jar --installServer\necho "eula=true" > eula.txt\n',
 		installContainerImage: "ghcr.io/pterodactyl/installers:java",
 		installEntrypoint: "bash",
+		configFiles: [],
 		features: [{ key: "minecraft:mods" }],
 	},
 	{
@@ -828,6 +844,7 @@ export const TEMPLATES: Template[] = [
 		installScript: "",
 		installContainerImage: "",
 		installEntrypoint: "bash",
+		configFiles: [],
 		features: [],
 	},
 	{
@@ -887,6 +904,7 @@ export const TEMPLATES: Template[] = [
 			"#!/bin/bash\nsteamcmd +force_install_dir /mnt/server +login anonymous +app_update 740 validate +quit\n",
 		installContainerImage: "ghcr.io/pterodactyl/installers:debian",
 		installEntrypoint: "bash",
+		configFiles: [],
 		features: [{ key: "steam:gslt" }],
 	},
 	{
@@ -944,6 +962,7 @@ export const TEMPLATES: Template[] = [
 		installScript: "",
 		installContainerImage: "",
 		installEntrypoint: "bash",
+		configFiles: [],
 		features: [{ key: "database:browser" }],
 	},
 	{
@@ -996,6 +1015,7 @@ export const TEMPLATES: Template[] = [
 		installScript: "",
 		installContainerImage: "",
 		installEntrypoint: "bash",
+		configFiles: [],
 		features: [{ key: "database:browser" }],
 	},
 	{
@@ -1048,6 +1068,7 @@ export const TEMPLATES: Template[] = [
 		installScript: "",
 		installContainerImage: "",
 		installEntrypoint: "bash",
+		configFiles: [],
 		features: [{ key: "database:browser" }],
 	},
 	{
@@ -1112,6 +1133,7 @@ export const TEMPLATES: Template[] = [
 		installScript: "",
 		installContainerImage: "",
 		installEntrypoint: "bash",
+		configFiles: [],
 		features: [{ key: "database:browser" }],
 	},
 	{
@@ -1175,6 +1197,7 @@ export const TEMPLATES: Template[] = [
 		installScript: "",
 		installContainerImage: "",
 		installEntrypoint: "bash",
+		configFiles: [],
 		features: [{ key: "database:browser" }],
 	},
 ];

@@ -106,6 +106,7 @@ function toTemplate(
 		installContainerImage: record.installContainerImage,
 		installEntrypoint: record.installEntrypoint,
 		features: record.features,
+		configFiles: record.configFiles,
 	};
 }
 
@@ -214,6 +215,7 @@ function templateColumns(
 		installContainerImage: input.installContainerImage,
 		installEntrypoint: input.installEntrypoint,
 		features: input.features,
+		configFiles: input.configFiles,
 	};
 }
 

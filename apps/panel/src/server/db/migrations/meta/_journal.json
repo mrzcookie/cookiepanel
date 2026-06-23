@@ -57,6 +57,13 @@
       "when": 1782185694474,
       "tag": "0007_allocations",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782193748704,
+      "tag": "0008_minor_chimera",
+      "breakpoints": true
     }
   ]
 }
