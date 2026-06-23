@@ -29,6 +29,11 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { CodeEditor } from "@/components/shared/code-editor";
+import {
+	CopyButton,
+	DetailList,
+	DetailRow,
+} from "@/components/shared/detail-list";
 import { UsageBar } from "@/components/shared/entity-card";
 import { Button } from "@/components/ui/button";
 import {
@@ -89,6 +94,7 @@ import {
 	transferProgress,
 	validateName,
 } from "@/lib/domain/files";
+import type { SftpSession } from "@/lib/domain/sftp";
 import {
 	archiveFiles,
 	createDirectory,
@@ -107,6 +113,12 @@ import {
 } from "@/lib/file-queries";
 import { formatBytes, formatRelativeTime, pluralize } from "@/lib/format";
 import { useServer } from "@/lib/server-queries";
+import {
+	closeSftp,
+	invalidateSftp,
+	openSftp,
+	sftpStatusQueryOptions,
+} from "@/lib/sftp-queries";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/servers/$serverId/files")({
@@ -175,6 +187,8 @@ function FileBrowser({
 	const queryClient = useQueryClient();
 	const { data, isLoading, isError, error } = useFiles(serverId, currentDir);
 	const entries = data ?? [];
+	const sftpStatus = useQuery(sftpStatusQueryOptions(serverId)).data;
+	const sftpActive = sftpStatus?.ok ? sftpStatus.data.active : false;
 
 	const [selected, setSelected] = useState<Set<string>>(new Set());
 	const [dragActive, setDragActive] = useState(false);
@@ -405,12 +419,22 @@ function FileBrowser({
 							type="file"
 						/>
 						<Button
+							aria-label={sftpActive ? "SFTP, session active" : undefined}
 							onClick={() => setSftpOpen(true)}
 							size="sm"
 							variant="outline"
 						>
 							<KeyRound />
 							SFTP
+							{sftpActive ? (
+								<>
+									<span
+										aria-hidden
+										className="size-2 shrink-0 rounded-full bg-ok"
+									/>
+									<span className="sr-only">session active</span>
+								</>
+							) : null}
 						</Button>
 						<Button
 							onClick={() => fileInputRef.current?.click()}
@@ -579,7 +603,11 @@ function FileBrowser({
 				}}
 				open={urlOpen}
 			/>
-			<SftpDialog onOpenChange={setSftpOpen} open={sftpOpen} />
+			<SftpDialog
+				onOpenChange={setSftpOpen}
+				open={sftpOpen}
+				serverId={serverId}
+			/>
 			<ZipDialog
 				onConfirm={compress}
 				onOpenChange={(open) => setZipSources(open ? zipSources : null)}
@@ -1391,38 +1419,147 @@ function ZipDialog({
 	);
 }
 
-// SFTP access (per-session credentials for an external client) needs the daemon's
-// SSH/SFTP subsystem, which lands in a later slice. Until then this is honest
-// about being unavailable rather than minting credentials that won't connect.
+// SFTP access: mint a short-lived, per-server credential the user connects to
+// with any SFTP client (sandboxed to this server's files on the box). The
+// password is shown once at creation; an active session shows its username +
+// expiry and can be regenerated or closed.
 function SftpDialog({
 	onOpenChange,
 	open,
+	serverId,
 }: {
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
+	serverId: string;
 }) {
+	const queryClient = useQueryClient();
+	const status = useQuery(sftpStatusQueryOptions(serverId)).data;
+	// The just-minted session (with password); cleared when the dialog reopens.
+	const [minted, setMinted] = useState<SftpSession | null>(null);
+	const [busy, setBusy] = useState(false);
+
+	useEffect(() => {
+		if (open) {
+			setMinted(null);
+		}
+	}, [open]);
+
+	const active = status?.ok ? status.data : null;
+
+	async function generate() {
+		setBusy(true);
+		try {
+			const session = await openSftp(serverId);
+			setMinted(session);
+			await invalidateSftp(queryClient, serverId);
+		} catch (mintError) {
+			toast.error(
+				mintError instanceof Error
+					? mintError.message
+					: "Couldn't open an SFTP session."
+			);
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function close() {
+		setBusy(true);
+		try {
+			await closeSftp(serverId);
+			setMinted(null);
+			await invalidateSftp(queryClient, serverId);
+			toast.success("SFTP session closed.");
+		} catch (closeError) {
+			toast.error(
+				closeError instanceof Error
+					? closeError.message
+					: "Couldn't close the session."
+			);
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	const hasActive = Boolean(active?.active);
+
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle>SFTP access</DialogTitle>
+					<DialogTitle>SFTP session</DialogTitle>
 					<DialogDescription>
-						Connect any SFTP client to manage files in bulk.
+						Connect with any SFTP client to manage this server's files in bulk.
+						Credentials are per-session and expire automatically.
 					</DialogDescription>
 				</DialogHeader>
-				<p className="py-2 text-muted-foreground text-sm">
-					SFTP sessions are coming in a later update. For now, use the file
-					browser here — upload, download, edit, and pull from a link all work.
-				</p>
-				<DialogFooter>
-					<DialogClose asChild>
-						<Button type="button" variant="outline">
-							Done
+
+				{minted ? (
+					<SftpCredentials session={minted} />
+				) : hasActive && active ? (
+					<div className="space-y-2 py-2 text-sm">
+						<p className="text-muted-foreground">
+							A session is active
+							{active.username ? (
+								<>
+									{" for "}
+									<span className="font-mono">{active.username}</span>
+								</>
+							) : null}
+							{active.expiresAt
+								? `, expiring ${formatRelativeTime(active.expiresAt)}`
+								: ""}
+							. The password is shown only when generated — regenerate to get
+							new credentials.
+						</p>
+					</div>
+				) : (
+					<p className="py-2 text-muted-foreground text-sm">
+						No active session. Generate credentials to connect.
+					</p>
+				)}
+
+				<DialogFooter className="sm:justify-between">
+					<div>
+						{hasActive ? (
+							<Button disabled={busy} onClick={close} variant="destructive">
+								Close session
+							</Button>
+						) : null}
+					</div>
+					<div className="flex gap-2">
+						<DialogClose asChild>
+							<Button type="button" variant="outline">
+								Done
+							</Button>
+						</DialogClose>
+						<Button disabled={busy} onClick={generate}>
+							{hasActive || minted ? "Regenerate" : "Generate credentials"}
 						</Button>
-					</DialogClose>
+					</div>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+function SftpCredentials({ session }: { session: SftpSession }) {
+	const command = `sftp -P ${session.port} ${session.username}@${session.host}`;
+	return (
+		<div className="space-y-3 py-2">
+			<DetailList>
+				<DetailRow copyable label="Host" value={session.host} wrap />
+				<DetailRow label="Port" value={String(session.port)} />
+				<DetailRow copyable label="Username" value={session.username} wrap />
+				<DetailRow copyable label="Password" value={session.password} wrap />
+			</DetailList>
+			<div className="flex items-start gap-1 rounded-lg bg-muted/50 px-3 py-2">
+				<span className="min-w-0 flex-1 break-all font-mono text-xs">
+					{command}
+				</span>
+				<CopyButton label="SFTP command" value={command} />
+			</div>
+		</div>
 	);
 }
 

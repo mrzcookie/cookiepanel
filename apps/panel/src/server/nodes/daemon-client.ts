@@ -724,6 +724,58 @@ export async function extractNodeFile(
 	});
 }
 
+// ─── sftp sessions ─────────────────────────────────────────────────────────
+
+/** A freshly-minted SFTP credential (the password is only returned here, once). */
+export type DaemonSftpMint = {
+	username: string;
+	password: string;
+	expiresAt: string;
+	port: number;
+};
+
+/** The non-secret status of a server's SFTP session. */
+export type DaemonSftpStatus = {
+	active: boolean;
+	username?: string;
+	expiresAt?: string;
+	port: number;
+};
+
+const sftpPath = (serverId: string) => `/api/v1/servers/${serverId}/sftp`;
+
+export async function mintSftpSession(
+	nodeId: string,
+	serverId: string
+): Promise<DaemonSftpMint> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: sftpPath(serverId),
+	})) as DaemonSftpMint;
+}
+
+export async function getSftpSession(
+	nodeId: string,
+	serverId: string
+): Promise<DaemonSftpStatus> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		path: sftpPath(serverId),
+	})) as DaemonSftpStatus;
+}
+
+export async function revokeSftpSession(
+	nodeId: string,
+	serverId: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "DELETE",
+		path: sftpPath(serverId),
+	});
+}
+
 /** Streams `body` to the daemon as the new contents of `path` (atomic on the box). */
 export async function uploadNodeFile(
 	nodeId: string,

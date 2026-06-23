@@ -31,6 +31,7 @@ import (
 	"github.com/cookiepanel/cookied/internal/firewall"
 	"github.com/cookiepanel/cookied/internal/network"
 	"github.com/cookiepanel/cookied/internal/server"
+	"github.com/cookiepanel/cookied/internal/sftp"
 	"github.com/cookiepanel/cookied/internal/system"
 	cookietls "github.com/cookiepanel/cookied/internal/tls"
 	"github.com/cookiepanel/cookied/internal/version"
@@ -50,6 +51,7 @@ type Server struct {
 	networks      *network.Manager
 	firewall      *firewall.Manager
 	files         *filesystem.Manager
+	sftp          *sftp.Manager
 
 	server   *http.Server
 	listener net.Listener
@@ -69,6 +71,7 @@ type Config struct {
 	Networks      *network.Manager    // docker network lifecycle
 	Firewall      *firewall.Manager   // host firewall
 	Files         *filesystem.Manager // per-server sandboxed file manager
+	SFTP          *sftp.Manager       // SFTP session mint/revoke
 }
 
 // New constructs but does not start the server.
@@ -86,6 +89,7 @@ func New(cfg Config) *Server {
 		networks:      cfg.Networks,
 		firewall:      cfg.Firewall,
 		files:         cfg.Files,
+		sftp:          cfg.SFTP,
 	}
 }
 
@@ -162,6 +166,9 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/servers/{id}/files/url-download/{jobId}", s.handleFilesURLDownloadStatus)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/archive", s.handleFilesArchive)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/extract", s.handleFilesExtract)
+	mux.HandleFunc("GET /api/v1/servers/{id}/sftp", s.handleSftpStatus)
+	mux.HandleFunc("POST /api/v1/servers/{id}/sftp", s.handleSftpMint)
+	mux.HandleFunc("DELETE /api/v1/servers/{id}/sftp", s.handleSftpRevoke)
 	mux.HandleFunc("GET /api/v1/servers/{id}/files/trash", s.handleTrashList)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/restore", s.handleTrashRestore)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/delete", s.handleTrashDelete)
@@ -707,6 +714,49 @@ func (s *Server) handleFilesExtract(w http.ResponseWriter, r *http.Request) {
 	); err != nil {
 		s.writeFilesErr(w, err)
 		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ─── sftp sessions ─────────────────────────────────────────────────────────
+
+// handleSftpMint creates a fresh per-session SFTP credential for the server and
+// returns it once (the password is not recoverable afterward).
+func (s *Server) handleSftpMint(w http.ResponseWriter, r *http.Request) {
+	if s.sftp == nil {
+		writeJSONError(w, http.StatusServiceUnavailable, errors.New("sftp is unavailable on this node"))
+		return
+	}
+	session, err := s.sftp.Mint(r.PathValue("id"))
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, struct {
+		sftp.Session
+		Port int `json:"port"`
+	}{Session: session, Port: sftp.DefaultPort})
+}
+
+// handleSftpStatus reports whether a server has a live SFTP session (no secret).
+func (s *Server) handleSftpStatus(w http.ResponseWriter, r *http.Request) {
+	if s.sftp == nil {
+		writeJSON(w, http.StatusOK, struct {
+			sftp.Info
+			Port int `json:"port"`
+		}{Info: sftp.Info{Active: false}, Port: sftp.DefaultPort})
+		return
+	}
+	writeJSON(w, http.StatusOK, struct {
+		sftp.Info
+		Port int `json:"port"`
+	}{Info: s.sftp.Active(r.PathValue("id")), Port: sftp.DefaultPort})
+}
+
+// handleSftpRevoke drops a server's SFTP session.
+func (s *Server) handleSftpRevoke(w http.ResponseWriter, r *http.Request) {
+	if s.sftp != nil {
+		s.sftp.Revoke(r.PathValue("id"))
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

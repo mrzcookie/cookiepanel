@@ -33,6 +33,7 @@ import (
 	"github.com/cookiepanel/cookied/internal/network"
 	"github.com/cookiepanel/cookied/internal/remote"
 	"github.com/cookiepanel/cookied/internal/server"
+	"github.com/cookiepanel/cookied/internal/sftp"
 	"github.com/cookiepanel/cookied/internal/store"
 	cookietls "github.com/cookiepanel/cookied/internal/tls"
 	"github.com/cookiepanel/cookied/internal/version"
@@ -169,6 +170,17 @@ func newRunCmd() *cobra.Command {
 				fingerprint = tlsMat.Fingerprint
 				slog.Info("tls ready", "mode", tlsMat.Mode, "fqdn", creds.FQDN, "fingerprint", fingerprint)
 
+				fw := firewall.NewManager(apiPort)
+
+				// SFTP server (best-effort): mints per-session credentials the
+				// panel hands out, sandboxed per server. Non-fatal if it can't
+				// start — the rest of the daemon keeps serving.
+				sftpMgr, err := sftp.NewManager(dockerClient, stateDir)
+				if err != nil {
+					slog.Warn("sftp init failed; sftp disabled", "err", err)
+					sftpMgr = nil
+				}
+
 				apiSrv := api.New(api.Config{
 					Addr:          fmt.Sprintf(":%d", apiPort),
 					NodeKey:       creds.NodeKey,
@@ -180,8 +192,9 @@ func newRunCmd() *cobra.Command {
 					DockerClient:  dockerClient,
 					Servers:       server.NewManager(dockerClient),
 					Networks:      network.NewManager(dockerClient),
-					Firewall:      firewall.NewManager(apiPort),
+					Firewall:      fw,
 					Files:         filesystem.New(dockerClient),
+					SFTP:          sftpMgr,
 				})
 				if err := apiSrv.Start(); err != nil {
 					return err
@@ -192,6 +205,18 @@ func newRunCmd() *cobra.Command {
 					defer cancel()
 					_ = apiSrv.Shutdown(sCtx)
 				}()
+
+				if sftpMgr != nil {
+					if err := sftpMgr.Serve(fmt.Sprintf(":%d", sftp.DefaultPort)); err != nil {
+						slog.Warn("sftp serve failed", "err", err)
+					} else {
+						slog.Info("sftp listening", "port", sftp.DefaultPort)
+						_ = fw.Open(context.Background(), firewall.Rule{
+							Port: sftp.DefaultPort, Protocol: "tcp",
+						})
+						defer sftpMgr.Shutdown()
+					}
+				}
 			}
 
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
