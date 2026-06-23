@@ -4,13 +4,11 @@
 // panel (see the tls package). A panic in any handler becomes a 500 — one bad
 // request must never take the box's control plane down.
 //
-// This slice exposes the read surface:
-//
-//	GET /api/v1/system        daemon version + uptime + system/docker info
-//	GET /api/v1/system/host   host details (hostname, kernel, CPU model, …)
-//	GET /api/v1/system/stats  live CPU%, memory/disk used, load average
-//
-// Servers, networks, firewall, files, schedules, and backups land in later slices.
+// The surface today covers system/stats, the server-container lifecycle, the
+// console WebSocket, docker networks, the host firewall, and the sandboxed
+// per-server file manager (list/read/write/mkdir/rename/delete, upload/download,
+// URL-download jobs, and the recycle bin). Schedules and backups land in later
+// slices.
 package api
 
 import (
@@ -20,13 +18,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/cookiepanel/cookied/internal/docker"
+	"github.com/cookiepanel/cookied/internal/filesystem"
 	"github.com/cookiepanel/cookied/internal/firewall"
 	"github.com/cookiepanel/cookied/internal/network"
 	"github.com/cookiepanel/cookied/internal/server"
@@ -48,6 +49,7 @@ type Server struct {
 	servers       *server.Manager
 	networks      *network.Manager
 	firewall      *firewall.Manager
+	files         *filesystem.Manager
 
 	server   *http.Server
 	listener net.Listener
@@ -62,10 +64,11 @@ type Config struct {
 	StaticInfo    map[string]any // os/arch/cpus/mem/disk/daemonVersion
 	StartedAt     time.Time
 	TLS           *cookietls.Material
-	DockerClient  *docker.Client    // may be nil if docker is unavailable
-	Servers       *server.Manager   // server-container lifecycle
-	Networks      *network.Manager  // docker network lifecycle
-	Firewall      *firewall.Manager // host firewall
+	DockerClient  *docker.Client      // may be nil if docker is unavailable
+	Servers       *server.Manager     // server-container lifecycle
+	Networks      *network.Manager    // docker network lifecycle
+	Firewall      *firewall.Manager   // host firewall
+	Files         *filesystem.Manager // per-server sandboxed file manager
 }
 
 // New constructs but does not start the server.
@@ -82,6 +85,7 @@ func New(cfg Config) *Server {
 		servers:       cfg.Servers,
 		networks:      cfg.Networks,
 		firewall:      cfg.Firewall,
+		files:         cfg.Files,
 	}
 }
 
@@ -146,6 +150,21 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/firewall", s.handleFirewallStatus)
 	mux.HandleFunc("POST /api/v1/firewall/open", s.handleFirewallOpen)
 	mux.HandleFunc("POST /api/v1/firewall/close", s.handleFirewallClose)
+	mux.HandleFunc("GET /api/v1/servers/{id}/files/list", s.handleFilesList)
+	mux.HandleFunc("GET /api/v1/servers/{id}/files/read", s.handleFilesRead)
+	mux.HandleFunc("POST /api/v1/servers/{id}/files/write", s.handleFilesWrite)
+	mux.HandleFunc("POST /api/v1/servers/{id}/files/mkdir", s.handleFilesMkdir)
+	mux.HandleFunc("POST /api/v1/servers/{id}/files/rename", s.handleFilesRename)
+	mux.HandleFunc("POST /api/v1/servers/{id}/files/delete", s.handleFilesDelete)
+	mux.HandleFunc("GET /api/v1/servers/{id}/files/download", s.handleFilesDownload)
+	mux.HandleFunc("POST /api/v1/servers/{id}/files/upload", s.handleFilesUpload)
+	mux.HandleFunc("POST /api/v1/servers/{id}/files/url-download", s.handleFilesURLDownload)
+	mux.HandleFunc("GET /api/v1/servers/{id}/files/url-download/{jobId}", s.handleFilesURLDownloadStatus)
+	mux.HandleFunc("GET /api/v1/servers/{id}/files/trash", s.handleTrashList)
+	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/restore", s.handleTrashRestore)
+	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/delete", s.handleTrashDelete)
+	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/empty", s.handleTrashEmpty)
+	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/purge", s.handleTrashPurge)
 	outer.Handle("/", recoverPanic(s.bearerAuth(mux)))
 	return outer
 }
@@ -416,6 +435,252 @@ func (s *Server) handleSystemStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, stats)
+}
+
+// ─── files ───────────────────────────────────────────────────────────────────
+//
+// All routes are scoped to a server id (the path segment); the file manager
+// sandboxes every operation to that server's data volume. writeFilesErr maps the
+// package's sentinel errors onto HTTP status codes.
+
+func (s *Server) handleFilesList(w http.ResponseWriter, r *http.Request) {
+	entries, err := s.files.List(r.Context(), r.PathValue("id"), r.URL.Query().Get("path"))
+	if err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	if entries == nil {
+		entries = []filesystem.Entry{}
+	}
+	writeJSON(w, http.StatusOK, entries)
+}
+
+func (s *Server) handleFilesRead(w http.ResponseWriter, r *http.Request) {
+	content, err := s.files.Read(r.Context(), r.PathValue("id"), r.URL.Query().Get("path"))
+	if err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"content": string(content)})
+}
+
+func (s *Server) handleFilesWrite(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Path    string `json:"path"`
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.files.Write(r.Context(), r.PathValue("id"), body.Path, []byte(body.Content)); err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleFilesMkdir(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.files.Mkdir(r.Context(), r.PathValue("id"), body.Path); err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleFilesRename(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		From string `json:"from"`
+		To   string `json:"to"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.files.Rename(r.Context(), r.PathValue("id"), body.From, body.To); err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleFilesDelete moves the target into the server's recycle bin rather than
+// erasing it. Permanent removal happens from the bin (handleTrashDelete /
+// handleTrashEmpty) or via the scheduled auto-purge.
+func (s *Server) handleFilesDelete(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.files.Trash(r.Context(), r.PathValue("id"), body.Path); err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleFilesDownload streams a file's bytes as application/octet-stream with a
+// Content-Disposition: attachment so the panel/browser saves it. Lstat's size
+// gives Content-Length (a real progress bar).
+func (s *Server) handleFilesDownload(w http.ResponseWriter, r *http.Request) {
+	f, info, err := s.files.Open(r.Context(), r.PathValue("id"), r.URL.Query().Get("path"))
+	if err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	defer f.Close()
+	name := info.Name()
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", info.Size()))
+	// RFC 5987 encoding for the filename keeps non-ASCII names safe.
+	w.Header().Set("Content-Disposition",
+		fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`,
+			strings.ReplaceAll(name, `"`, ``),
+			url.PathEscape(name)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.Copy(w, f)
+}
+
+// handleFilesUpload writes the raw request body to the target path. No
+// multipart; the panel passes the file's bytes through as the request body. The
+// atomic tmp+rename happens inside WriteStream.
+func (s *Server) handleFilesUpload(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("missing ?path"))
+		return
+	}
+	if err := s.files.WriteStream(r.Context(), r.PathValue("id"), path, r.Body); err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleFilesURLDownload kicks off an async URL pull and returns its job id. The
+// fetch runs in a background goroutine owned by filesystem.Jobs; the panel polls
+// handleFilesURLDownloadStatus for progress.
+func (s *Server) handleFilesURLDownload(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Path string `json:"path"`
+		URL  string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	id, err := s.files.Jobs().Start(s.files, r.PathValue("id"), body.Path, body.URL)
+	if err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]string{"jobId": id})
+}
+
+// handleFilesURLDownloadStatus returns the current snapshot of one job.
+func (s *Server) handleFilesURLDownloadStatus(w http.ResponseWriter, r *http.Request) {
+	job, ok := s.files.Jobs().Get(r.PathValue("jobId"))
+	if !ok {
+		writeJSONError(w, http.StatusNotFound, fmt.Errorf("job not found"))
+		return
+	}
+	writeJSON(w, http.StatusOK, job)
+}
+
+func (s *Server) handleTrashList(w http.ResponseWriter, r *http.Request) {
+	entries, err := s.files.ListTrash(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	if entries == nil {
+		entries = []filesystem.TrashEntry{}
+	}
+	writeJSON(w, http.StatusOK, entries)
+}
+
+func (s *Server) handleTrashRestore(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.files.RestoreTrash(r.Context(), r.PathValue("id"), body.ID); err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleTrashDelete(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.files.DeleteTrash(r.Context(), r.PathValue("id"), body.ID); err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleTrashEmpty(w http.ResponseWriter, r *http.Request) {
+	if err := s.files.EmptyTrash(r.Context(), r.PathValue("id")); err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleTrashPurge removes bin entries older than maxAgeSeconds. Called by the
+// panel's scheduled auto-purge with each server's configured retention.
+func (s *Server) handleTrashPurge(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		MaxAgeSeconds int64 `json:"maxAgeSeconds"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	purged, err := s.files.PurgeTrashOlderThan(
+		r.Context(), r.PathValue("id"), time.Duration(body.MaxAgeSeconds)*time.Second,
+	)
+	if err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"purged": purged})
+}
+
+func (s *Server) writeFilesErr(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, filesystem.ErrNotFound):
+		writeJSONError(w, http.StatusNotFound, err)
+	case errors.Is(err, filesystem.ErrTraversal):
+		writeJSONError(w, http.StatusBadRequest, err)
+	case errors.Is(err, filesystem.ErrTooLarge):
+		writeJSONError(w, http.StatusRequestEntityTooLarge, err)
+	case errors.Is(err, filesystem.ErrDockerUnavailable):
+		writeJSONError(w, http.StatusServiceUnavailable, err)
+	default:
+		writeJSONError(w, http.StatusBadRequest, err)
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {

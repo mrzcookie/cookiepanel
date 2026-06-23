@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { IncomingMessage } from "node:http";
 import { Agent, request } from "node:https";
 import type { TLSSocket } from "node:tls";
 import { eq } from "drizzle-orm";
@@ -209,6 +210,84 @@ function daemonFetch(
 		});
 		if (payload) {
 			req.write(payload);
+		}
+		req.end();
+	});
+}
+
+type DaemonStreamOptions = {
+	method: "GET" | "POST";
+	path: string;
+	body?: Buffer;
+	contentType?: string;
+	timeoutMs?: number;
+};
+
+/**
+ * Like `daemonFetch` but for **binary** bodies/responses (file upload/download):
+ * resolves with the live response stream once headers arrive (no buffering), so
+ * the caller can pipe it straight through. A non-2xx response is buffered and
+ * rejected as a `DaemonError`. Same pinning + Bearer auth as `daemonFetch`.
+ */
+function daemonStream(
+	nodeKey: string,
+	ref: NodeRef,
+	opts: DaemonStreamOptions
+): Promise<IncomingMessage> {
+	return new Promise((resolve, reject) => {
+		const req = request(
+			{
+				host: ref.fqdn,
+				port: ref.daemonPort,
+				path: opts.path,
+				method: opts.method,
+				agent: pinningAgent(ref.certFingerprint),
+				headers: {
+					Authorization: `Bearer ${nodeKey}`,
+					...(opts.body
+						? {
+								"Content-Type": opts.contentType ?? "application/octet-stream",
+								"Content-Length": String(opts.body.byteLength),
+							}
+						: {}),
+				},
+				timeout: opts.timeoutMs ?? REQUEST_TIMEOUT_MS,
+			},
+			(res) => {
+				const code = res.statusCode ?? 0;
+				if (code < 200 || code >= 300) {
+					const chunks: Buffer[] = [];
+					res.on("data", (c: Buffer) => chunks.push(c));
+					res.on("end", () => {
+						reject(
+							new DaemonError(
+								`daemon ${opts.method} ${opts.path}: HTTP ${code}`,
+								code,
+								Buffer.concat(chunks).toString("utf8").slice(0, 500)
+							)
+						);
+					});
+					return;
+				}
+				resolve(res);
+			}
+		);
+		if (ref.certFingerprint !== ACME_FINGERPRINT) {
+			enforcePin(req, ref.certFingerprint);
+		}
+		req.on("timeout", () => {
+			req.destroy(new DaemonError("daemon request timed out"));
+		});
+		req.on("error", (err) => {
+			const tlsMsg = (req.socket as TLSSocket | undefined)?.authorizationError;
+			reject(
+				new DaemonError(
+					`daemon transport: ${err.message}${tlsMsg ? ` (${tlsMsg})` : ""}`
+				)
+			);
+		});
+		if (opts.body) {
+			req.write(opts.body);
 		}
 		req.end();
 	});
@@ -459,4 +538,190 @@ export async function setFirewallPort(
 		path: `/api/v1/firewall/${action}`,
 		body: { port, protocol },
 	});
+}
+
+// ─── files ───────────────────────────────────────────────────────────────────
+
+// A URL pull can fetch a large server jar; give the start call room beyond 10s
+// (the fetch itself runs async on the box — only the start handshake is timed).
+const FILE_DOWNLOAD_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** One entry in a daemon directory listing. */
+export type DaemonFileEntry = {
+	name: string;
+	path: string;
+	type: "file" | "dir" | "symlink";
+	size: number;
+	mode: string;
+	modTime: string;
+};
+
+/** The daemon's snapshot of an in-flight (or finished) URL-download job. */
+export type DaemonDownloadJob = {
+	id: string;
+	serverId: string;
+	path: string;
+	url: string;
+	total: number;
+	done: number;
+	state: "running" | "done" | "error" | "cancelled";
+	error?: string;
+	startedAt: string;
+	updatedAt: string;
+};
+
+const filesBase = (serverId: string) => `/api/v1/servers/${serverId}/files`;
+const withPath = (base: string, path: string) =>
+	`${base}?path=${encodeURIComponent(path)}`;
+
+export async function listNodeFiles(
+	nodeId: string,
+	serverId: string,
+	path: string
+): Promise<DaemonFileEntry[]> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		path: withPath(`${filesBase(serverId)}/list`, path),
+	})) as DaemonFileEntry[];
+}
+
+export async function readNodeFile(
+	nodeId: string,
+	serverId: string,
+	path: string
+): Promise<string> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	const res = (await daemonFetch(nodeKey, ref, {
+		path: withPath(`${filesBase(serverId)}/read`, path),
+	})) as { content: string };
+	return res.content;
+}
+
+export async function writeNodeFile(
+	nodeId: string,
+	serverId: string,
+	path: string,
+	content: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${filesBase(serverId)}/write`,
+		body: { path, content },
+	});
+}
+
+export async function mkdirNodeFile(
+	nodeId: string,
+	serverId: string,
+	path: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${filesBase(serverId)}/mkdir`,
+		body: { path },
+	});
+}
+
+export async function renameNodeFile(
+	nodeId: string,
+	serverId: string,
+	from: string,
+	to: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${filesBase(serverId)}/rename`,
+		body: { from, to },
+	});
+}
+
+/** Moves the path into the server's recycle bin (the daemon's delete = trash). */
+export async function deleteNodeFile(
+	nodeId: string,
+	serverId: string,
+	path: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${filesBase(serverId)}/delete`,
+		body: { path },
+	});
+}
+
+export async function startNodeUrlDownload(
+	nodeId: string,
+	serverId: string,
+	path: string,
+	url: string
+): Promise<string> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	const res = (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${filesBase(serverId)}/url-download`,
+		body: { path, url },
+	})) as { jobId: string };
+	return res.jobId;
+}
+
+export async function getNodeUrlDownload(
+	nodeId: string,
+	serverId: string,
+	jobId: string
+): Promise<DaemonDownloadJob> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		path: `${filesBase(serverId)}/url-download/${jobId}`,
+	})) as DaemonDownloadJob;
+}
+
+/** Streams `body` to the daemon as the new contents of `path` (atomic on the box). */
+export async function uploadNodeFile(
+	nodeId: string,
+	serverId: string,
+	path: string,
+	body: Buffer
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	const res = await daemonStream(nodeKey, ref, {
+		method: "POST",
+		path: withPath(`${filesBase(serverId)}/upload`, path),
+		body,
+		timeoutMs: FILE_DOWNLOAD_TIMEOUT_MS,
+	});
+	res.resume(); // drain the 204 body
+}
+
+/**
+ * Opens a streaming download of `path`. Resolves with the live response stream
+ * plus the daemon's filename + content-length headers, so the route handler can
+ * pipe it to the browser without buffering the whole file in the panel.
+ */
+export async function openNodeDownload(
+	nodeId: string,
+	serverId: string,
+	path: string
+): Promise<{
+	stream: IncomingMessage;
+	filename: string;
+	contentLength: string | null;
+}> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	const stream = await daemonStream(nodeKey, ref, {
+		method: "GET",
+		path: withPath(`${filesBase(serverId)}/download`, path),
+		timeoutMs: FILE_DOWNLOAD_TIMEOUT_MS,
+	});
+	const disposition = stream.headers["content-disposition"] ?? "";
+	const match = /filename="([^"]*)"/.exec(
+		Array.isArray(disposition) ? disposition[0] : disposition
+	);
+	return {
+		stream,
+		filename: match?.[1] || path.split("/").pop() || "download",
+		contentLength: (stream.headers["content-length"] as string) ?? null,
+	};
 }

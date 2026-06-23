@@ -34,10 +34,11 @@ apps/
 > **Status: structural rewrite in progress.** The panel's data layer (auth,
 > persistence, server functions) is essentially complete for every panel-owned
 > entity. We're now **building the daemon and the panel↔daemon connection** in
-> vertical slices: `cookied` can already enroll against the panel and heartbeat
-> live system info; its HTTPS control API, Docker/server management, console, and
-> the rest land slice by slice. The daemon-derived panel features (servers,
-> networks, files, …) stay on stub data until their slice is wired.
+> vertical slices. `cookied` already enrolls + heartbeats, serves a pinned HTTPS
+> control API, and manages Docker servers (lifecycle + console), networks,
+> firewall/ports, and a sandboxed per-server **file manager** (browse/edit/upload/
+> download, pull-from-URL, recycle bin). Schedules, backups, host maintenance, and
+> SFTP land slice by slice; their panel features stay on stub data until wired.
 
 ## Prerequisites
 

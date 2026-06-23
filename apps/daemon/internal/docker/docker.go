@@ -1,9 +1,10 @@
 // Package docker wraps the Docker Engine API client with the small surface the
-// daemon needs to manage server containers: an info probe, and the no-install
-// container lifecycle (pull / create / start / stop / remove / list / inspect).
-// Every managed container is labelled `cookiepanel.*` so the daemon only ever
-// touches its own resources. Named volumes, the egg install pipeline, console
-// log/stat streaming, and prune land in later slices.
+// daemon needs to manage server containers: an info probe, the no-install
+// container lifecycle (pull / create / start / stop / remove / list / inspect),
+// and per-server named volumes (so a server's data survives a recreate and the
+// file manager can reach it on the host). Every managed container and volume is
+// labelled `cookiepanel.*` so the daemon only ever touches its own resources.
+// The egg install pipeline and prune land in later slices.
 package docker
 
 import (
@@ -15,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
 	"github.com/moby/moby/api/types/network"
 	moby "github.com/moby/moby/client"
 )
@@ -98,6 +100,16 @@ type CreateSpec struct {
 	MemoryMB    int
 	StopSignal  string
 	PortBinding *PortBinding
+	// Volumes are named volumes to mount into the container. WorkingDir, if set,
+	// becomes the container's working directory (typically the data volume mount).
+	Volumes    []VolumeMount
+	WorkingDir string
+}
+
+// VolumeMount mounts a named docker volume at Path inside the container.
+type VolumeMount struct {
+	Name string
+	Path string
 }
 
 // PortBinding maps a host ip+port onto a container port.
@@ -164,11 +176,21 @@ func (c *Client) CreateContainer(ctx context.Context, spec CreateSpec) (string, 
 	if spec.StopSignal != "" {
 		cfg.StopSignal = spec.StopSignal
 	}
+	if spec.WorkingDir != "" {
+		cfg.WorkingDir = spec.WorkingDir
+	}
 	host := &container.HostConfig{
 		RestartPolicy: container.RestartPolicy{
 			Name:              container.RestartPolicyOnFailure,
 			MaximumRetryCount: 3,
 		},
+	}
+	for _, vm := range spec.Volumes {
+		host.Mounts = append(host.Mounts, mount.Mount{
+			Type:   mount.TypeVolume,
+			Source: vm.Name,
+			Target: vm.Path,
+		})
 	}
 	if spec.NanoCPUs > 0 {
 		host.NanoCPUs = spec.NanoCPUs
@@ -235,10 +257,68 @@ func (c *Client) RemoveContainer(ctx context.Context, id string, force bool) err
 		return errors.New("docker client not initialized")
 	}
 	if _, err := c.api.ContainerRemove(ctx, id, moby.ContainerRemoveOptions{
-		Force:         force,
+		Force: force,
+		// Removes anonymous volumes only; named volumes (a server's data) are
+		// cleaned up explicitly via RemoveVolumesByServerID so the caller controls
+		// when persistent data is destroyed.
 		RemoveVolumes: true,
 	}); err != nil {
 		return fmt.Errorf("remove %s: %w", id, err)
+	}
+	return nil
+}
+
+// CreateVolume creates (idempotently) a named volume labelled with the server
+// id, so RemoveVolumesByServerID can find it later. Docker treats a create on an
+// existing volume name as a no-op returning the existing volume.
+func (c *Client) CreateVolume(ctx context.Context, name, serverID string) error {
+	if c == nil || c.api == nil {
+		return errors.New("docker client not initialized")
+	}
+	if _, err := c.api.VolumeCreate(ctx, moby.VolumeCreateOptions{
+		Name: name,
+		Labels: map[string]string{
+			ManagedLabel:  "true",
+			ServerIDLabel: serverID,
+		},
+	}); err != nil {
+		return fmt.Errorf("create volume %s: %w", name, err)
+	}
+	return nil
+}
+
+// VolumeMountpoint returns the host filesystem path where the named volume's
+// data lives. The daemon (root) reads/writes a server's files directly there —
+// the file manager's root. Errors if the volume is missing or has no mountpoint.
+func (c *Client) VolumeMountpoint(ctx context.Context, name string) (string, error) {
+	if c == nil || c.api == nil {
+		return "", errors.New("docker client not initialized")
+	}
+	res, err := c.api.VolumeInspect(ctx, name, moby.VolumeInspectOptions{})
+	if err != nil {
+		return "", fmt.Errorf("inspect volume %s: %w", name, err)
+	}
+	if res.Volume.Mountpoint == "" {
+		return "", fmt.Errorf("volume %s has no mountpoint", name)
+	}
+	return res.Volume.Mountpoint, nil
+}
+
+// RemoveVolumesByServerID force-removes every managed volume tagged with the
+// given server id. Idempotent: no matching volumes is not an error.
+func (c *Client) RemoveVolumesByServerID(ctx context.Context, serverID string) error {
+	if c == nil || c.api == nil {
+		return errors.New("docker client not initialized")
+	}
+	f := make(moby.Filters).Add("label", ServerIDLabel+"="+serverID)
+	res, err := c.api.VolumeList(ctx, moby.VolumeListOptions{Filters: f})
+	if err != nil {
+		return fmt.Errorf("list volumes for %s: %w", serverID, err)
+	}
+	for _, v := range res.Items {
+		if _, err := c.api.VolumeRemove(ctx, v.Name, moby.VolumeRemoveOptions{Force: true}); err != nil {
+			return fmt.Errorf("remove volume %s: %w", v.Name, err)
+		}
 	}
 	return nil
 }

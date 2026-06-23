@@ -33,6 +33,8 @@ import { Route as AppServersIndexRouteImport } from './routes/_app/servers/index
 import { Route as AppNodesIndexRouteImport } from './routes/_app/nodes/index'
 import { Route as AppNetworksIndexRouteImport } from './routes/_app/networks/index'
 import { Route as AppAccountIndexRouteImport } from './routes/_app/account/index'
+import { Route as ApiFilesUploadRouteImport } from './routes/api/files/upload'
+import { Route as ApiFilesDownloadRouteImport } from './routes/api/files/download'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AdminTemplatesNewRouteImport } from './routes/admin/templates/new'
 import { Route as AdminTemplatesTemplateIdRouteImport } from './routes/admin/templates/$templateId'
@@ -185,6 +187,16 @@ const AppAccountIndexRoute = AppAccountIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppAccountRouteRoute,
+} as any)
+const ApiFilesUploadRoute = ApiFilesUploadRouteImport.update({
+  id: '/api/files/upload',
+  path: '/api/files/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesDownloadRoute = ApiFilesDownloadRouteImport.update({
+  id: '/api/files/download',
+  path: '/api/files/download',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -388,6 +400,8 @@ export interface FileRoutesByFullPath {
   '/admin/templates/$templateId': typeof AdminTemplatesTemplateIdRoute
   '/admin/templates/new': typeof AdminTemplatesNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/download': typeof ApiFilesDownloadRoute
+  '/api/files/upload': typeof ApiFilesUploadRoute
   '/account/': typeof AppAccountIndexRoute
   '/networks/': typeof AppNetworksIndexRoute
   '/nodes/': typeof AppNodesIndexRoute
@@ -440,6 +454,8 @@ export interface FileRoutesByTo {
   '/admin/templates/$templateId': typeof AdminTemplatesTemplateIdRoute
   '/admin/templates/new': typeof AdminTemplatesNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/download': typeof ApiFilesDownloadRoute
+  '/api/files/upload': typeof ApiFilesUploadRoute
   '/account': typeof AppAccountIndexRoute
   '/networks': typeof AppNetworksIndexRoute
   '/nodes': typeof AppNodesIndexRoute
@@ -499,6 +515,8 @@ export interface FileRoutesById {
   '/admin/templates/$templateId': typeof AdminTemplatesTemplateIdRoute
   '/admin/templates/new': typeof AdminTemplatesNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/download': typeof ApiFilesDownloadRoute
+  '/api/files/upload': typeof ApiFilesUploadRoute
   '/_app/account/': typeof AppAccountIndexRoute
   '/_app/networks/': typeof AppNetworksIndexRoute
   '/_app/nodes/': typeof AppNodesIndexRoute
@@ -558,6 +576,8 @@ export interface FileRouteTypes {
     | '/admin/templates/$templateId'
     | '/admin/templates/new'
     | '/api/auth/$'
+    | '/api/files/download'
+    | '/api/files/upload'
     | '/account/'
     | '/networks/'
     | '/nodes/'
@@ -610,6 +630,8 @@ export interface FileRouteTypes {
     | '/admin/templates/$templateId'
     | '/admin/templates/new'
     | '/api/auth/$'
+    | '/api/files/download'
+    | '/api/files/upload'
     | '/account'
     | '/networks'
     | '/nodes'
@@ -668,6 +690,8 @@ export interface FileRouteTypes {
     | '/admin/templates/$templateId'
     | '/admin/templates/new'
     | '/api/auth/$'
+    | '/api/files/download'
+    | '/api/files/upload'
     | '/_app/account/'
     | '/_app/networks/'
     | '/_app/nodes/'
@@ -705,6 +729,8 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   AcceptInvitationInvitationIdRoute: typeof AcceptInvitationInvitationIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiFilesDownloadRoute: typeof ApiFilesDownloadRoute
+  ApiFilesUploadRoute: typeof ApiFilesUploadRoute
   ApiDaemonV1HeartbeatRoute: typeof ApiDaemonV1HeartbeatRoute
   ApiDaemonV1NodesActivateRoute: typeof ApiDaemonV1NodesActivateRoute
 }
@@ -878,6 +904,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/account/'
       preLoaderRoute: typeof AppAccountIndexRouteImport
       parentRoute: typeof AppAccountRouteRoute
+    }
+    '/api/files/upload': {
+      id: '/api/files/upload'
+      path: '/api/files/upload'
+      fullPath: '/api/files/upload'
+      preLoaderRoute: typeof ApiFilesUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/download': {
+      id: '/api/files/download'
+      path: '/api/files/download'
+      fullPath: '/api/files/download'
+      preLoaderRoute: typeof ApiFilesDownloadRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -1268,6 +1308,8 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   AcceptInvitationInvitationIdRoute: AcceptInvitationInvitationIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiFilesDownloadRoute: ApiFilesDownloadRoute,
+  ApiFilesUploadRoute: ApiFilesUploadRoute,
   ApiDaemonV1HeartbeatRoute: ApiDaemonV1HeartbeatRoute,
   ApiDaemonV1NodesActivateRoute: ApiDaemonV1NodesActivateRoute,
 }

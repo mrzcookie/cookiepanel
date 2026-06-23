@@ -1,39 +1,32 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
-	Archive,
 	ChevronLeft,
 	ChevronRight,
 	CloudDownload,
 	Download,
-	FileArchive,
 	File as FileIcon,
 	FilePlus,
 	Folder,
 	FolderPlus,
 	House,
 	KeyRound,
+	Loader2,
 	MoreHorizontal,
-	PackageOpen,
 	Pencil,
 	Trash2,
 	Upload,
-	X,
 } from "lucide-react";
 import {
 	type ChangeEvent,
 	type DragEvent,
-	type ReactNode,
+	useCallback,
 	useEffect,
 	useRef,
 	useState,
 } from "react";
 import { toast } from "sonner";
 import { CodeEditor } from "@/components/shared/code-editor";
-import {
-	CopyButton,
-	DetailList,
-	DetailRow,
-} from "@/components/shared/detail-list";
 import { UsageBar } from "@/components/shared/entity-card";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,13 +56,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
-import {
 	Table,
 	TableBody,
 	TableCell,
@@ -77,52 +63,35 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import type { FileJob } from "@/lib/domain/file-jobs";
 import {
-	ARCHIVE_FORMATS,
-	type ArchiveFormat,
-	archiveBaseName,
 	basename,
-	countChildren,
-	type FileNode,
+	type FileEntry,
 	fileLanguage,
 	fileNameFromUrl,
-	findNode,
-	isArchive,
 	isTextFile,
-	listChildren,
+	joinPath,
 	parentPath,
 	pathOfDepth,
 	segments,
-	subtreeBytes,
-	uniqueChildName,
+	transferProgress,
 	validateName,
 } from "@/lib/domain/files";
-import type { SftpSession } from "@/lib/domain/sftp";
-import { formatBytes, pluralize } from "@/lib/format";
-import { useServer } from "@/lib/server-queries";
-import {
-	dismissJob,
-	startArchive,
-	startExtract,
-	startUpload,
-	startUrlPull,
-	useFileJobs,
-} from "@/lib/stores/file-jobs-store";
 import {
 	createDirectory,
 	createFile,
-	deleteNode,
-	deleteNodes,
-	renameNode,
-	useServerFiles,
+	deleteEntry,
+	fileContentQueryOptions,
+	fileDownloadUrl,
+	invalidateFiles,
+	pullUrl,
+	renameEntry,
+	uploadFile,
+	urlJobQueryOptions,
+	useFiles,
 	writeFile,
-} from "@/lib/stores/files-store";
-import {
-	closeSftpSession,
-	openSftpSession,
-	useSftpSession,
-} from "@/lib/stores/sftp-store";
+} from "@/lib/file-queries";
+import { formatBytes, formatRelativeTime, pluralize } from "@/lib/format";
+import { useServer } from "@/lib/server-queries";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/servers/$serverId/files")({
@@ -132,7 +101,6 @@ export const Route = createFileRoute("/_app/servers/$serverId/files")({
 function ServerFilesTab() {
 	const { serverId } = Route.useParams();
 	const server = useServer(serverId);
-	const nodes = useServerFiles(serverId);
 	const [path, setPath] = useState("/");
 	const [editingPath, setEditingPath] = useState<string | null>(null);
 
@@ -140,16 +108,25 @@ function ServerFilesTab() {
 		return null;
 	}
 
-	// Guard against a stale path (e.g. the directory was renamed or deleted).
-	const currentDir = path === "/" || findNode(nodes, path) ? path : "/";
-	const editingNode = editingPath ? findNode(nodes, editingPath) : undefined;
+	if (server.state === "installing") {
+		return (
+			<Card>
+				<CardHeader>
+					<CardTitle>Files</CardTitle>
+					<CardDescription>
+						The file manager opens once this server finishes installing.
+					</CardDescription>
+				</CardHeader>
+			</Card>
+		);
+	}
 
-	if (editingNode && editingNode.kind === "file") {
+	if (editingPath) {
 		return (
 			<FileEditor
-				key={editingNode.path}
-				node={editingNode}
+				key={editingPath}
 				onClose={() => setEditingPath(null)}
+				path={editingPath}
 				serverId={serverId}
 			/>
 		);
@@ -157,9 +134,7 @@ function ServerFilesTab() {
 
 	return (
 		<FileBrowser
-			currentDir={currentDir}
-			host={server.nodeAddress}
-			nodes={nodes}
+			currentDir={path}
 			onEdit={setEditingPath}
 			onNavigate={setPath}
 			serverId={serverId}
@@ -169,61 +144,49 @@ function ServerFilesTab() {
 
 // — Browser ————————————————————————————————————————————————————————————————————
 
+type UrlJob = { id: string; name: string };
+
 function FileBrowser({
 	currentDir,
-	host,
-	nodes,
 	onEdit,
 	onNavigate,
 	serverId,
 }: {
 	currentDir: string;
-	host: string;
-	nodes: FileNode[];
 	onEdit: (path: string) => void;
 	onNavigate: (path: string) => void;
 	serverId: string;
 }) {
-	const children = listChildren(nodes, currentDir);
-	const jobs = useFileJobs(serverId);
-	const session = useSftpSession(serverId);
+	const queryClient = useQueryClient();
+	const { data, isLoading, isError, error } = useFiles(serverId, currentDir);
+	const entries = data ?? [];
 
 	const [selected, setSelected] = useState<Set<string>>(new Set());
 	const [dragActive, setDragActive] = useState(false);
 	const [dragFolder, setDragFolder] = useState<string | null>(null);
+	const [jobs, setJobs] = useState<UrlJob[]>([]);
 
 	const [newFolderOpen, setNewFolderOpen] = useState(false);
 	const [newFileOpen, setNewFileOpen] = useState(false);
 	const [urlOpen, setUrlOpen] = useState(false);
 	const [sftpOpen, setSftpOpen] = useState(false);
 	const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-	const [zipSources, setZipSources] = useState<string[] | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
-	// Selection is scoped to the current listing — clear it when we change folder.
+	const existingNames = new Set(entries.map((entry) => entry.name));
+	const selectedHere = entries.filter((entry) => selected.has(entry.path));
+	const allSelected =
+		entries.length > 0 && entries.every((entry) => selected.has(entry.path));
+	const someSelected = entries.some((entry) => selected.has(entry.path));
+
 	function navigate(target: string) {
 		setSelected(new Set());
 		onNavigate(target);
 	}
 
-	// Names an in-flight job will land in `dir`, so create / upload / compress /
-	// extract don't collide with a job that hasn't finished writing to the tree.
-	function pendingNamesIn(dir: string) {
-		return jobs
-			.filter((job) => job.status === "active" && job.dir === dir)
-			.map((job) => job.name);
+	function refresh() {
+		return invalidateFiles(queryClient, serverId);
 	}
-
-	const existingNames = new Set([
-		...children.map((child) => child.name),
-		...pendingNamesIn(currentDir),
-	]);
-	// Reconcile selection against what's actually listed, so a renamed or deleted
-	// item drops out of the selection bar instead of acting on a stale path.
-	const selectedHere = children.filter((child) => selected.has(child.path));
-	const allSelected =
-		children.length > 0 && children.every((child) => selected.has(child.path));
-	const someSelected = children.some((child) => selected.has(child.path));
 
 	function toggleSelect(targetPath: string) {
 		setSelected((current) => {
@@ -239,32 +202,39 @@ function FileBrowser({
 
 	function toggleSelectAll(checked: boolean) {
 		setSelected(
-			checked ? new Set(children.map((child) => child.path)) : new Set()
+			checked ? new Set(entries.map((entry) => entry.path)) : new Set()
 		);
 	}
 
-	function uploadFiles(fileList: FileList, dir: string) {
-		const taken = new Set([
-			...listChildren(nodes, dir).map((child) => child.name),
-			...pendingNamesIn(dir),
-		]);
-		let started = 0;
-		for (const file of Array.from(fileList)) {
+	async function uploadFiles(fileList: FileList, dir: string) {
+		const files = Array.from(fileList).filter((file) => {
 			const nameError = validateName(file.name);
 			if (nameError) {
 				toast.error(`Can't upload “${file.name}”: ${nameError.toLowerCase()}`);
-				continue;
 			}
-			if (taken.has(file.name)) {
-				toast.error(`“${file.name}” already exists in that folder.`);
-				continue;
-			}
-			taken.add(file.name);
-			startUpload(serverId, dir, file);
-			started += 1;
+			return !nameError;
+		});
+		if (files.length === 0) {
+			return;
 		}
-		if (started > 0) {
-			toast.success(`Uploading ${pluralize(started, "file")}…`);
+		const dismiss = toast.loading(
+			`Uploading ${pluralize(files.length, "file")}…`
+		);
+		try {
+			await Promise.all(
+				files.map((file) =>
+					uploadFile(serverId, joinPath(dir, file.name), file)
+				)
+			);
+			await refresh();
+			toast.success(`Uploaded ${pluralize(files.length, "file")}.`, {
+				id: dismiss,
+			});
+		} catch (uploadError) {
+			toast.error(
+				uploadError instanceof Error ? uploadError.message : "Upload failed.",
+				{ id: dismiss }
+			);
 		}
 	}
 
@@ -288,69 +258,76 @@ function FileBrowser({
 
 	const folderDrag = {
 		activePath: dragFolder,
-		over(targetPath: string) {
-			setDragFolder(targetPath);
-		},
-		leave(targetPath: string) {
-			setDragFolder((current) => (current === targetPath ? null : current));
-		},
-		drop(event: DragEvent, targetPath: string) {
+		over: (targetPath: string) => setDragFolder(targetPath),
+		leave: (targetPath: string) =>
+			setDragFolder((current) => (current === targetPath ? null : current)),
+		drop: (event: DragEvent, targetPath: string) => {
 			event.stopPropagation();
 			dropFiles(event, targetPath);
 		},
 	};
 
-	function compress(base: string, format: ArchiveFormat) {
-		const sources = zipSources ?? [];
-		const name = uniqueChildName(
-			nodes,
-			currentDir,
-			`${base.trim()}.${format}`,
-			pendingNamesIn(currentDir)
-		);
-		const total = sources.reduce(
-			(sum, source) => sum + subtreeBytes(nodes, source),
-			0
-		);
-		startArchive(
-			serverId,
-			currentDir,
-			name,
-			Math.max(1024, Math.round(total * 0.6))
-		);
-		setSelected(new Set());
-		toast.success(
-			`Compressing ${pluralize(sources.length, "item")} into ${name}…`
-		);
+	const startUrlJob = useCallback(
+		async (url: string, name: string) => {
+			try {
+				const { jobId } = await pullUrl(
+					serverId,
+					joinPath(currentDir, name),
+					url
+				);
+				setJobs((current) => [...current, { id: jobId, name }]);
+			} catch (pullError) {
+				toast.error(
+					pullError instanceof Error
+						? pullError.message
+						: "Couldn't start the download."
+				);
+			}
+		},
+		[serverId, currentDir]
+	);
+
+	const onJobDone = useCallback(
+		(id: string, name: string, state: string, jobError: string | null) => {
+			setJobs((current) => current.filter((job) => job.id !== id));
+			if (state === "done") {
+				toast.success(`Downloaded ${name}.`);
+				invalidateFiles(queryClient, serverId);
+			} else if (state === "error") {
+				toast.error(`Couldn't download ${name}: ${jobError ?? "failed"}.`);
+			}
+		},
+		[queryClient, serverId]
+	);
+
+	async function remove(entry: FileEntry) {
+		try {
+			await deleteEntry(serverId, entry.path);
+			await refresh();
+			toast.success(`Deleted “${entry.name}”.`);
+		} catch (deleteError) {
+			toast.error(
+				deleteError instanceof Error ? deleteError.message : "Couldn't delete."
+			);
+		}
 	}
 
-	function extract(node: FileNode) {
-		// The output folder is derived from the archive name, so run it through the
-		// same name guard the other write paths use (an archive named "..tar" would
-		// otherwise yield a "." folder). Fall back to a safe default.
-		const base = archiveBaseName(node.name);
-		const safeBase = validateName(base) ? "extracted" : base;
-		const folderName = uniqueChildName(
-			nodes,
-			currentDir,
-			safeBase,
-			pendingNamesIn(currentDir)
-		);
-		startExtract(
-			serverId,
-			currentDir,
-			folderName,
-			node.name,
-			Math.max(1024, Math.round(node.size * 1.4))
-		);
-		toast.success(`Extracting ${node.name}…`);
-	}
-
-	function bulkDelete() {
-		const paths = selectedHere.map((child) => child.path);
-		deleteNodes(serverId, paths);
+	async function bulkDelete() {
+		const targets = selectedHere;
 		setSelected(new Set());
-		toast.success(`Deleted ${pluralize(paths.length, "item")}.`);
+		try {
+			await Promise.all(
+				targets.map((entry) => deleteEntry(serverId, entry.path))
+			);
+			await refresh();
+			toast.success(`Deleted ${pluralize(targets.length, "item")}.`);
+		} catch (deleteError) {
+			toast.error(
+				deleteError instanceof Error
+					? deleteError.message
+					: "Couldn't delete the selection."
+			);
+		}
 	}
 
 	return (
@@ -373,22 +350,12 @@ function FileBrowser({
 							type="file"
 						/>
 						<Button
-							aria-label={session ? "SFTP, session active" : undefined}
 							onClick={() => setSftpOpen(true)}
 							size="sm"
 							variant="outline"
 						>
 							<KeyRound />
 							SFTP
-							{session ? (
-								<>
-									<span
-										aria-hidden
-										className="size-2 shrink-0 rounded-full bg-ok"
-									/>
-									<span className="sr-only">session active</span>
-								</>
-							) : null}
 						</Button>
 						<Button
 							onClick={() => fileInputRef.current?.click()}
@@ -421,15 +388,14 @@ function FileBrowser({
 					</div>
 				</div>
 
-				{jobs.length > 0 ? <ActivityPanel jobs={jobs} /> : null}
+				{jobs.length > 0 ? (
+					<ActivityPanel jobs={jobs} onDone={onJobDone} serverId={serverId} />
+				) : null}
 
 				{selectedHere.length > 0 ? (
 					<SelectionBar
 						count={selectedHere.length}
 						onClear={() => setSelected(new Set())}
-						onCompress={() =>
-							setZipSources(selectedHere.map((child) => child.path))
-						}
 						onDelete={() => setBulkDeleteOpen(true)}
 					/>
 				) : null}
@@ -454,7 +420,17 @@ function FileBrowser({
 					}}
 					onDrop={(event) => dropFiles(event, currentDir)}
 				>
-					{children.length === 0 ? (
+					{isLoading ? (
+						<div className="flex items-center justify-center gap-2 py-12 text-muted-foreground text-sm">
+							<Loader2 className="size-4 animate-spin" />
+							Loading files…
+						</div>
+					) : isError ? (
+						<div className="rounded-lg border border-warn/40 bg-warn-wash py-12 text-center text-sm text-warn-foreground">
+							Couldn't reach this server's files
+							{error instanceof Error ? `: ${error.message}` : "."}
+						</div>
+					) : entries.length === 0 ? (
 						<div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground text-sm">
 							This folder is empty. Drop files here to upload.
 						</div>
@@ -487,18 +463,17 @@ function FileBrowser({
 									</TableRow>
 								</TableHeader>
 								<TableBody>
-									{children.map((node) => (
+									{entries.map((entry) => (
 										<FileRow
+											entry={entry}
 											folderDrag={folderDrag}
-											key={node.path}
-											node={node}
-											nodes={nodes}
-											onCompress={(target) => setZipSources([target.path])}
+											key={entry.path}
+											onDelete={remove}
 											onEdit={onEdit}
-											onExtract={extract}
 											onNavigate={navigate}
+											onRenamed={refresh}
 											onToggleSelect={toggleSelect}
-											selected={selected.has(node.path)}
+											selected={selected.has(entry.path)}
 											serverId={serverId}
 										/>
 									))}
@@ -513,8 +488,9 @@ function FileBrowser({
 				description="Create a new folder in this directory."
 				existingNames={existingNames}
 				onOpenChange={setNewFolderOpen}
-				onSubmit={(name) => {
-					createDirectory(serverId, currentDir, name);
+				onSubmit={async (name) => {
+					await createDirectory(serverId, joinPath(currentDir, name));
+					await refresh();
 					toast.success(`Created folder “${name}”.`);
 				}}
 				open={newFolderOpen}
@@ -525,8 +501,9 @@ function FileBrowser({
 				description="Create a new empty file in this directory."
 				existingNames={existingNames}
 				onOpenChange={setNewFileOpen}
-				onSubmit={(name) => {
-					createFile(serverId, currentDir, name);
+				onSubmit={async (name) => {
+					await createFile(serverId, joinPath(currentDir, name));
+					await refresh();
 					toast.success(`Created file “${name}”.`);
 				}}
 				open={newFileOpen}
@@ -537,25 +514,15 @@ function FileBrowser({
 				existingNames={existingNames}
 				onOpenChange={setUrlOpen}
 				onSubmit={(url, name) => {
-					startUrlPull(serverId, currentDir, url, name);
+					startUrlJob(url, name);
 					toast.success(`Pulling ${name} from the link…`);
 				}}
 				open={urlOpen}
 			/>
-			<SftpDialog
-				host={host}
-				onOpenChange={setSftpOpen}
-				open={sftpOpen}
-				serverId={serverId}
-			/>
-			<ZipDialog
-				onConfirm={compress}
-				onOpenChange={(open) => setZipSources(open ? zipSources : null)}
-				sources={zipSources}
-			/>
+			<SftpDialog onOpenChange={setSftpOpen} open={sftpOpen} />
 			<ConfirmDialog
 				confirmLabel="Delete"
-				description={`Permanently delete ${pluralize(selectedHere.length, "item")} from this folder. This can't be undone.`}
+				description={`Move ${pluralize(selectedHere.length, "item")} to the server's recycle bin.`}
 				onConfirm={bulkDelete}
 				onOpenChange={setBulkDeleteOpen}
 				open={bulkDeleteOpen}
@@ -565,48 +532,68 @@ function FileBrowser({
 	);
 }
 
-// — Activity (jobs) ————————————————————————————————————————————————————————————
+// — Activity (URL-pull jobs) ───────────────────────────────────────────────────
 
-const JOB_VERB: Record<FileJob["kind"], [string, string]> = {
-	upload: ["Uploading", "Uploaded"],
-	url: ["Downloading", "Downloaded"],
-	archive: ["Compressing", "Compressed"],
-	extract: ["Extracting", "Extracted"],
-};
-
-const JOB_ICON = {
-	upload: Upload,
-	url: CloudDownload,
-	archive: FileArchive,
-	extract: PackageOpen,
-} as const;
-
-function ActivityPanel({ jobs }: { jobs: FileJob[] }) {
+function ActivityPanel({
+	jobs,
+	onDone,
+	serverId,
+}: {
+	jobs: UrlJob[];
+	onDone: (
+		id: string,
+		name: string,
+		state: string,
+		error: string | null
+	) => void;
+	serverId: string;
+}) {
 	return (
 		<div className="space-y-2 rounded-lg border p-3">
-			<div className="font-medium text-muted-foreground text-xs">Activity</div>
+			<div className="font-medium text-muted-foreground text-xs">Downloads</div>
 			<ul className="divide-y">
 				{jobs.map((job) => (
-					<JobRow job={job} key={job.id} />
+					<JobRow job={job} key={job.id} onDone={onDone} serverId={serverId} />
 				))}
 			</ul>
 		</div>
 	);
 }
 
-function JobRow({ job }: { job: FileJob }) {
-	const Icon = JOB_ICON[job.kind];
-	const [active, done] = JOB_VERB[job.kind];
+function JobRow({
+	job,
+	onDone,
+	serverId,
+}: {
+	job: UrlJob;
+	onDone: (
+		id: string,
+		name: string,
+		state: string,
+		error: string | null
+	) => void;
+	serverId: string;
+}) {
+	const { data } = useQuery(urlJobQueryOptions(serverId, job.id));
+	const state = data?.state;
+
+	useEffect(() => {
+		if (state && state !== "running") {
+			onDone(job.id, job.name, state, data?.error ?? null);
+		}
+	}, [state, job.id, job.name, data, onDone]);
+
+	const pct = data ? transferProgress(data) : null;
 	const label =
-		job.status === "failed"
-			? "Failed"
-			: job.status === "completed"
-				? done
-				: `${active} · ${job.progress}%`;
+		data && data.total > 0
+			? `${formatBytes(data.done)} / ${formatBytes(data.total)}`
+			: data
+				? formatBytes(data.done)
+				: "Starting…";
 
 	return (
 		<li className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
-			<Icon className="size-4 shrink-0 text-muted-foreground" />
+			<CloudDownload className="size-4 shrink-0 text-muted-foreground" />
 			<div className="min-w-0 flex-1 space-y-1.5">
 				<div className="flex items-center justify-between gap-3">
 					<span className="truncate font-medium text-sm">{job.name}</span>
@@ -614,17 +601,8 @@ function JobRow({ job }: { job: FileJob }) {
 						{label}
 					</span>
 				</div>
-				<UsageBar stressed={job.status === "failed"} value={job.progress} />
+				<UsageBar value={pct ?? 100} />
 			</div>
-			<Button
-				className="size-7 shrink-0 text-muted-foreground"
-				onClick={() => dismissJob(job.id)}
-				size="icon"
-				variant="ghost"
-			>
-				<X />
-				<span className="sr-only">Dismiss {job.name}</span>
-			</Button>
 		</li>
 	);
 }
@@ -632,12 +610,10 @@ function JobRow({ job }: { job: FileJob }) {
 function SelectionBar({
 	count,
 	onClear,
-	onCompress,
 	onDelete,
 }: {
 	count: number;
 	onClear: () => void;
-	onCompress: () => void;
 	onDelete: () => void;
 }) {
 	return (
@@ -646,10 +622,6 @@ function SelectionBar({
 				{pluralize(count, "item")} selected
 			</span>
 			<div className="flex items-center gap-2">
-				<Button onClick={onCompress} size="sm" variant="outline">
-					<Archive />
-					Compress
-				</Button>
 				<Button onClick={onDelete} size="sm" variant="outline">
 					<Trash2 />
 					Delete
@@ -722,39 +694,37 @@ type FolderDrag = {
 };
 
 function FileRow({
+	entry,
 	folderDrag,
-	node,
-	nodes,
-	onCompress,
+	onDelete,
 	onEdit,
-	onExtract,
 	onNavigate,
+	onRenamed,
 	onToggleSelect,
 	selected,
 	serverId,
 }: {
+	entry: FileEntry;
 	folderDrag: FolderDrag;
-	node: FileNode;
-	nodes: FileNode[];
-	onCompress: (node: FileNode) => void;
+	onDelete: (entry: FileEntry) => void;
 	onEdit: (path: string) => void;
-	onExtract: (node: FileNode) => void;
 	onNavigate: (path: string) => void;
+	onRenamed: () => void;
 	onToggleSelect: (path: string) => void;
 	selected: boolean;
 	serverId: string;
 }) {
-	const isDir = node.kind === "directory";
-	const editable = isTextFile(node);
-	const dropping = folderDrag.activePath === node.path;
+	const isDir = entry.kind === "directory";
+	const editable = isTextFile(entry);
+	const dropping = folderDrag.activePath === entry.path;
 
 	function open() {
 		if (isDir) {
-			onNavigate(node.path);
+			onNavigate(entry.path);
 		} else if (editable) {
-			onEdit(node.path);
+			onEdit(entry.path);
 		} else {
-			download(node);
+			triggerDownload(serverId, entry.path);
 		}
 	}
 
@@ -764,15 +734,15 @@ function FileRow({
 					if (event.dataTransfer.types.includes("Files")) {
 						event.preventDefault();
 						event.stopPropagation();
-						folderDrag.over(node.path);
+						folderDrag.over(entry.path);
 					}
 				},
 				onDragLeave(event: DragEvent) {
 					event.stopPropagation();
-					folderDrag.leave(node.path);
+					folderDrag.leave(entry.path);
 				},
 				onDrop(event: DragEvent) {
-					folderDrag.drop(event, node.path);
+					folderDrag.drop(event, entry.path);
 				},
 			}
 		: {};
@@ -781,9 +751,9 @@ function FileRow({
 		<TableRow className={dropping ? "bg-primary/10" : undefined} {...dirDrag}>
 			<TableCell>
 				<Checkbox
-					aria-label={`Select ${node.name}`}
+					aria-label={`Select ${entry.name}`}
 					checked={selected}
-					onCheckedChange={() => onToggleSelect(node.path)}
+					onCheckedChange={() => onToggleSelect(entry.path)}
 				/>
 			</TableCell>
 			<TableCell>
@@ -800,25 +770,24 @@ function FileRow({
 						)}
 					</span>
 					<span className="truncate font-medium text-sm hover:underline">
-						{node.name}
+						{entry.name}
 					</span>
 				</button>
 			</TableCell>
 			<TableCell className="text-right text-muted-foreground text-sm tabular-nums">
-				{sizeLabel(nodes, node)}
+				{isDir ? "—" : formatBytes(entry.size)}
 			</TableCell>
 			<TableCell className="hidden text-right text-muted-foreground text-sm sm:table-cell">
-				{node.modifiedAt}
+				{formatRelativeTime(entry.modifiedAt)}
 			</TableCell>
 			<TableCell className="text-right">
 				<FileRowActions
 					editable={editable}
-					node={node}
-					nodes={nodes}
-					onCompress={onCompress}
+					entry={entry}
+					onDelete={onDelete}
 					onEdit={onEdit}
-					onExtract={onExtract}
 					onNavigate={onNavigate}
+					onRenamed={onRenamed}
 					serverId={serverId}
 				/>
 			</TableCell>
@@ -828,30 +797,24 @@ function FileRow({
 
 function FileRowActions({
 	editable,
-	node,
-	nodes,
-	onCompress,
+	entry,
+	onDelete,
 	onEdit,
-	onExtract,
 	onNavigate,
+	onRenamed,
 	serverId,
 }: {
 	editable: boolean;
-	node: FileNode;
-	nodes: FileNode[];
-	onCompress: (node: FileNode) => void;
+	entry: FileEntry;
+	onDelete: (entry: FileEntry) => void;
 	onEdit: (path: string) => void;
-	onExtract: (node: FileNode) => void;
 	onNavigate: (path: string) => void;
+	onRenamed: () => void;
 	serverId: string;
 }) {
-	const isDir = node.kind === "directory";
+	const isDir = entry.kind === "directory";
 	const [renameOpen, setRenameOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
-	// Names already used in this node's directory — a rename can't collide.
-	const siblingNames = new Set(
-		listChildren(nodes, parentPath(node.path)).map((sibling) => sibling.name)
-	);
 
 	return (
 		<>
@@ -859,38 +822,30 @@ function FileRowActions({
 				<DropdownMenuTrigger asChild>
 					<Button className="text-muted-foreground" size="icon" variant="ghost">
 						<MoreHorizontal />
-						<span className="sr-only">Actions for {node.name}</span>
+						<span className="sr-only">Actions for {entry.name}</span>
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end">
 					{isDir ? (
-						<DropdownMenuItem onClick={() => onNavigate(node.path)}>
+						<DropdownMenuItem onClick={() => onNavigate(entry.path)}>
 							Open
 						</DropdownMenuItem>
 					) : (
 						<>
 							{editable ? (
-								<DropdownMenuItem onClick={() => onEdit(node.path)}>
+								<DropdownMenuItem onClick={() => onEdit(entry.path)}>
 									<Pencil />
 									Edit
 								</DropdownMenuItem>
 							) : null}
-							<DropdownMenuItem onClick={() => download(node)}>
+							<DropdownMenuItem
+								onClick={() => triggerDownload(serverId, entry.path)}
+							>
 								<Download />
 								Download
 							</DropdownMenuItem>
 						</>
 					)}
-					{isArchive(node) ? (
-						<DropdownMenuItem onClick={() => onExtract(node)}>
-							<PackageOpen />
-							Extract here
-						</DropdownMenuItem>
-					) : null}
-					<DropdownMenuItem onClick={() => onCompress(node)}>
-						<Archive />
-						Compress…
-					</DropdownMenuItem>
 					<DropdownMenuItem onClick={() => setRenameOpen(true)}>
 						<Pencil />
 						Rename
@@ -907,12 +862,17 @@ function FileRowActions({
 			</DropdownMenu>
 
 			<NameDialog
-				description={`Give “${node.name}” a new name.`}
-				existingNames={siblingNames}
-				initialName={node.name}
+				description={`Give “${entry.name}” a new name.`}
+				existingNames={new Set()}
+				initialName={entry.name}
 				onOpenChange={setRenameOpen}
-				onSubmit={(name) => {
-					renameNode(serverId, node.path, name);
+				onSubmit={async (name) => {
+					await renameEntry(
+						serverId,
+						entry.path,
+						joinPath(parentPath(entry.path), name)
+					);
+					onRenamed();
 					toast.success(`Renamed to “${name}”.`);
 				}}
 				open={renameOpen}
@@ -923,13 +883,10 @@ function FileRowActions({
 				confirmLabel="Delete"
 				description={
 					isDir
-						? `Permanently delete “${node.name}” and everything inside it. This can't be undone.`
-						: `Permanently delete “${node.name}”. This can't be undone.`
+						? `Move “${entry.name}” and everything inside it to the recycle bin.`
+						: `Move “${entry.name}” to the recycle bin.`
 				}
-				onConfirm={() => {
-					deleteNode(serverId, node.path);
-					toast.success(`Deleted “${node.name}”.`);
-				}}
+				onConfirm={() => onDelete(entry)}
 				onOpenChange={setDeleteOpen}
 				open={deleteOpen}
 				title={`Delete ${isDir ? "folder" : "file"}?`}
@@ -941,24 +898,44 @@ function FileRowActions({
 // — Editor —————————————————————————————————————————————————————————————————————
 
 function FileEditor({
-	node,
 	onClose,
+	path,
 	serverId,
 }: {
-	node: FileNode;
 	onClose: () => void;
+	path: string;
 	serverId: string;
 }) {
-	const [draft, setDraft] = useState(node.content ?? "");
+	const queryClient = useQueryClient();
+	const { data, isLoading, isError, error } = useQuery(
+		fileContentQueryOptions(serverId, path)
+	);
+	const original = data?.content ?? "";
+	const [draft, setDraft] = useState<string | null>(null);
+	const [saving, setSaving] = useState(false);
 	const [confirmOpen, setConfirmOpen] = useState(false);
-	const dirty = draft !== (node.content ?? "");
+	const name = basename(path);
+	const value = draft ?? original;
+	const dirty = draft !== null && draft !== original;
 
-	function save() {
-		writeFile(serverId, node.path, draft);
-		toast.success(`Saved ${node.name}.`);
+	async function save() {
+		setSaving(true);
+		try {
+			await writeFile(serverId, path, value);
+			setDraft(null);
+			await queryClient.invalidateQueries({
+				queryKey: ["file-content", serverId, path],
+			});
+			toast.success(`Saved ${name}.`);
+		} catch (saveError) {
+			toast.error(
+				saveError instanceof Error ? saveError.message : "Couldn't save."
+			);
+		} finally {
+			setSaving(false);
+		}
 	}
 
-	// Guard the back button so unsaved edits aren't lost to an accidental click.
 	function close() {
 		if (dirty) {
 			setConfirmOpen(true);
@@ -979,25 +956,35 @@ function FileEditor({
 						<ChevronLeft className="size-4" />
 						Files
 					</button>
-					<CardTitle className="truncate font-mono text-base">
-						{node.path}
-					</CardTitle>
+					<CardTitle className="truncate font-mono text-base">{path}</CardTitle>
 				</div>
-				<Button disabled={!dirty} onClick={save} size="sm">
-					Save
+				<Button disabled={!dirty || saving} onClick={save} size="sm">
+					{saving ? "Saving…" : "Save"}
 				</Button>
 			</CardHeader>
 			<CardContent>
-				<CodeEditor
-					language={fileLanguage(node.name)}
-					onChange={setDraft}
-					value={draft}
-				/>
+				{isLoading ? (
+					<div className="flex items-center justify-center gap-2 py-12 text-muted-foreground text-sm">
+						<Loader2 className="size-4 animate-spin" />
+						Loading…
+					</div>
+				) : isError ? (
+					<div className="rounded-lg border border-warn/40 bg-warn-wash py-12 text-center text-sm text-warn-foreground">
+						Couldn't open this file
+						{error instanceof Error ? `: ${error.message}` : "."}
+					</div>
+				) : (
+					<CodeEditor
+						language={fileLanguage(name)}
+						onChange={setDraft}
+						value={value}
+					/>
+				)}
 			</CardContent>
 
 			<ConfirmDialog
 				confirmLabel="Discard changes"
-				description={`Your edits to “${node.name}” haven't been saved. Leaving now discards them.`}
+				description={`Your edits to “${name}” haven't been saved. Leaving now discards them.`}
 				onConfirm={onClose}
 				onOpenChange={setConfirmOpen}
 				open={confirmOpen}
@@ -1023,14 +1010,14 @@ function NameDialog({
 	existingNames: Set<string>;
 	initialName?: string;
 	onOpenChange: (open: boolean) => void;
-	onSubmit: (name: string) => void;
+	onSubmit: (name: string) => void | Promise<void>;
 	open: boolean;
 	submitLabel: string;
 	title: string;
 }) {
 	const [name, setName] = useState(initialName);
+	const [busy, setBusy] = useState(false);
 
-	// Re-seed each time the dialog opens, so a cancelled edit doesn't linger.
 	useEffect(() => {
 		if (open) {
 			setName(initialName);
@@ -1049,13 +1036,24 @@ function NameDialog({
 		<Dialog onOpenChange={onOpenChange} open={open}>
 			<DialogContent>
 				<form
-					onSubmit={(event) => {
+					onSubmit={async (event) => {
 						event.preventDefault();
-						if (error || unchanged) {
+						if (error || unchanged || busy) {
 							return;
 						}
-						onSubmit(trimmed);
-						onOpenChange(false);
+						setBusy(true);
+						try {
+							await onSubmit(trimmed);
+							onOpenChange(false);
+						} catch (submitError) {
+							toast.error(
+								submitError instanceof Error
+									? submitError.message
+									: "Something went wrong."
+							);
+						} finally {
+							setBusy(false);
+						}
 					}}
 				>
 					<DialogHeader>
@@ -1081,7 +1079,10 @@ function NameDialog({
 								Cancel
 							</Button>
 						</DialogClose>
-						<Button disabled={Boolean(error) || unchanged} type="submit">
+						<Button
+							disabled={Boolean(error) || unchanged || busy}
+							type="submit"
+						>
 							{submitLabel}
 						</Button>
 					</DialogFooter>
@@ -1091,9 +1092,10 @@ function NameDialog({
 	);
 }
 
-function isHttpsUrl(value: string): boolean {
+function isHttpUrl(value: string): boolean {
 	try {
-		return new URL(value).protocol === "https:";
+		const { protocol } = new URL(value);
+		return protocol === "https:" || protocol === "http:";
 	} catch {
 		return false;
 	}
@@ -1122,7 +1124,7 @@ function UrlDialog({
 		}
 	}, [open]);
 
-	const urlValid = isHttpsUrl(url);
+	const urlValid = isHttpUrl(url);
 	const trimmed = name.trim();
 	const nameError =
 		validateName(name) ??
@@ -1147,8 +1149,8 @@ function UrlDialog({
 					<DialogHeader>
 						<DialogTitle>Pull from a link</DialogTitle>
 						<DialogDescription>
-							Paste an HTTPS link and the server downloads it directly, with no
-							need to download it yourself first.
+							Paste a link and the server downloads it directly, with no need to
+							download it yourself first.
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4 py-4">
@@ -1170,7 +1172,7 @@ function UrlDialog({
 							/>
 							{url !== "" && !urlValid ? (
 								<p className="text-destructive text-xs">
-									Enter a valid HTTPS link.
+									Enter a valid HTTP or HTTPS link.
 								</p>
 							) : null}
 						</div>
@@ -1206,140 +1208,30 @@ function UrlDialog({
 	);
 }
 
-function ZipDialog({
-	onConfirm,
-	onOpenChange,
-	sources,
-}: {
-	onConfirm: (base: string, format: ArchiveFormat) => void;
-	onOpenChange: (open: boolean) => void;
-	sources: string[] | null;
-}) {
-	const open = sources !== null;
-	const single = sources?.length === 1 ? sources[0] : null;
-	const [base, setBase] = useState("archive");
-	const [format, setFormat] = useState<ArchiveFormat>("zip");
-
-	useEffect(() => {
-		if (open) {
-			setBase(single ? basename(single) : "archive");
-			setFormat("zip");
-		}
-	}, [open, single]);
-
-	const error = validateName(base);
-	const count = sources?.length ?? 0;
-
-	return (
-		<Dialog onOpenChange={onOpenChange} open={open}>
-			<DialogContent>
-				<form
-					onSubmit={(event) => {
-						event.preventDefault();
-						if (error) {
-							return;
-						}
-						onConfirm(base.trim(), format);
-						onOpenChange(false);
-					}}
-				>
-					<DialogHeader>
-						<DialogTitle>Compress {pluralize(count, "item")}</DialogTitle>
-						<DialogDescription>
-							Create an archive in the current folder.
-						</DialogDescription>
-					</DialogHeader>
-					<div className="flex flex-col gap-4 py-4 sm:flex-row sm:items-end">
-						<div className="grid flex-1 gap-2">
-							<Label htmlFor="zip-name">Archive name</Label>
-							<Input
-								autoFocus
-								className="font-mono"
-								id="zip-name"
-								onChange={(event) => setBase(event.target.value)}
-								value={base}
-							/>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="zip-format">Format</Label>
-							<Select
-								onValueChange={(value) => setFormat(value as ArchiveFormat)}
-								value={format}
-							>
-								<SelectTrigger className="w-28" id="zip-format">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{ARCHIVE_FORMATS.map((option) => (
-										<SelectItem key={option} value={option}>
-											.{option}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-					</div>
-					{base.trim() !== "" && error ? (
-						<p className="-mt-2 pb-2 text-destructive text-xs">{error}</p>
-					) : null}
-					<DialogFooter>
-						<DialogClose asChild>
-							<Button type="button" variant="outline">
-								Cancel
-							</Button>
-						</DialogClose>
-						<Button disabled={Boolean(error)} type="submit">
-							Compress
-						</Button>
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
-	);
-}
-
+// SFTP access (per-session credentials for an external client) needs the daemon's
+// SSH/SFTP subsystem, which lands in a later slice. Until then this is honest
+// about being unavailable rather than minting credentials that won't connect.
 function SftpDialog({
-	host,
 	onOpenChange,
 	open,
-	serverId,
 }: {
-	host: string;
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
-	serverId: string;
 }) {
-	const session = useSftpSession(serverId);
-
-	// Opening the dialog with no live session mints one (new credentials each
-	// time). An existing session is shown as-is — closing it revokes the access.
-	useEffect(() => {
-		if (open && !session) {
-			openSftpSession(serverId, host);
-		}
-	}, [open, session, serverId, host]);
-
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle>SFTP session</DialogTitle>
+					<DialogTitle>SFTP access</DialogTitle>
 					<DialogDescription>
-						Connect with any SFTP client to upload files. These credentials are
-						single-use and stay valid until you close the session.
+						Connect any SFTP client to manage files in bulk.
 					</DialogDescription>
 				</DialogHeader>
-				{session ? <SftpCredentials session={session} /> : null}
+				<p className="py-2 text-muted-foreground text-sm">
+					SFTP sessions are coming in a later update. For now, use the file
+					browser here — upload, download, edit, and pull from a link all work.
+				</p>
 				<DialogFooter>
-					<Button
-						onClick={() => {
-							closeSftpSession(serverId);
-							onOpenChange(false);
-						}}
-						variant="destructive"
-					>
-						Close session
-					</Button>
 					<DialogClose asChild>
 						<Button type="button" variant="outline">
 							Done
@@ -1348,26 +1240,6 @@ function SftpDialog({
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-function SftpCredentials({ session }: { session: SftpSession }) {
-	const command = `sftp -P ${session.port} ${session.username}@${session.host}`;
-	return (
-		<div className="space-y-3 py-2">
-			<DetailList>
-				<DetailRow copyable label="Host" value={session.host} wrap />
-				<DetailRow label="Port" value={String(session.port)} />
-				<DetailRow copyable label="Username" value={session.username} wrap />
-				<DetailRow copyable label="Password" value={session.password} wrap />
-			</DetailList>
-			<div className="flex items-start gap-1 rounded-lg bg-muted/50 px-3 py-2">
-				<span className="min-w-0 flex-1 break-all font-mono text-xs">
-					{command}
-				</span>
-				<CopyButton label="SFTP command" value={command} />
-			</div>
-		</div>
 	);
 }
 
@@ -1416,25 +1288,9 @@ function ConfirmDialog({
 
 // — Helpers ————————————————————————————————————————————————————————————————————
 
-function sizeLabel(nodes: FileNode[], node: FileNode): ReactNode {
-	if (node.kind === "directory") {
-		const count = countChildren(nodes, node.path);
-		return count === 0 ? "empty" : pluralize(count, "item");
-	}
-	return formatBytes(node.size);
-}
-
-function download(node: FileNode) {
-	if (node.content === undefined) {
-		toast.info("Downloading this file isn't available in the demo.");
-		return;
-	}
-	const blob = new Blob([node.content], { type: "text/plain;charset=utf-8" });
-	const url = URL.createObjectURL(blob);
+function triggerDownload(serverId: string, path: string) {
 	const anchor = document.createElement("a");
-	anchor.href = url;
-	anchor.download = node.name;
+	anchor.href = fileDownloadUrl(serverId, path);
+	anchor.rel = "noopener";
 	anchor.click();
-	URL.revokeObjectURL(url);
-	toast.success(`Downloading ${node.name}.`);
 }

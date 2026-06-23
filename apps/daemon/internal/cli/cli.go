@@ -28,6 +28,7 @@ import (
 	"github.com/cookiepanel/cookied/internal/api"
 	"github.com/cookiepanel/cookied/internal/credentials"
 	"github.com/cookiepanel/cookied/internal/docker"
+	"github.com/cookiepanel/cookied/internal/filesystem"
 	"github.com/cookiepanel/cookied/internal/firewall"
 	"github.com/cookiepanel/cookied/internal/network"
 	"github.com/cookiepanel/cookied/internal/remote"
@@ -180,6 +181,7 @@ func newRunCmd() *cobra.Command {
 					Servers:       server.NewManager(dockerClient),
 					Networks:      network.NewManager(dockerClient),
 					Firewall:      firewall.NewManager(apiPort),
+					Files:         filesystem.New(dockerClient),
 				})
 				if err := apiSrv.Start(); err != nil {
 					return err

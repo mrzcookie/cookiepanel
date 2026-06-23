@@ -1,8 +1,9 @@
 // Package server is the daemon's server (container) lifecycle: create a server
 // from a template's image, then start / stop / restart / delete it. A server is
-// a labelled container created from an image with env + an optional port binding.
-// The egg install pipeline, named-volume persistence, console attach, and disk
-// usage land in later slices.
+// a labelled container created from an image with env, an optional port binding,
+// and a per-server named data volume mounted at /data (its working directory) so
+// its files survive a recreate and the file manager can reach them on the host.
+// The egg install pipeline and disk-quota enforcement land in later slices.
 package server
 
 import (
@@ -16,6 +17,17 @@ import (
 
 // nameRE validates the panel-supplied name; the container name is `cookied-<name>`.
 var nameRE = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,62}$`)
+
+// dataVolumePrefix + dataMountPath define the per-server data volume. The prefix
+// MUST match filesystem.VolumePrefix so the file manager resolves the same
+// volume the container writes to.
+const (
+	dataVolumePrefix = "cookied-srv-"
+	dataMountPath    = "/data"
+)
+
+// DataVolumeName is the named volume holding a server's data.
+func DataVolumeName(serverID string) string { return dataVolumePrefix + serverID }
 
 // Manager owns server-container lifecycle over the docker client.
 type Manager struct {
@@ -87,6 +99,14 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (*Server, error
 		return nil, err
 	}
 
+	// The data volume holds the server's files (mounted at /data, its working
+	// directory). Created idempotently before the container so a recreate reuses
+	// the same data and the file manager has a stable root.
+	volName := DataVolumeName(req.ServerID)
+	if err := m.docker.CreateVolume(ctx, volName, req.ServerID); err != nil {
+		return nil, err
+	}
+
 	spec := docker.CreateSpec{
 		ServerID:       req.ServerID,
 		Name:           "cookied-" + req.Name,
@@ -96,6 +116,8 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (*Server, error
 		NanoCPUs:       req.NanoCPUs,
 		MemoryMB:       req.MemoryMB,
 		StopSignal:     req.StopSignal,
+		Volumes:        []docker.VolumeMount{{Name: volName, Path: dataMountPath}},
+		WorkingDir:     dataMountPath,
 	}
 	if req.PortBinding != nil {
 		spec.PortBinding = &docker.PortBinding{
@@ -165,17 +187,22 @@ func (m *Manager) SendCommand(
 	return m.docker.SendCommand(ctx, c.ID, command)
 }
 
-// Delete removes the server's container. A missing container is not an error
-// (the desired end-state is "gone").
+// Delete removes the server's container and its data volume. A missing container
+// is not an error (the desired end-state is "gone"); the volume is torn down
+// regardless so deleting a server reclaims its disk.
 func (m *Manager) Delete(ctx context.Context, serverID string) error {
 	c, err := m.docker.InspectByServerID(ctx, serverID)
 	if err != nil {
 		return err
 	}
-	if c == nil {
-		return nil
+	if c != nil {
+		if err := m.docker.RemoveContainer(ctx, c.ID, true); err != nil {
+			return err
+		}
 	}
-	return m.docker.RemoveContainer(ctx, c.ID, true)
+	// Named volumes outlive ContainerRemove's anonymous-only cleanup, so tear the
+	// server's data volume down explicitly.
+	return m.docker.RemoveVolumesByServerID(ctx, serverID)
 }
 
 // Get returns the server snapshot, or (nil, nil) if no container exists for it.
