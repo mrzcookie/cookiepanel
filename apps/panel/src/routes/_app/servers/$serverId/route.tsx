@@ -1,3 +1,4 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { Play, RotateCw, Square } from "lucide-react";
 import { toast } from "sonner";
@@ -12,13 +13,14 @@ import {
 	DATABASE_BROWSER_LABEL,
 	hasDatabaseBrowser,
 } from "@/lib/domain/templates";
-import { serverStatus } from "@/lib/status";
 import {
+	invalidateServers,
 	restartServer,
+	serverQueryOptions,
 	startServer,
 	stopServer,
-	useServer,
-} from "@/lib/stores/servers-store";
+} from "@/lib/server-queries";
+import { serverStatus } from "@/lib/status";
 import {
 	templatesListQueryOptions,
 	useTemplate,
@@ -48,9 +50,12 @@ export const Route = createFileRoute("/_app/servers/$serverId")({
 
 function ServerDetailLayout() {
 	const { serverId } = Route.useParams();
-	const server = useServer(serverId);
+	const query = useQuery(serverQueryOptions(serverId));
 
-	if (!server) {
+	if (query.isPending) {
+		return null;
+	}
+	if (!query.data) {
 		return (
 			<ErrorScreen
 				action={
@@ -67,20 +72,33 @@ function ServerDetailLayout() {
 		);
 	}
 
-	return <ServerChrome server={server} />;
+	return <ServerChrome server={query.data} />;
 }
 
 function PowerControls({ server }: { server: ServerRow }) {
 	const { id, state } = server;
+	const queryClient = useQueryClient();
+
+	// Drive a power action, surface failures (an unreachable box, a stuck
+	// container), and refresh every server feed afterward.
+	async function act(run: () => Promise<unknown>, pending: string) {
+		toast.message(pending);
+		try {
+			await run();
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't reach the server."
+			);
+		} finally {
+			await invalidateServers(queryClient);
+		}
+	}
 
 	if (state === "running") {
 		return (
 			<>
 				<Button
-					onClick={() => {
-						restartServer(id);
-						toast.success("Restarting the server…");
-					}}
+					onClick={() => act(() => restartServer(id), "Restarting the server…")}
 					size="sm"
 					variant="outline"
 				>
@@ -88,10 +106,7 @@ function PowerControls({ server }: { server: ServerRow }) {
 					Restart
 				</Button>
 				<Button
-					onClick={() => {
-						stopServer(id);
-						toast.success("Stopping the server…");
-					}}
+					onClick={() => act(() => stopServer(id), "Stopping the server…")}
 					size="sm"
 					variant="outline"
 				>
@@ -105,10 +120,7 @@ function PowerControls({ server }: { server: ServerRow }) {
 	if (state === "starting") {
 		return (
 			<Button
-				onClick={() => {
-					stopServer(id);
-					toast.success("Stopping the server…");
-				}}
+				onClick={() => act(() => stopServer(id), "Stopping the server…")}
 				size="sm"
 				variant="outline"
 			>
@@ -129,10 +141,7 @@ function PowerControls({ server }: { server: ServerRow }) {
 	// stopped | failed
 	return (
 		<Button
-			onClick={() => {
-				startServer(id);
-				toast.success("Starting the server…");
-			}}
+			onClick={() => act(() => startServer(id), "Starting the server…")}
 			size="sm"
 		>
 			<Play />

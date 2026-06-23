@@ -11,7 +11,7 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import type { ServerRow } from "@/lib/domain/servers";
-import { useServer } from "@/lib/stores/servers-store";
+import { useServer } from "@/lib/server-queries";
 
 // xterm touches the DOM at import, so the console only loads on the client.
 const ServerConsole = lazy(() => import("@/components/servers/server-console"));

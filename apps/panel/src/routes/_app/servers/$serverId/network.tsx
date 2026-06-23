@@ -38,13 +38,13 @@ import type {
 	NetworkRow,
 } from "@/lib/domain/networks";
 import type { ServerRow } from "@/lib/domain/servers";
+import { useServer } from "@/lib/server-queries";
 import {
 	addAllocation,
 	portInUse,
 	releaseAllocation,
 	useServerAllocations,
 } from "@/lib/stores/allocations-store";
-import { useServer } from "@/lib/stores/servers-store";
 import { networksForServer } from "@/lib/stubs";
 
 export const Route = createFileRoute("/_app/servers/$serverId/network")({

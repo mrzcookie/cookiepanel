@@ -8,7 +8,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { useServer } from "@/lib/stores/servers-store";
+import { useServer } from "@/lib/server-queries";
 
 export const Route = createFileRoute("/_app/servers/$serverId/activity")({
 	component: ServerActivityTab,

@@ -20,8 +20,8 @@ import {
 	nodeStatsQueryOptions,
 	useNode,
 } from "@/lib/node-queries";
+import { useServersForNode } from "@/lib/server-queries";
 import { serverStatus } from "@/lib/status";
-import { serversForNode } from "@/lib/stubs";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/nodes/$nodeId/")({
@@ -57,13 +57,13 @@ function formatUptime(seconds: number): string {
 function NodeOverview() {
 	const { nodeId } = Route.useParams();
 	const node = useNode(nodeId);
+	const servers = useServersForNode(nodeId);
 
 	if (!node) {
 		return null;
 	}
 
 	const pending = node.status === "pending";
-	const servers = serversForNode(node.id);
 
 	return (
 		<div className="space-y-6">

@@ -100,6 +100,7 @@ import {
 } from "@/lib/domain/files";
 import type { SftpSession } from "@/lib/domain/sftp";
 import { formatBytes, pluralize } from "@/lib/format";
+import { useServer } from "@/lib/server-queries";
 import {
 	dismissJob,
 	startArchive,
@@ -117,7 +118,6 @@ import {
 	useServerFiles,
 	writeFile,
 } from "@/lib/stores/files-store";
-import { useServer } from "@/lib/stores/servers-store";
 import {
 	closeSftpSession,
 	openSftpSession,

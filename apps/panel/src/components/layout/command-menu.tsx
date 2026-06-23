@@ -20,8 +20,8 @@ import {
 } from "@/components/ui/command";
 import { NAV } from "@/lib/nav";
 import { useNodes } from "@/lib/node-queries";
+import { useServers } from "@/lib/server-queries";
 import { useNetworks } from "@/lib/stores/networks-store";
-import { useServers } from "@/lib/stores/servers-store";
 import { useTemplates } from "@/lib/templates-queries";
 
 // A search-bar-styled launcher in the topbar that opens a command palette for

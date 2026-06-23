@@ -43,13 +43,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Backup } from "@/lib/domain/backups";
 import { formatBytes } from "@/lib/format";
+import { useServer } from "@/lib/server-queries";
 import {
 	createBackup,
 	deleteBackup,
 	toggleBackupLock,
 	useServerBackups,
 } from "@/lib/stores/backups-store";
-import { useServer } from "@/lib/stores/servers-store";
 
 export const Route = createFileRoute("/_app/servers/$serverId/backups")({
 	component: ServerBackupsTab,

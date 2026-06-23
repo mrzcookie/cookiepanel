@@ -1732,9 +1732,6 @@ export const FIREWALL: FirewallRow[] = [
 	},
 ];
 
-export function serversForNode(nodeId: string) {
-	return SERVERS.filter((server) => server.nodeId === nodeId);
-}
 export function networksForServer(serverId: string) {
 	return NETWORKS.filter((network) => network.serverIds.includes(serverId));
 }

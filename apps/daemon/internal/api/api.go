@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cookiepanel/cookied/internal/docker"
+	"github.com/cookiepanel/cookied/internal/server"
 	"github.com/cookiepanel/cookied/internal/system"
 	cookietls "github.com/cookiepanel/cookied/internal/tls"
 	"github.com/cookiepanel/cookied/internal/version"
@@ -33,12 +35,14 @@ import (
 
 // Server is the panel-facing HTTPS server.
 type Server struct {
-	addr       string
-	nodeKey    string
-	nodeID     string
-	staticInfo map[string]any
-	startedAt  time.Time
-	tls        *cookietls.Material
+	addr         string
+	nodeKey      string
+	nodeID       string
+	staticInfo   map[string]any
+	startedAt    time.Time
+	tls          *cookietls.Material
+	dockerClient *docker.Client
+	servers      *server.Manager
 
 	server   *http.Server
 	listener net.Listener
@@ -46,23 +50,27 @@ type Server struct {
 
 // Config bundles the dependencies needed to construct a Server.
 type Config struct {
-	Addr       string         // e.g. ":8443"
-	NodeKey    string         // plaintext node key (the bearer)
-	NodeID     string         // reported in the /system response
-	StaticInfo map[string]any // os/arch/cpus/mem/disk/daemonVersion
-	StartedAt  time.Time
-	TLS        *cookietls.Material
+	Addr         string         // e.g. ":8443"
+	NodeKey      string         // plaintext node key (the bearer)
+	NodeID       string         // reported in the /system response
+	StaticInfo   map[string]any // os/arch/cpus/mem/disk/daemonVersion
+	StartedAt    time.Time
+	TLS          *cookietls.Material
+	DockerClient *docker.Client  // may be nil if docker is unavailable
+	Servers      *server.Manager // server-container lifecycle
 }
 
 // New constructs but does not start the server.
 func New(cfg Config) *Server {
 	return &Server{
-		addr:       cfg.Addr,
-		nodeKey:    cfg.NodeKey,
-		nodeID:     cfg.NodeID,
-		staticInfo: cfg.StaticInfo,
-		startedAt:  cfg.StartedAt,
-		tls:        cfg.TLS,
+		addr:         cfg.Addr,
+		nodeKey:      cfg.NodeKey,
+		nodeID:       cfg.NodeID,
+		staticInfo:   cfg.StaticInfo,
+		startedAt:    cfg.StartedAt,
+		tls:          cfg.TLS,
+		dockerClient: cfg.DockerClient,
+		servers:      cfg.Servers,
 	}
 }
 
@@ -105,6 +113,13 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/system", s.handleSystem)
 	mux.HandleFunc("GET /api/v1/system/host", s.handleSystemHost)
 	mux.HandleFunc("GET /api/v1/system/stats", s.handleSystemStats)
+	mux.HandleFunc("GET /api/v1/servers", s.handleListServers)
+	mux.HandleFunc("POST /api/v1/servers", s.handleCreateServer)
+	mux.HandleFunc("GET /api/v1/servers/{id}", s.handleGetServer)
+	mux.HandleFunc("DELETE /api/v1/servers/{id}", s.handleDeleteServer)
+	mux.HandleFunc("POST /api/v1/servers/{id}/start", s.handleStartServer)
+	mux.HandleFunc("POST /api/v1/servers/{id}/stop", s.handleStopServer)
+	mux.HandleFunc("POST /api/v1/servers/{id}/restart", s.handleRestartServer)
 	return recoverPanic(s.bearerAuth(mux))
 }
 
@@ -148,23 +163,98 @@ type SystemResponse struct {
 	DaemonStartedAt time.Time      `json:"daemonStartedAt"`
 	UptimeSeconds   int64          `json:"uptimeSeconds"`
 	System          map[string]any `json:"system"`
-	Docker          map[string]any `json:"docker"`
+	Docker          docker.Info    `json:"docker"`
 }
 
-func (s *Server) handleSystem(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleSystem(w http.ResponseWriter, r *http.Request) {
 	sys := make(map[string]any, len(s.staticInfo))
 	for k, v := range s.staticInfo {
 		sys[k] = v
 	}
+	probeCtx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
 	writeJSON(w, http.StatusOK, SystemResponse{
 		NodeID:          s.nodeID,
 		DaemonVersion:   version.Version,
 		DaemonStartedAt: s.startedAt,
 		UptimeSeconds:   int64(time.Since(s.startedAt).Seconds()),
 		System:          sys,
-		// The Docker subsystem lands in a later slice; report it absent until then.
-		Docker: map[string]any{"available": false},
+		Docker:          s.dockerClient.Probe(probeCtx),
 	})
+}
+
+// ─── servers ─────────────────────────────────────────────────────────────────
+
+func (s *Server) handleListServers(w http.ResponseWriter, r *http.Request) {
+	list, err := s.servers.List(r.Context())
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if list == nil {
+		list = []server.Server{}
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+func (s *Server) handleCreateServer(w http.ResponseWriter, r *http.Request) {
+	var req server.CreateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	srv, err := s.servers.Create(r.Context(), req)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, srv)
+}
+
+func (s *Server) handleGetServer(w http.ResponseWriter, r *http.Request) {
+	srv, err := s.servers.Get(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if srv == nil {
+		writeJSONError(w, http.StatusNotFound, errors.New("no such server"))
+		return
+	}
+	writeJSON(w, http.StatusOK, srv)
+}
+
+func (s *Server) handleDeleteServer(w http.ResponseWriter, r *http.Request) {
+	if err := s.servers.Delete(r.Context(), r.PathValue("id")); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleStartServer(w http.ResponseWriter, r *http.Request) {
+	s.serverPower(w, r, s.servers.Start)
+}
+
+func (s *Server) handleStopServer(w http.ResponseWriter, r *http.Request) {
+	s.serverPower(w, r, s.servers.Stop)
+}
+
+func (s *Server) handleRestartServer(w http.ResponseWriter, r *http.Request) {
+	s.serverPower(w, r, s.servers.Restart)
+}
+
+func (s *Server) serverPower(
+	w http.ResponseWriter,
+	r *http.Request,
+	op func(context.Context, string) (*server.Server, error),
+) {
+	srv, err := op(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, srv)
 }
 
 func (s *Server) handleSystemHost(w http.ResponseWriter, r *http.Request) {

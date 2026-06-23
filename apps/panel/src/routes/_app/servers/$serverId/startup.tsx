@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -29,10 +30,11 @@ import {
 	type TemplateVariable,
 } from "@/lib/domain/templates";
 import {
+	invalidateServers,
 	updateServerRuntime,
 	updateServerVariables,
 	useServer,
-} from "@/lib/stores/servers-store";
+} from "@/lib/server-queries";
 import { useTemplate } from "@/lib/templates-queries";
 
 export const Route = createFileRoute("/_app/servers/$serverId/startup")({
@@ -78,6 +80,7 @@ function RuntimeCard({
 	server: ServerRow;
 	template: Template | undefined;
 }) {
+	const queryClient = useQueryClient();
 	const runtimes = template?.images ?? [];
 	const switchable = runtimes.length > 1;
 	const [runtime, setRuntime] = useState(server.imageLabel);
@@ -90,9 +93,16 @@ function RuntimeCard({
 
 	const changed = runtime !== server.imageLabel;
 
-	function save() {
-		updateServerRuntime(server.id, runtime);
-		toast.success("Runtime saved. Restart the server to apply it.");
+	async function save() {
+		try {
+			await updateServerRuntime(server.id, runtime);
+			await invalidateServers(queryClient);
+			toast.success("Runtime saved. Restart the server to apply it.");
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't save the runtime."
+			);
+		}
 	}
 
 	return (
@@ -198,6 +208,7 @@ function VariablesCard({
 	server: ServerRow;
 	template: Template;
 }) {
+	const queryClient = useQueryClient();
 	const fields = shownVariables(template);
 	const [values, setValues] = useState<Record<string, string>>(() =>
 		seedValues(template, server.variables)
@@ -237,19 +248,30 @@ function VariablesCard({
 		}
 	}
 
-	function save() {
-		// Persist only the editable values; read-only stays as-is and secrets are
-		// never written to the client-safe snapshot (a real impl rotates them over
-		// a separate write-only path).
-		const next = { ...server.variables };
+	async function save() {
+		// Send editable values + any secret edits; the server re-seals secrets
+		// (write-only) and stores the non-secret snapshot.
+		const provided: Record<string, string> = {};
 		for (const variable of template.variables) {
 			if (variable.access === "editable") {
-				next[variable.envVariable] = values[variable.envVariable] ?? "";
+				provided[variable.envVariable] = values[variable.envVariable] ?? "";
 			}
 		}
-		updateServerVariables(server.id, next);
-		setSecrets({});
-		toast.success("Startup variables saved.");
+		for (const [key, value] of Object.entries(secrets)) {
+			if (value.trim() !== "") {
+				provided[key] = value;
+			}
+		}
+		try {
+			await updateServerVariables(server.id, provided);
+			await invalidateServers(queryClient);
+			setSecrets({});
+			toast.success("Startup variables saved.");
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't save variables."
+			);
+		}
 	}
 
 	return (

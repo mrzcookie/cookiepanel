@@ -27,7 +27,9 @@ import (
 
 	"github.com/cookiepanel/cookied/internal/api"
 	"github.com/cookiepanel/cookied/internal/credentials"
+	"github.com/cookiepanel/cookied/internal/docker"
 	"github.com/cookiepanel/cookied/internal/remote"
+	"github.com/cookiepanel/cookied/internal/server"
 	"github.com/cookiepanel/cookied/internal/store"
 	cookietls "github.com/cookiepanel/cookied/internal/tls"
 	"github.com/cookiepanel/cookied/internal/version"
@@ -96,12 +98,12 @@ func newConfigureCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&panelURL, "panel", "", "panel base URL")
 	cmd.Flags().StringVar(&nodeID, "node", "", "node id issued by the panel")
-	cmd.Flags().StringVar(&token, "activate", "", "single-use bootstrap token")
+	cmd.Flags().StringVar(&token, "token", "", "single-use bootstrap token")
 	cmd.Flags().StringVar(&dataDir, "data-dir", defaultDataDir, "directory to store credentials")
 	cmd.Flags().StringVar(&fqdn, "fqdn", "", "this box's FQDN (reported to the panel)")
 	_ = cmd.MarkFlagRequired("panel")
 	_ = cmd.MarkFlagRequired("node")
-	_ = cmd.MarkFlagRequired("activate")
+	_ = cmd.MarkFlagRequired("token")
 	return cmd
 }
 
@@ -125,6 +127,19 @@ func newRunCmd() *cobra.Command {
 			}
 			defer func() { _ = st.Close() }()
 
+			// Docker init is non-fatal: a missing or unreachable engine reports
+			// Available=false and the daemon keeps heartbeating + serving its API.
+			dockerClient, err := docker.New()
+			if err != nil {
+				slog.Warn("docker client init failed; reporting unavailable", "err", err)
+				dockerClient = nil
+			}
+			defer func() {
+				if dockerClient != nil {
+					_ = dockerClient.Close()
+				}
+			}()
+
 			staticInfo := systemInfo()
 			startedAt := time.Now().UTC()
 			if err := st.PutStatus(store.Status{
@@ -132,7 +147,7 @@ func newRunCmd() *cobra.Command {
 				PanelURL:        creds.PanelURL,
 				DaemonVersion:   version.Version,
 				DaemonStartedAt: startedAt,
-				SystemInfo:      composeInfo(staticInfo),
+				SystemInfo:      composeInfo(context.Background(), dockerClient, staticInfo),
 			}); err != nil {
 				return fmt.Errorf("seed status: %w", err)
 			}
@@ -152,12 +167,14 @@ func newRunCmd() *cobra.Command {
 				slog.Info("tls ready", "mode", tlsMat.Mode, "fqdn", creds.FQDN, "fingerprint", fingerprint)
 
 				apiSrv := api.New(api.Config{
-					Addr:       fmt.Sprintf(":%d", apiPort),
-					NodeKey:    creds.NodeKey,
-					NodeID:     creds.NodeID,
-					StaticInfo: staticInfo,
-					StartedAt:  startedAt,
-					TLS:        tlsMat,
+					Addr:         fmt.Sprintf(":%d", apiPort),
+					NodeKey:      creds.NodeKey,
+					NodeID:       creds.NodeID,
+					StaticInfo:   staticInfo,
+					StartedAt:    startedAt,
+					TLS:          tlsMat,
+					DockerClient: dockerClient,
+					Servers:      server.NewManager(dockerClient),
 				})
 				if err := apiSrv.Start(); err != nil {
 					return err
@@ -172,7 +189,7 @@ func newRunCmd() *cobra.Command {
 
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
-			return heartbeatLoop(ctx, creds, st, staticInfo, fingerprint, apiPort, interval, once)
+			return heartbeatLoop(ctx, creds, st, dockerClient, staticInfo, fingerprint, apiPort, interval, once)
 		},
 	}
 	cmd.Flags().StringVar(&dataDir, "data-dir", defaultDataDir, "directory holding credentials")
@@ -187,6 +204,7 @@ func heartbeatLoop(
 	ctx context.Context,
 	creds *credentials.Credentials,
 	st *store.Store,
+	dockerClient *docker.Client,
 	staticInfo map[string]any,
 	certFingerprint string,
 	apiPort int,
@@ -198,7 +216,7 @@ func heartbeatLoop(
 	beat := func() {
 		hbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
-		info := composeInfo(staticInfo)
+		info := composeInfo(hbCtx, dockerClient, staticInfo)
 		err := client.Heartbeat(hbCtx, creds.NodeKey, remote.HeartbeatBody{
 			SystemInfo:      info,
 			CertFingerprint: certFingerprint,
@@ -264,15 +282,19 @@ func systemInfo() map[string]any {
 }
 
 // composeInfo returns the heartbeat's system snapshot: the static host capacity
-// plus a docker section. A live Docker probe replaces the placeholder once the
-// Docker subsystem lands; until then docker is reported unavailable so the panel
-// renders "no container engine" honestly rather than guessing.
-func composeInfo(static map[string]any) map[string]any {
+// plus a live docker probe (a 3s budget so a hung engine never stalls the beat).
+func composeInfo(
+	ctx context.Context,
+	dockerClient *docker.Client,
+	static map[string]any,
+) map[string]any {
 	out := make(map[string]any, len(static)+1)
 	for k, v := range static {
 		out[k] = v
 	}
-	out["docker"] = map[string]any{"available": false}
+	probeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	out["docker"] = dockerClient.Probe(probeCtx)
 	return out
 }
 

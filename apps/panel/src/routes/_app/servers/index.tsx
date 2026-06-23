@@ -22,10 +22,12 @@ import {
 import type { ServerRow } from "@/lib/domain/servers";
 import { formatBytes } from "@/lib/format";
 import { useListView } from "@/lib/list-view";
+import { serversListQueryOptions, useServers } from "@/lib/server-queries";
 import { serverStatus } from "@/lib/status";
-import { useServers } from "@/lib/stores/servers-store";
 
 export const Route = createFileRoute("/_app/servers/")({
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(serversListQueryOptions()),
 	component: Servers,
 });
 

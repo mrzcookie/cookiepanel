@@ -38,8 +38,8 @@ import {
 } from "@/lib/domain/templates";
 import { formatBytes } from "@/lib/format";
 import { useNodes } from "@/lib/node-queries";
+import { createServer, invalidateServers } from "@/lib/server-queries";
 import { addAllocation, portInUse } from "@/lib/stores/allocations-store";
-import { addServer } from "@/lib/stores/servers-store";
 import { bumpTemplateServerCount, useTemplates } from "@/lib/templates-queries";
 
 const STEPS: WizardStep[] = [
@@ -250,7 +250,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 						? resourcesValid
 						: true;
 
-	function deploy() {
+	async function deploy() {
 		if (
 			!(template && node) ||
 			!isDeployable(template) ||
@@ -269,43 +269,43 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 			);
 			return;
 		}
-		const runtime =
-			template.images.find((image) => image.label === draft.runtimeLabel) ??
-			template.images.find((image) => image.isDefault) ??
-			template.images[0];
-		// Secret values are write-only — they never land on the server row.
-		const persistedVariables: Record<string, string> = {};
+		// Pass every deploy-variable value (incl. secrets); the server seals secrets
+		// at rest and stores only the non-secret snapshot.
+		const variables: Record<string, string> = {};
 		for (const variable of deployVariables(template)) {
-			if (variable.access !== "secret") {
-				persistedVariables[variable.envVariable] =
-					draft.values[variable.envVariable] ?? "";
-			}
+			variables[variable.envVariable] =
+				draft.values[variable.envVariable] ?? "";
 		}
-		const server = addServer({
-			cpuLimitCores: draft.cpuCores,
-			diskLimitBytes: draft.diskGb * GiB,
-			imageLabel: runtime?.label ?? "",
-			memLimitBytes: draft.memGb * GiB,
-			name: draft.name,
-			nodeAddress: node.fqdn,
-			nodeId: node.id,
-			nodeName: node.name,
-			port: portNum,
-			templateId: template.id,
-			templateName: template.name,
-			variables: persistedVariables,
-		});
-		addAllocation({
-			ip: "0.0.0.0",
-			nodeId: node.id,
-			port: portNum,
-			protocol: draft.protocol,
-			serverId: server.id,
-			serverName: server.name,
-		});
-		bumpTemplateServerCount(queryClient, template.id, 1);
-		toast.success(`Setting up “${draft.name.trim()}” on ${node.name}.`);
-		navigate({ params: { serverId: server.id }, to: "/servers/$serverId" });
+		try {
+			const server = await createServer({
+				nodeId: node.id,
+				templateId: template.id,
+				name: draft.name,
+				runtimeLabel: draft.runtimeLabel,
+				port: portNum,
+				cpuLimitCores: draft.cpuCores,
+				memLimitBytes: draft.memGb * GiB,
+				diskLimitBytes: draft.diskGb * GiB,
+				variables,
+			});
+			// Reserve the port allocation (still a stub) + bump the template count.
+			addAllocation({
+				ip: "0.0.0.0",
+				nodeId: node.id,
+				port: portNum,
+				protocol: draft.protocol,
+				serverId: server.id,
+				serverName: server.name,
+			});
+			bumpTemplateServerCount(queryClient, template.id, 1);
+			await invalidateServers(queryClient);
+			toast.success(`Deploying “${draft.name.trim()}” on ${node.name}.`);
+			navigate({ params: { serverId: server.id }, to: "/servers/$serverId" });
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't deploy the server."
+			);
+		}
 	}
 
 	let gate: ReactNode = null;

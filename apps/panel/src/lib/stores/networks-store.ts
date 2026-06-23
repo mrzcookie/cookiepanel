@@ -1,7 +1,7 @@
 import type { NetworkDriver, NetworkRow } from "@/lib/domain/networks";
 import type { ServerRow } from "@/lib/domain/servers";
+import { useServers } from "@/lib/server-queries";
 import { createStore } from "@/lib/store";
-import { useServers } from "@/lib/stores/servers-store";
 import { NETWORKS } from "@/lib/stubs";
 
 // Mutable client-side stub store for networks — a stand-in for the data layer.

@@ -1,0 +1,500 @@
+import { randomUUID } from "node:crypto";
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import type { ServerRow, ServerState } from "@/lib/domain/servers";
+import { formatRelativeTime } from "@/lib/format";
+import { recordActivity } from "@/server/activity/record";
+import { requireOrg } from "@/server/auth/guards";
+import { seal } from "@/server/crypto";
+import {
+	controlServerOnNode,
+	createServerOnNode,
+	type DaemonServerSpec,
+	deleteServerOnNode,
+	getServerOnNode,
+} from "@/server/nodes/daemon-client";
+import { type NodeRecord, nodesRepository } from "@/server/nodes/repository";
+import {
+	type TemplateImageRecord,
+	type TemplateRecord,
+	type TemplateVariableRecord,
+	templatesRepository,
+} from "@/server/templates/repository";
+import { type ServerRecord, serversRepository } from "./repository";
+
+/**
+ * Servers service + server functions. A server is a Docker container the daemon
+ * runs; this layer owns the *desired* state (the registry row) and drives the
+ * daemon over the pinned channel in lockstep. Reads return the registry row
+ * (fast); `syncServer` reconciles the live container state on demand.
+ *
+ * Secret variable values are sealed at rest (AES-GCM, AAD bound to org+server+
+ * env-var) and never returned to the client. Image strings stay server-only.
+ */
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+const secretAad = (orgId: string, serverId: string, envVar: string) =>
+	`server-var:${orgId}:${serverId}:${envVar}`;
+
+// Map Docker's raw container state onto the domain vocabulary. `installing` and
+// `failed` are panel-tracked transients, never Docker states.
+function mapDaemonState(raw: string): ServerState {
+	switch (raw) {
+		case "running":
+			return "running";
+		case "restarting":
+			return "starting";
+		default:
+			// created / exited / dead / paused / removing → not running.
+			return "stopped";
+	}
+}
+
+function nodeAddress(node: { fqdn: string }): string {
+	return node.fqdn;
+}
+
+function toServerRow(record: ServerRecord, node: NodeRecord): ServerRow {
+	return {
+		id: record.id,
+		name: record.name,
+		templateName: record.templateName,
+		templateId: record.templateId,
+		imageLabel: record.imageLabel,
+		updateAvailable: false,
+		state: record.state as ServerState,
+		nodeId: record.nodeId,
+		nodeName: node.name,
+		nodeAddress: nodeAddress(node),
+		port: record.port,
+		// Live readouts arrive on the stats/console channel in a later slice.
+		cpuPercent: null,
+		memUsedBytes: null,
+		cpuLimitCores: record.cpuLimitMillicores / 1000,
+		memLimitBytes: record.memLimitBytes,
+		diskUsedBytes: null,
+		diskLimitBytes: record.diskLimitBytes,
+		uptimeSeconds: null,
+		createdAt: formatRelativeTime(record.createdAt),
+		variables: record.variables,
+		lastError: record.lastError,
+	};
+}
+
+type TemplateSnapshot = {
+	template: TemplateRecord;
+	images: TemplateImageRecord[];
+	variables: TemplateVariableRecord[];
+};
+
+/** Load a template the org can deploy (its own, or a published official one). */
+async function loadTemplate(
+	orgId: string,
+	templateId: string
+): Promise<TemplateSnapshot> {
+	const template = await templatesRepository.findVisible(
+		{ kind: "org", orgId },
+		templateId
+	);
+	if (!template) {
+		throw new Error("Template not found");
+	}
+	const [images, variables] = await Promise.all([
+		templatesRepository.imagesFor([templateId]),
+		templatesRepository.variablesFor([templateId]),
+	]);
+	return { template, images, variables };
+}
+
+/** Resolve a runtime label to its server-only image string (default / first). */
+function resolveImage(
+	images: TemplateImageRecord[],
+	label: string | undefined
+): { image: string; label: string } {
+	const chosen =
+		(label && images.find((i) => i.label === label)) ||
+		images.find((i) => i.isDefault) ||
+		images.at(0);
+	if (!chosen) {
+		throw new Error("Template has no runtime image");
+	}
+	return { image: chosen.image, label: chosen.label };
+}
+
+/**
+ * Split the player-set values across the template's variable schema: build the
+ * full env to dispatch, the non-secret snapshot to store, and the sealed secret
+ * values. Hidden/read-only vars fall back to their defaults.
+ */
+function buildVariables(
+	orgId: string,
+	serverId: string,
+	templateVars: TemplateVariableRecord[],
+	provided: Record<string, string>
+) {
+	const env: Record<string, string> = {};
+	const variables: Record<string, string> = {};
+	const secretVariables: Record<string, string> = {};
+	for (const v of templateVars) {
+		const value = provided[v.envVariable] ?? v.defaultValue ?? "";
+		env[v.envVariable] = value;
+		if (v.access === "secret") {
+			if (value !== "") {
+				secretVariables[v.envVariable] = seal(
+					value,
+					secretAad(orgId, serverId, v.envVariable)
+				);
+			}
+		} else {
+			variables[v.envVariable] = value;
+		}
+	}
+	return { env, variables, secretVariables };
+}
+
+/** Substitute `{{VAR}}` tokens in the startup command with resolved env values. */
+function resolveStartup(startup: string, env: Record<string, string>): string {
+	let out = startup;
+	for (const [key, value] of Object.entries(env)) {
+		out = out.replaceAll(`{{${key}}}`, value);
+	}
+	return out;
+}
+
+function daemonSpec(
+	record: ServerRecord,
+	env: Record<string, string>
+): DaemonServerSpec {
+	const spec: DaemonServerSpec = {
+		// The container name is the (regex-safe) server id; the daemon keys off the
+		// server-id label, so this is just a unique, valid container name.
+		serverId: record.id,
+		name: record.id,
+		image: record.image,
+		startupCommand: resolveStartup(record.startupCommand, env),
+		env,
+		nanoCpus: record.cpuLimitMillicores * 1_000_000,
+		memoryMb: Math.round(record.memLimitBytes / (1024 * 1024)),
+		stopSignal: record.stopSignal ?? undefined,
+	};
+	if (record.port !== null) {
+		spec.portBinding = {
+			hostIp: "0.0.0.0",
+			hostPort: record.port,
+			containerPort: record.port,
+			protocol: "tcp",
+		};
+	}
+	return spec;
+}
+
+// ─── guards / input ──────────────────────────────────────────────────────────
+
+const idInput = z.object({ id: z.uuid() });
+
+/** Load a server scoped to the org + its node, or throw a generic not-found. */
+async function requireServer(orgId: string, id: string) {
+	const record = await serversRepository.findById(orgId, id);
+	if (!record) {
+		throw new Error("Not found");
+	}
+	const node = await nodesRepository.findById(orgId, record.nodeId);
+	if (!node) {
+		throw new Error("Not found");
+	}
+	return { record, node };
+}
+
+// ─── reads ───────────────────────────────────────────────────────────────────
+
+export const listServers = createServerFn({ method: "GET" }).handler(
+	async () => {
+		const { orgId } = await requireOrg();
+		const [rows, nodes] = await Promise.all([
+			serversRepository.list(orgId),
+			nodesRepository.list(orgId),
+		]);
+		const byId = new Map(nodes.map((n) => [n.id, n]));
+		return rows
+			.map((row) => {
+				const node = byId.get(row.nodeId);
+				return node ? toServerRow(row, node) : null;
+			})
+			.filter((row): row is ServerRow => row !== null);
+	}
+);
+
+export const listServersForNode = createServerFn({ method: "GET" })
+	.validator(z.object({ nodeId: z.uuid() }))
+	.handler(async ({ data }) => {
+		const { orgId } = await requireOrg();
+		const node = await nodesRepository.findById(orgId, data.nodeId);
+		if (!node) {
+			return [];
+		}
+		const rows = await serversRepository.listByNode(orgId, data.nodeId);
+		return rows.map((row) => toServerRow(row, node));
+	});
+
+/** Reconcile one server's live state with its node's daemon, then return it. */
+export const syncServer = createServerFn({ method: "GET" })
+	.validator(idInput)
+	.handler(async ({ data }) => {
+		const { orgId } = await requireOrg();
+		const { record, node } = await requireServer(orgId, data.id);
+		try {
+			const live = await getServerOnNode(record.nodeId, record.id);
+			const state = mapDaemonState(live.state);
+			if (state !== record.state) {
+				const updated = await serversRepository.update(orgId, record.id, {
+					state,
+				});
+				return toServerRow(updated ?? record, node);
+			}
+		} catch {
+			// Box unreachable / no container — keep the last-observed state.
+		}
+		return toServerRow(record, node);
+	});
+
+// ─── create ──────────────────────────────────────────────────────────────────
+
+const createInput = z.object({
+	nodeId: z.uuid(),
+	templateId: z.uuid(),
+	name: z.string().trim().min(1).max(100),
+	runtimeLabel: z.string().optional(),
+	port: z.number().int().min(1).max(65535),
+	cpuLimitCores: z.number().positive(),
+	memLimitBytes: z.number().int().positive(),
+	diskLimitBytes: z.number().int().positive(),
+	variables: z.record(z.string(), z.string()).default({}),
+});
+
+export const createServer = createServerFn({ method: "POST" })
+	.validator(createInput)
+	.handler(async ({ data }) => {
+		const { orgId, userId, userName } = await requireOrg();
+		const node = await nodesRepository.findById(orgId, data.nodeId);
+		if (!node) {
+			throw new Error("Not found");
+		}
+		const {
+			template,
+			images,
+			variables: templateVars,
+		} = await loadTemplate(orgId, data.templateId);
+
+		const serverId = randomUUID();
+		const { image, label } = resolveImage(images, data.runtimeLabel);
+		const { env, variables, secretVariables } = buildVariables(
+			orgId,
+			serverId,
+			templateVars,
+			data.variables
+		);
+
+		// Land the registry row first (installing), so a failed daemon dispatch
+		// still leaves a visible, deletable server carrying the error.
+		let record = await serversRepository.create(orgId, {
+			id: serverId,
+			nodeId: data.nodeId,
+			name: data.name.trim(),
+			templateId: template.id,
+			templateName: template.name,
+			templateVersion: template.version,
+			imageLabel: label,
+			image,
+			startupCommand: template.startupCommand,
+			// Custom stop-signal handling lands with the console/stop slice; the
+			// daemon defaults to SIGTERM for now.
+			stopSignal: null,
+			state: "installing",
+			port: data.port,
+			cpuLimitMillicores: Math.round(data.cpuLimitCores * 1000),
+			memLimitBytes: data.memLimitBytes,
+			diskLimitBytes: data.diskLimitBytes,
+			variables,
+			secretVariables,
+			lastError: null,
+		});
+
+		try {
+			const live = await createServerOnNode(
+				data.nodeId,
+				daemonSpec(record, env)
+			);
+			record =
+				(await serversRepository.update(orgId, serverId, {
+					state: mapDaemonState(live.state),
+					lastError: null,
+				})) ?? record;
+		} catch (error) {
+			record =
+				(await serversRepository.update(orgId, serverId, {
+					state: "failed",
+					lastError: error instanceof Error ? error.message : "Deploy failed",
+				})) ?? record;
+		}
+
+		await recordActivity({
+			category: "server",
+			action: "server.created",
+			organizationId: orgId,
+			userId,
+			actorName: userName,
+			targetType: "server",
+			targetId: serverId,
+			targetLabel: record.name,
+		});
+
+		return toServerRow(record, node);
+	});
+
+// ─── power ───────────────────────────────────────────────────────────────────
+
+function powerFn(action: "start" | "stop" | "restart") {
+	return createServerFn({ method: "POST" })
+		.validator(idInput)
+		.handler(async ({ data }): Promise<ServerRow> => {
+			const { orgId } = await requireOrg();
+			const { record, node } = await requireServer(orgId, data.id);
+			const live = await controlServerOnNode(record.nodeId, record.id, action);
+			const updated = await serversRepository.update(orgId, record.id, {
+				state: mapDaemonState(live.state),
+				lastError: null,
+			});
+			return toServerRow(updated ?? record, node);
+		});
+}
+
+export const startServer = powerFn("start");
+export const stopServer = powerFn("stop");
+export const restartServer = powerFn("restart");
+
+// ─── delete ──────────────────────────────────────────────────────────────────
+
+export const removeServer = createServerFn({ method: "POST" })
+	.validator(idInput)
+	.handler(async ({ data }) => {
+		const { orgId, userId, userName } = await requireOrg();
+		const { record } = await requireServer(orgId, data.id);
+		// Best-effort container teardown; the registry row goes regardless so a
+		// dead box can't strand a server in the panel.
+		try {
+			await deleteServerOnNode(record.nodeId, record.id);
+		} catch {
+			// container already gone / box unreachable
+		}
+		await serversRepository.remove(orgId, record.id);
+		await recordActivity({
+			category: "server",
+			action: "server.deleted",
+			organizationId: orgId,
+			userId,
+			actorName: userName,
+			targetType: "server",
+			targetId: record.id,
+			targetLabel: record.name,
+		});
+		return { id: record.id };
+	});
+
+// ─── registry edits (snapshot/desired-state; applied to the box on next deploy) ─
+
+export const renameServer = createServerFn({ method: "POST" })
+	.validator(
+		z.object({ id: z.uuid(), name: z.string().trim().min(1).max(100) })
+	)
+	.handler(async ({ data }) => {
+		const { orgId } = await requireOrg();
+		const { node } = await requireServer(orgId, data.id);
+		const updated = await serversRepository.update(orgId, data.id, {
+			name: data.name.trim(),
+		});
+		if (!updated) {
+			throw new Error("Not found");
+		}
+		return toServerRow(updated, node);
+	});
+
+export const updateServerLimits = createServerFn({ method: "POST" })
+	.validator(
+		z.object({
+			id: z.uuid(),
+			cpuLimitCores: z.number().positive(),
+			memLimitBytes: z.number().int().positive(),
+			diskLimitBytes: z.number().int().positive(),
+		})
+	)
+	.handler(async ({ data }) => {
+		const { orgId } = await requireOrg();
+		const { node } = await requireServer(orgId, data.id);
+		const updated = await serversRepository.update(orgId, data.id, {
+			cpuLimitMillicores: Math.round(data.cpuLimitCores * 1000),
+			memLimitBytes: data.memLimitBytes,
+			diskLimitBytes: data.diskLimitBytes,
+		});
+		if (!updated) {
+			throw new Error("Not found");
+		}
+		return toServerRow(updated, node);
+	});
+
+export const updateServerVariables = createServerFn({ method: "POST" })
+	.validator(
+		z.object({ id: z.uuid(), variables: z.record(z.string(), z.string()) })
+	)
+	.handler(async ({ data }) => {
+		const { orgId } = await requireOrg();
+		const { record, node } = await requireServer(orgId, data.id);
+		const templateVars = await templatesRepository.variablesFor([
+			record.templateId,
+		]);
+		const secretEnv = new Set(
+			templateVars
+				.filter((v) => v.access === "secret")
+				.map((v) => v.envVariable)
+		);
+		// Only touch what this request provides: re-seal secrets explicitly given (an
+		// empty value means "keep current"), and merge non-secret values over the
+		// stored snapshot. Untouched secrets keep their existing ciphertext — they're
+		// never reset to a template default.
+		const variables = { ...record.variables };
+		const secretVariables = { ...record.secretVariables };
+		for (const [key, value] of Object.entries(data.variables)) {
+			if (secretEnv.has(key)) {
+				if (value !== "") {
+					secretVariables[key] = seal(value, secretAad(orgId, record.id, key));
+				}
+			} else {
+				variables[key] = value;
+			}
+		}
+		const updated = await serversRepository.update(orgId, data.id, {
+			variables,
+			secretVariables,
+		});
+		if (!updated) {
+			throw new Error("Not found");
+		}
+		return toServerRow(updated, node);
+	});
+
+export const updateServerRuntime = createServerFn({ method: "POST" })
+	.validator(z.object({ id: z.uuid(), imageLabel: z.string().min(1) }))
+	.handler(async ({ data }) => {
+		const { orgId } = await requireOrg();
+		const { record, node } = await requireServer(orgId, data.id);
+		const images = await templatesRepository.imagesFor([record.templateId]);
+		const { image, label } = resolveImage(images, data.imageLabel);
+		const updated = await serversRepository.update(orgId, data.id, {
+			image,
+			imageLabel: label,
+		});
+		if (!updated) {
+			throw new Error("Not found");
+		}
+		return toServerRow(updated, node);
+	});

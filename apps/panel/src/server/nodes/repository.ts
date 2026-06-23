@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/server/db";
 import {
 	type DaemonSystemInfo,
@@ -153,22 +153,33 @@ export const nodesRepository = {
 		}
 	) =>
 		db.transaction(async (tx) => {
-			await tx
+			// Single-use CAS: only the first activation (bootstrap hash still set)
+			// burns the token + stores the durable keys; a concurrent second matches
+			// no row and aborts, so a token can't mint two node keys.
+			const burned = await tx
 				.update(nodeCredential)
 				.set({
 					nodeKeyHash: values.nodeKeyHash,
 					nodeKeyCiphertext: values.nodeKeyCiphertext,
 					signingSecretCiphertext: values.signingSecretCiphertext,
 					activatedAt: new Date(),
-					// Single-use: the bootstrap token can never be replayed.
 					bootstrapTokenHash: null,
 					bootstrapExpiresAt: null,
 				})
-				.where(eq(nodeCredential.nodeId, nodeId));
+				.where(
+					and(
+						eq(nodeCredential.nodeId, nodeId),
+						isNotNull(nodeCredential.bootstrapTokenHash)
+					)
+				)
+				.returning({ nodeId: nodeCredential.nodeId });
+			if (burned.length === 0) {
+				return false;
+			}
 			// Only touch the node row if the daemon reported something to merge — an
 			// empty `.set({})` throws. A self-signed daemon has no fingerprint until
-			// it serves TLS (a later slice), and a same-host enroll has no observed
-			// IP, so both can legitimately be absent here.
+			// it serves TLS, and a same-host enroll has no observed IP, so both can
+			// legitimately be absent here.
 			const patch: Partial<typeof node.$inferInsert> = {};
 			if (values.certFingerprint) {
 				patch.certFingerprint = values.certFingerprint;
@@ -179,6 +190,7 @@ export const nodesRepository = {
 			if (Object.keys(patch).length > 0) {
 				await tx.update(node).set(patch).where(eq(node.id, nodeId));
 			}
+			return true;
 		}),
 
 	/** Merge a heartbeat's live state onto the node row. */

@@ -5,7 +5,7 @@ import { RedisBrowser } from "@/components/servers/database/redis-browser";
 import { SqlBrowser } from "@/components/servers/database/sql-browser";
 import { EmptyState } from "@/components/shared/empty-state";
 import { databaseEngine, hasDatabaseBrowser } from "@/lib/domain/templates";
-import { useServer } from "@/lib/stores/servers-store";
+import { useServer } from "@/lib/server-queries";
 import { useTemplate } from "@/lib/templates-queries";
 
 export const Route = createFileRoute("/_app/servers/$serverId/database")({

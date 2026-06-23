@@ -270,3 +270,86 @@ export async function getNodeHost(nodeId: string): Promise<NodeHostInfo> {
 		uptimeSeconds: raw.uptimeSeconds ?? 0,
 	};
 }
+
+// ─── servers (container lifecycle) ───────────────────────────────────────────
+
+// An image pull (+ first start) can take minutes; the default 10s timeout would
+// abort it.
+const SERVER_CREATE_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** The daemon's snapshot of a server. `state`/`status` are Docker's raw values. */
+export type DaemonServer = {
+	serverId: string;
+	name: string;
+	containerId: string;
+	image: string;
+	state: string;
+	status: string;
+};
+
+/** What the panel POSTs to create a container. */
+export type DaemonServerSpec = {
+	serverId: string;
+	name: string;
+	image: string;
+	startupCommand?: string;
+	env?: Record<string, string>;
+	nanoCpus?: number;
+	memoryMb?: number;
+	stopSignal?: string;
+	portBinding?: {
+		hostIp: string;
+		hostPort: number;
+		containerPort: number;
+		protocol?: string;
+	};
+};
+
+export async function createServerOnNode(
+	nodeId: string,
+	spec: DaemonServerSpec
+): Promise<DaemonServer> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: "/api/v1/servers",
+		body: spec,
+		timeoutMs: SERVER_CREATE_TIMEOUT_MS,
+	})) as DaemonServer;
+}
+
+export async function getServerOnNode(
+	nodeId: string,
+	serverId: string
+): Promise<DaemonServer> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		path: `/api/v1/servers/${serverId}`,
+	})) as DaemonServer;
+}
+
+export async function controlServerOnNode(
+	nodeId: string,
+	serverId: string,
+	action: "start" | "stop" | "restart"
+): Promise<DaemonServer> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `/api/v1/servers/${serverId}/${action}`,
+		// stop/restart wait out Docker's graceful-stop grace (SIGTERM → SIGKILL)
+		// before the container actually halts, so allow more than the default 10s.
+		timeoutMs: 30_000,
+	})) as DaemonServer;
+}
+
+export async function deleteServerOnNode(
+	nodeId: string,
+	serverId: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "DELETE",
+		path: `/api/v1/servers/${serverId}`,
+	});
+}

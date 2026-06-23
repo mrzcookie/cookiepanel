@@ -42,13 +42,13 @@ import {
 	stepSummary,
 } from "@/lib/domain/schedules";
 import { pluralize } from "@/lib/format";
+import { useServer } from "@/lib/server-queries";
 import {
 	deleteSchedule,
 	runSchedule,
 	toggleSchedule,
 	useServerSchedules,
 } from "@/lib/stores/schedules-store";
-import { useServer } from "@/lib/stores/servers-store";
 
 export const Route = createFileRoute("/_app/servers/$serverId/schedules")({
 	component: ServerSchedulesTab,

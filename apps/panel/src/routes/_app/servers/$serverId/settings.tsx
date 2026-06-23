@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -28,12 +29,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ServerRow } from "@/lib/domain/servers";
 import {
-	deleteServer,
-	reinstallServer,
+	invalidateServers,
+	removeServer,
 	renameServer,
 	updateServerLimits,
 	useServer,
-} from "@/lib/stores/servers-store";
+} from "@/lib/server-queries";
 
 const GiB = 1024 ** 3;
 
@@ -64,6 +65,7 @@ function ServerSettingsTab() {
 }
 
 function GeneralCard({ server }: { server: ServerRow }) {
+	const queryClient = useQueryClient();
 	const [name, setName] = useState(server.name);
 
 	useEffect(() => {
@@ -81,10 +83,19 @@ function GeneralCard({ server }: { server: ServerRow }) {
 			<CardContent>
 				<form
 					className="space-y-4"
-					onSubmit={(event) => {
+					onSubmit={async (event) => {
 						event.preventDefault();
-						renameServer(server.id, name);
-						toast.success("Server renamed.");
+						try {
+							await renameServer(server.id, name);
+							await invalidateServers(queryClient);
+							toast.success("Server renamed.");
+						} catch (error) {
+							toast.error(
+								error instanceof Error
+									? error.message
+									: "Couldn't rename the server."
+							);
+						}
 					}}
 				>
 					<div className="grid gap-2">
@@ -107,6 +118,7 @@ function GeneralCard({ server }: { server: ServerRow }) {
 }
 
 function LimitsCard({ server }: { server: ServerRow }) {
+	const queryClient = useQueryClient();
 	const seedMemGb = Math.round(server.memLimitBytes / GiB);
 	const seedDiskGb = Math.round(server.diskLimitBytes / GiB);
 
@@ -125,13 +137,20 @@ function LimitsCard({ server }: { server: ServerRow }) {
 		memGb !== seedMemGb ||
 		diskGb !== seedDiskGb;
 
-	function save() {
-		updateServerLimits(server.id, {
-			cpuLimitCores: cpu,
-			memLimitBytes: memGb * GiB,
-			diskLimitBytes: diskGb * GiB,
-		});
-		toast.success("Resource limits updated.");
+	async function save() {
+		try {
+			await updateServerLimits(server.id, {
+				cpuLimitCores: cpu,
+				memLimitBytes: memGb * GiB,
+				diskLimitBytes: diskGb * GiB,
+			});
+			await invalidateServers(queryClient);
+			toast.success("Resource limits updated.");
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't update the limits."
+			);
+		}
 	}
 
 	return (
@@ -239,16 +258,26 @@ function DangerZone({ server }: { server: ServerRow }) {
 	const [reinstallOpen, setReinstallOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 
+	const queryClient = useQueryClient();
+
 	function reinstall() {
-		reinstallServer(server.id);
 		setReinstallOpen(false);
-		toast.success("Reinstalling the server…");
+		// Reinstall re-runs the template's install script — it lands with the
+		// install pipeline (a later slice).
+		toast.message("Reinstall lands with the install pipeline.");
 	}
 
-	function remove() {
-		deleteServer(server.id);
-		toast.success(`Deleted “${server.name}”.`);
-		navigate({ to: "/servers" });
+	async function remove() {
+		try {
+			await removeServer(server.id);
+			await invalidateServers(queryClient);
+			toast.success(`Deleted “${server.name}”.`);
+			navigate({ to: "/servers" });
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't delete the server."
+			);
+		}
 	}
 
 	return (

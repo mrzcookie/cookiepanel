@@ -66,7 +66,7 @@ export async function activateNode(input: {
 	const nodeKey = `nk_${randomBytes(32).toString("base64url")}`;
 	const signingSecret = `ss_${randomBytes(32).toString("base64url")}`;
 
-	await nodesRepository.activate(input.nodeId, {
+	const burned = await nodesRepository.activate(input.nodeId, {
 		nodeKeyHash: sha256Hex(nodeKey),
 		nodeKeyCiphertext: seal(nodeKey, nodeKeyAad(input.nodeId)),
 		signingSecretCiphertext: seal(
@@ -76,6 +76,11 @@ export async function activateNode(input: {
 		certFingerprint: input.certFingerprint ?? null,
 		publicIp: input.observedIp,
 	});
+	// Lost the race to a concurrent activation — the token is single-use spent.
+	// (The minted keys above are simply discarded.)
+	if (!burned) {
+		throw new EnrollmentError(ENROLL_REJECT);
+	}
 
 	// Managed nodes: now that we've observed the box's public IP, point its
 	// panel-owned subdomain at it. Best-effort + a no-op without Cloudflare.
@@ -123,11 +128,27 @@ export async function recordHeartbeat(input: {
 	}
 }
 
-/** The observed client IP of a daemon request (XFF-aware), or null. */
+/**
+ * The observed client IP of a daemon request. Behind Cloudflare (managed nodes),
+ * `CF-Connecting-IP` is the verified peer and can't be spoofed by the caller, so
+ * prefer it; then `X-Real-IP`; then the left-most `X-Forwarded-For`.
+ *
+ * SECURITY: only trust `X-Forwarded-For` behind a proxy that overwrites it — a
+ * raw left-most XFF from the open internet is attacker-controlled. The deployment
+ * must terminate at a trusted ingress (this is why we prefer CF-Connecting-IP).
+ */
 export function requestClientIp(request: Request): string | null {
+	const cf = request.headers.get("cf-connecting-ip");
+	if (cf) {
+		return cf.trim() || null;
+	}
+	const real = request.headers.get("x-real-ip");
+	if (real) {
+		return real.trim() || null;
+	}
 	const forwarded = request.headers.get("x-forwarded-for");
 	if (forwarded) {
 		return forwarded.split(",")[0]?.trim() || null;
 	}
-	return request.headers.get("x-real-ip");
+	return null;
 }
