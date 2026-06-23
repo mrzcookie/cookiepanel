@@ -5,14 +5,17 @@ import type { ServerRow, ServerState } from "@/lib/domain/servers";
 import { formatRelativeTime } from "@/lib/format";
 import { recordActivity } from "@/server/activity/record";
 import { requireOrg } from "@/server/auth/guards";
-import { seal } from "@/server/crypto";
+import { seal, unseal } from "@/server/crypto";
+import { signBrowserToken } from "@/server/jwt";
 import {
 	controlServerOnNode,
 	createServerOnNode,
 	type DaemonServerSpec,
 	deleteServerOnNode,
 	getServerOnNode,
+	sendCommandOnNode,
 } from "@/server/nodes/daemon-client";
+import { signingSecretAad } from "@/server/nodes/enrollment";
 import { type NodeRecord, nodesRepository } from "@/server/nodes/repository";
 import {
 	type TemplateImageRecord,
@@ -497,4 +500,50 @@ export const updateServerRuntime = createServerFn({ method: "POST" })
 			throw new Error("Not found");
 		}
 		return toServerRow(updated, node);
+	});
+
+// ─── console ─────────────────────────────────────────────────────────────────
+
+const CONSOLE_TOKEN_TTL = 60;
+
+/**
+ * Mint a short-lived console JWT + the wss URL the browser opens directly to the
+ * daemon (a browser can't set auth headers on a WS upgrade). The per-node signing
+ * secret is unsealed only to sign, never returned.
+ */
+export const mintServerToken = createServerFn({ method: "POST" })
+	.validator(idInput)
+	.handler(async ({ data }) => {
+		const { orgId } = await requireOrg();
+		const { record, node } = await requireServer(orgId, data.id);
+		const ciphertext = await nodesRepository.signingSecretCiphertextFor(
+			record.nodeId
+		);
+		if (!ciphertext) {
+			throw new Error("Node is not activated");
+		}
+		const signingSecret = unseal(ciphertext, signingSecretAad(record.nodeId));
+		const token = signBrowserToken(
+			signingSecret,
+			{
+				serverId: record.id,
+				nodeId: record.nodeId,
+				permissions: ["console.read", "stats.read"],
+			},
+			CONSOLE_TOKEN_TTL
+		);
+		return {
+			url: `wss://${node.fqdn}:${node.daemonPort}/api/servers/${record.id}/ws?token=${token}`,
+			expiresInSeconds: CONSOLE_TOKEN_TTL,
+		};
+	});
+
+/** Send a console command to the server's container. */
+export const sendServerCommand = createServerFn({ method: "POST" })
+	.validator(z.object({ id: z.uuid(), command: z.string().min(1).max(2000) }))
+	.handler(async ({ data }) => {
+		const { orgId } = await requireOrg();
+		const { record } = await requireServer(orgId, data.id);
+		await sendCommandOnNode(record.nodeId, record.id, data.command.trim());
+		return { ok: true as const };
 	});

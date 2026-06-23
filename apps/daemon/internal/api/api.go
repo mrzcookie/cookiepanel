@@ -35,14 +35,15 @@ import (
 
 // Server is the panel-facing HTTPS server.
 type Server struct {
-	addr         string
-	nodeKey      string
-	nodeID       string
-	staticInfo   map[string]any
-	startedAt    time.Time
-	tls          *cookietls.Material
-	dockerClient *docker.Client
-	servers      *server.Manager
+	addr          string
+	nodeKey       string
+	nodeID        string
+	signingSecret string
+	staticInfo    map[string]any
+	startedAt     time.Time
+	tls           *cookietls.Material
+	dockerClient  *docker.Client
+	servers       *server.Manager
 
 	server   *http.Server
 	listener net.Listener
@@ -50,27 +51,29 @@ type Server struct {
 
 // Config bundles the dependencies needed to construct a Server.
 type Config struct {
-	Addr         string         // e.g. ":8443"
-	NodeKey      string         // plaintext node key (the bearer)
-	NodeID       string         // reported in the /system response
-	StaticInfo   map[string]any // os/arch/cpus/mem/disk/daemonVersion
-	StartedAt    time.Time
-	TLS          *cookietls.Material
-	DockerClient *docker.Client  // may be nil if docker is unavailable
-	Servers      *server.Manager // server-container lifecycle
+	Addr          string         // e.g. ":8443"
+	NodeKey       string         // plaintext node key (the bearer)
+	NodeID        string         // reported in /system + checked on the console JWT
+	SigningSecret string         // per-node HS256 secret for the browser console JWT
+	StaticInfo    map[string]any // os/arch/cpus/mem/disk/daemonVersion
+	StartedAt     time.Time
+	TLS           *cookietls.Material
+	DockerClient  *docker.Client  // may be nil if docker is unavailable
+	Servers       *server.Manager // server-container lifecycle
 }
 
 // New constructs but does not start the server.
 func New(cfg Config) *Server {
 	return &Server{
-		addr:         cfg.Addr,
-		nodeKey:      cfg.NodeKey,
-		nodeID:       cfg.NodeID,
-		staticInfo:   cfg.StaticInfo,
-		startedAt:    cfg.StartedAt,
-		tls:          cfg.TLS,
-		dockerClient: cfg.DockerClient,
-		servers:      cfg.Servers,
+		addr:          cfg.Addr,
+		nodeKey:       cfg.NodeKey,
+		nodeID:        cfg.NodeID,
+		signingSecret: cfg.SigningSecret,
+		staticInfo:    cfg.StaticInfo,
+		startedAt:     cfg.StartedAt,
+		tls:           cfg.TLS,
+		dockerClient:  cfg.DockerClient,
+		servers:       cfg.Servers,
 	}
 }
 
@@ -109,6 +112,12 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 func (s *Server) routes() http.Handler {
+	// The console WS authenticates via a JWT query param (browsers can't set the
+	// Authorization header on a WS upgrade), so it sits OUTSIDE the bearer
+	// middleware, registered bare on the outer mux.
+	outer := http.NewServeMux()
+	outer.HandleFunc("GET /api/servers/{id}/ws", s.handleServerWS)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/system", s.handleSystem)
 	mux.HandleFunc("GET /api/v1/system/host", s.handleSystemHost)
@@ -120,7 +129,9 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/servers/{id}/start", s.handleStartServer)
 	mux.HandleFunc("POST /api/v1/servers/{id}/stop", s.handleStopServer)
 	mux.HandleFunc("POST /api/v1/servers/{id}/restart", s.handleRestartServer)
-	return recoverPanic(s.bearerAuth(mux))
+	mux.HandleFunc("POST /api/v1/servers/{id}/command", s.handleServerCommand)
+	outer.Handle("/", recoverPanic(s.bearerAuth(mux)))
+	return outer
 }
 
 // recoverPanic turns a handler panic into a 500 instead of crashing the daemon —
@@ -255,6 +266,21 @@ func (s *Server) serverPower(
 		return
 	}
 	writeJSON(w, http.StatusOK, srv)
+}
+
+func (s *Server) handleServerCommand(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Command string `json:"command"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.servers.SendCommand(r.Context(), r.PathValue("id"), body.Command); err != nil {
+		writeJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) handleSystemHost(w http.ResponseWriter, r *http.Request) {

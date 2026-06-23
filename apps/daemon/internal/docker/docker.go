@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/netip"
 	"strings"
 
@@ -299,6 +300,73 @@ func summaryToContainer(s container.Summary) Container {
 		Status:   s.Status,
 		Labels:   s.Labels,
 	}
+}
+
+// FollowLogs returns a multiplexed stdout/stderr stream that keeps streaming
+// until ctx is cancelled or the container exits. `tail` bounds the historical
+// preamble. The reader is in docker's framed multiplex format — demux with
+// stdcopy before forwarding to clients.
+func (c *Client) FollowLogs(
+	ctx context.Context,
+	containerID, tail string,
+) (io.ReadCloser, error) {
+	if c == nil || c.api == nil {
+		return nil, errors.New("docker client not initialized")
+	}
+	res, err := c.api.ContainerLogs(ctx, containerID, moby.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Follow:     true,
+		Tail:       tail,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("logs %s: %w", containerID, err)
+	}
+	return res, nil
+}
+
+// StreamStats returns the streaming docker /stats body (~1 JSON sample/sec); the
+// caller decodes it and forwards the relevant fields.
+func (c *Client) StreamStats(
+	ctx context.Context,
+	containerID string,
+) (io.ReadCloser, error) {
+	if c == nil || c.api == nil {
+		return nil, errors.New("docker client not initialized")
+	}
+	res, err := c.api.ContainerStats(ctx, containerID, moby.ContainerStatsOptions{
+		Stream:                true,
+		IncludePreviousSample: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("stats %s: %w", containerID, err)
+	}
+	return res.Body, nil
+}
+
+// SendCommand writes a line to the container's stdin, as if typed into the
+// console. Requires the container to have been created with OpenStdin (servers
+// are). We attach transiently and detach; closing our side doesn't close the
+// container's stdin, so the process keeps accepting further commands.
+func (c *Client) SendCommand(
+	ctx context.Context,
+	containerID, command string,
+) error {
+	if c == nil || c.api == nil {
+		return errors.New("docker client not initialized")
+	}
+	res, err := c.api.ContainerAttach(ctx, containerID, moby.ContainerAttachOptions{
+		Stream: true,
+		Stdin:  true,
+	})
+	if err != nil {
+		return fmt.Errorf("attach %s: %w", containerID, err)
+	}
+	defer res.Close()
+	if _, err := res.Conn.Write([]byte(command + "\n")); err != nil {
+		return fmt.Errorf("write command to %s: %w", containerID, err)
+	}
+	return nil
 }
 
 func envToSlice(env map[string]string) []string {

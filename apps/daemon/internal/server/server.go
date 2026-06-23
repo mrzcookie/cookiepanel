@@ -153,6 +153,18 @@ func (m *Manager) Restart(ctx context.Context, serverID string) (*Server, error)
 	return m.snapshotByServerID(ctx, serverID)
 }
 
+// SendCommand writes a line to the server's container stdin (the console).
+func (m *Manager) SendCommand(
+	ctx context.Context,
+	serverID, command string,
+) error {
+	c, err := m.requireContainer(ctx, serverID)
+	if err != nil {
+		return err
+	}
+	return m.docker.SendCommand(ctx, c.ID, command)
+}
+
 // Delete removes the server's container. A missing container is not an error
 // (the desired end-state is "gone").
 func (m *Manager) Delete(ctx context.Context, serverID string) error {

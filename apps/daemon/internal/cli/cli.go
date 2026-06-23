@@ -167,14 +167,15 @@ func newRunCmd() *cobra.Command {
 				slog.Info("tls ready", "mode", tlsMat.Mode, "fqdn", creds.FQDN, "fingerprint", fingerprint)
 
 				apiSrv := api.New(api.Config{
-					Addr:         fmt.Sprintf(":%d", apiPort),
-					NodeKey:      creds.NodeKey,
-					NodeID:       creds.NodeID,
-					StaticInfo:   staticInfo,
-					StartedAt:    startedAt,
-					TLS:          tlsMat,
-					DockerClient: dockerClient,
-					Servers:      server.NewManager(dockerClient),
+					Addr:          fmt.Sprintf(":%d", apiPort),
+					NodeKey:       creds.NodeKey,
+					NodeID:        creds.NodeID,
+					SigningSecret: creds.SigningSecret,
+					StaticInfo:    staticInfo,
+					StartedAt:     startedAt,
+					TLS:           tlsMat,
+					DockerClient:  dockerClient,
+					Servers:       server.NewManager(dockerClient),
 				})
 				if err := apiSrv.Start(); err != nil {
 					return err

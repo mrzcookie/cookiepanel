@@ -353,3 +353,16 @@ export async function deleteServerOnNode(
 		path: `/api/v1/servers/${serverId}`,
 	});
 }
+
+export async function sendCommandOnNode(
+	nodeId: string,
+	serverId: string,
+	command: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `/api/v1/servers/${serverId}/command`,
+		body: { command },
+	});
+}

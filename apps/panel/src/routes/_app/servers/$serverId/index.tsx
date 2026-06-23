@@ -2,6 +2,7 @@ import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 import { ServerActivityCard } from "@/components/servers/server-activity";
 import { ServerUsageCard } from "@/components/servers/server-usage";
+import { useServerConsole } from "@/components/servers/use-server-console";
 import { DetailList, DetailRow } from "@/components/shared/detail-list";
 import {
 	Card,
@@ -44,6 +45,16 @@ function ServerConsoleTab() {
 		return null;
 	}
 
+	return <ServerConsoleView server={server} />;
+}
+
+function ServerConsoleView({ server }: { server: ServerRow }) {
+	const running = server.state === "running";
+	const { lines, stats, status, generation, sendCommand } = useServerConsole(
+		server.id,
+		running
+	);
+
 	return (
 		<div className="space-y-6">
 			{server.state === "failed" && server.lastError ? (
@@ -71,9 +82,12 @@ function ServerConsoleTab() {
 						<ClientOnly fallback={<ConsoleFallback />}>
 							<Suspense fallback={<ConsoleFallback />}>
 								<ServerConsole
-									canSend={server.state === "running"}
+									canSend={running && status === "open"}
+									generation={generation}
+									lines={lines}
+									onSend={sendCommand}
 									state={server.state}
-									templateName={server.templateName}
+									status={status}
 								/>
 							</Suspense>
 						</ClientOnly>
@@ -86,7 +100,7 @@ function ServerConsoleTab() {
 				</div>
 			</div>
 
-			<ServerUsageCard server={server} />
+			<ServerUsageCard live={stats} server={server} />
 		</div>
 	);
 }

@@ -8,9 +8,11 @@ import {
 	createServer as createServerFn,
 	listServers,
 	listServersForNode,
+	mintServerToken as mintServerTokenFn,
 	removeServer as removeServerFn,
 	renameServer as renameServerFn,
 	restartServer as restartServerFn,
+	sendServerCommand as sendServerCommandFn,
 	startServer as startServerFn,
 	stopServer as stopServerFn,
 	syncServer,
@@ -137,4 +139,16 @@ export function updateServerRuntime(id: string, imageLabel: string) {
 /** Refresh every server feed after a mutation. */
 export function invalidateServers(queryClient: QueryClient): Promise<void> {
 	return queryClient.invalidateQueries({ queryKey: ["servers"] });
+}
+
+// ─── console ─────────────────────────────────────────────────────────────────
+
+/** Mint a short-lived console JWT + the wss URL the browser opens to the daemon. */
+export function mintServerToken(id: string) {
+	return mintServerTokenFn({ data: { id } });
+}
+
+/** Send a console command to a server's container. */
+export function sendServerCommand(id: string, command: string) {
+	return sendServerCommandFn({ data: { id, command } });
 }

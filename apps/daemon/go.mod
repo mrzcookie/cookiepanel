@@ -3,6 +3,8 @@ module github.com/cookiepanel/cookied
 go 1.25.0
 
 require (
+	github.com/coder/websocket v1.8.14
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/moby/moby/api v1.54.2
 	github.com/moby/moby/client v0.4.1
 	github.com/shirou/gopsutil/v4 v4.26.4

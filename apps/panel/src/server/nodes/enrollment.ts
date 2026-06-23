@@ -34,7 +34,9 @@ const ENROLL_REJECT = "Invalid or expired bootstrap token";
 // another node or swapped between the two secrets. `nodeKeyAad` is exported so
 // the daemon-client can unseal the node key with the same context to dial out.
 export const nodeKeyAad = (nodeId: string) => `node-key:${nodeId}`;
-const signingSecretAad = (nodeId: string) => `signing-secret:${nodeId}`;
+// Exported so the console-token minter can unseal the signing secret under the
+// same context to sign the browser JWT.
+export const signingSecretAad = (nodeId: string) => `signing-secret:${nodeId}`;
 
 /**
  * Exchange a bootstrap token for the durable node key + signing secret, returned

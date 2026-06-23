@@ -141,6 +141,15 @@ export const nodesRepository = {
 			.limit(1)
 			.then((rows) => rows.at(0)),
 
+	/** The sealed per-node signing secret, for minting the console JWT. */
+	signingSecretCiphertextFor: (nodeId: string) =>
+		db
+			.select({ ciphertext: nodeCredential.signingSecretCiphertext })
+			.from(nodeCredential)
+			.where(eq(nodeCredential.nodeId, nodeId))
+			.limit(1)
+			.then((rows) => rows.at(0)?.ciphertext ?? null),
+
 	/** Burn the bootstrap token and store the durable credentials, atomically. */
 	activate: (
 		nodeId: string,

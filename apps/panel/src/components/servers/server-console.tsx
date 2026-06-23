@@ -12,20 +12,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ServerState } from "@/lib/domain/servers";
 import { cn } from "@/lib/utils";
+import type { ConsoleLine, ConsoleStatus } from "./use-server-console";
 import "@xterm/xterm/css/xterm.css";
 
-// The live server console. xterm.js renders the streamed stdout/stderr (the
-// daemon will pipe the container's real output here over a WebSocket); for now
-// it replays believable, state-driven log lines. Input is a separate command bar
-// — the terminal itself is read-only (`disableStdin`) — so it stays accessible
-// and the command flow matches the rest of the panel. This module is loaded only
-// on the client (lazy + ClientOnly), since xterm touches the DOM at import.
+// The live server console. xterm.js renders the container's real stdout/stderr,
+// streamed from the daemon over a WebSocket (see `useServerConsole`). Input is a
+// separate command bar — the terminal itself is read-only (`disableStdin`) — so
+// it stays accessible. Client-only (lazy + ClientOnly): xterm touches the DOM at
+// import.
 
 // "The Console" terminal palette: deep cool-ink surface, azure cursor + brand,
-// and ANSI colors mapped to the app's semantic tones (green = ok, amber = warn,
-// red = destructive, blue = azure). Dark in both app themes (terminals are dark
-// by convention). `background` mirrors the `--color-terminal` token; xterm needs
-// concrete color strings, so these are the sRGB renderings of the OKLCH tokens.
+// ANSI colors mapped to the app's semantic tones. xterm needs concrete color
+// strings, so these are the sRGB renderings of the OKLCH tokens.
 const THEME = {
 	background: "#0a0c11",
 	foreground: "#dfe3ea",
@@ -50,66 +48,59 @@ const THEME = {
 	brightWhite: "#f5f7fa",
 } as const;
 
-const DIM = "\x1b[90m";
-const RESET = "\x1b[0m";
-const GREEN = "\x1b[32m";
-const YELLOW = "\x1b[33m";
 const RED = "\x1b[31m";
-const CYAN = "\x1b[36m";
-
-function stamp() {
-	return new Date().toLocaleTimeString("en-US", { hour12: false });
-}
-
-function line(level: "INFO" | "WARN" | "ERROR", message: string) {
-	const color = level === "WARN" ? YELLOW : level === "ERROR" ? RED : GREEN;
-	return `${DIM}[${stamp()}]${RESET} ${color}${level}${RESET} ${message}`;
-}
-
-// Scripted "live" output. Cycled deterministically (no RNG) so the console reads
-// like a real running server without ever depending on wall-clock randomness.
-function bootSequence(templateName: string) {
-	return [
-		line("INFO", `Starting ${templateName} server`),
-		line("INFO", "Loading configuration and world data"),
-		line("INFO", "Preparing spawn area: 0%"),
-		line("INFO", "Preparing spawn area: 84%"),
-		line("INFO", "Done. Players can connect now"),
-	];
-}
-
-const HEARTBEAT = [
-	line.bind(null, "INFO", "Saving world…"),
-	line.bind(null, "INFO", "Saved the game"),
-	line.bind(null, "INFO", "Steve joined the game"),
-	line.bind(
-		null,
-		"WARN",
-		"Can't keep up! Is the server overloaded? Running 2140ms behind"
-	),
-	line.bind(null, "INFO", "<Alex> anyone seen my diamonds"),
-	line.bind(null, "INFO", "Steve left the game"),
-	line.bind(null, "INFO", "Autosave complete (took 412ms)"),
-];
+const RESET = "\x1b[0m";
 
 export type ServerConsoleProps = {
+	lines: ConsoleLine[];
+	status: ConsoleStatus;
+	/** Bumped on each (re)connect, so we clear scrollback before the replay tail. */
+	generation: number;
 	state: ServerState;
-	templateName: string;
 	canSend: boolean;
-	/** Where a real impl forwards the command to the daemon. The terminal already
-	 * echoes it locally, so the stub can leave this unset. */
-	onSend?: (command: string) => void;
+	onSend: (command: string) => void;
 };
 
+// What to show over an empty terminal — the server's lifecycle first, then the
+// connection state once it's running.
+function consoleHint(state: ServerState, status: ConsoleStatus): string | null {
+	if (state === "installing") {
+		return "Setting up your server in an isolated sandbox…";
+	}
+	if (state === "failed") {
+		return "The server failed to start. See Settings for the last error.";
+	}
+	if (state === "starting") {
+		return "Booting up…";
+	}
+	if (state !== "running") {
+		return "Server is stopped. Press Start to boot it up.";
+	}
+	if (status === "connecting" || status === "idle") {
+		return "Connecting to the console…";
+	}
+	if (status === "error") {
+		return "Couldn't reach the console. The node may not have a trusted certificate yet.";
+	}
+	if (status === "closed") {
+		return "Reconnecting…";
+	}
+	return null;
+}
+
 export default function ServerConsole({
+	lines,
+	status,
+	generation,
 	state,
-	templateName,
 	canSend,
 	onSend,
 }: ServerConsoleProps) {
 	const mountRef = useRef<HTMLDivElement>(null);
 	const termRef = useRef<Terminal | null>(null);
 	const fitRef = useRef<FitAddon | null>(null);
+	const lastIdRef = useRef(-1);
+	const genRef = useRef(generation);
 
 	const [command, setCommand] = useState("");
 	const [history, setHistory] = useState<string[]>([]);
@@ -159,7 +150,7 @@ export default function ServerConsole({
 			try {
 				fit.fit();
 			} catch {
-				// The element can be measured as 0×0 mid-layout; ignore and refit later.
+				// Can measure 0×0 mid-layout; ignore and refit later.
 			}
 		});
 		observer.observe(mount);
@@ -172,48 +163,27 @@ export default function ServerConsole({
 		};
 	}, []);
 
-	// Drive the content from the server's state: boot + stream while running,
-	// a static message otherwise.
+	// Stream new lines into the terminal. On reconnect (generation change) clear
+	// the scrollback first, since the daemon replays the recent-history tail.
 	useEffect(() => {
 		const term = termRef.current;
 		if (!term) {
 			return;
 		}
-		term.write("\x1b[2J\x1b[H");
-
-		if (state === "running") {
-			for (const ln of bootSequence(templateName)) {
-				term.writeln(ln);
+		if (genRef.current !== generation) {
+			genRef.current = generation;
+			term.write("\x1b[2J\x1b[H");
+			lastIdRef.current = -1;
+		}
+		for (const ln of lines) {
+			if (ln.id > lastIdRef.current) {
+				term.writeln(
+					ln.stream === "stderr" ? `${RED}${ln.data}${RESET}` : ln.data
+				);
+				lastIdRef.current = ln.id;
 			}
-			let i = 0;
-			const interval = setInterval(() => {
-				const next = HEARTBEAT[i % HEARTBEAT.length];
-				if (next) {
-					term.writeln(next());
-				}
-				i += 1;
-			}, 2200);
-			return () => clearInterval(interval);
 		}
-
-		if (state === "starting") {
-			term.writeln(`${DIM}Booting up…${RESET}`);
-		} else if (state === "installing") {
-			term.writeln(
-				`${DIM}Setting up your server in an isolated sandbox…${RESET}`
-			);
-			term.writeln(`${DIM}This can take a few minutes the first time.${RESET}`);
-		} else if (state === "failed") {
-			term.writeln(
-				`${RED}The server failed to start. See Settings for the last error,${RESET}`
-			);
-			term.writeln(`${RED}or reinstall to try again.${RESET}`);
-		} else {
-			term.writeln(
-				`${DIM}Server is stopped. Press Start to boot it up.${RESET}`
-			);
-		}
-	}, [state, templateName]);
+	}, [lines, generation]);
 
 	function submit(event: FormEvent) {
 		event.preventDefault();
@@ -221,8 +191,7 @@ export default function ServerConsole({
 		if (!cmd || !canSend) {
 			return;
 		}
-		termRef.current?.writeln(`${CYAN}> ${cmd}${RESET}`);
-		onSend?.(cmd);
+		onSend(cmd);
 		setHistory((h) => [...h.filter((c) => c !== cmd), cmd].slice(-100));
 		setHistIdx(null);
 		setCommand("");
@@ -254,6 +223,8 @@ export default function ServerConsole({
 		}
 	}
 
+	const hint = lines.length === 0 ? consoleHint(state, status) : null;
+
 	return (
 		<div
 			className={cn(
@@ -269,6 +240,11 @@ export default function ServerConsole({
 					)}
 					ref={mountRef}
 				/>
+				{hint ? (
+					<div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-muted-foreground text-sm">
+						{hint}
+					</div>
+				) : null}
 				<Button
 					aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen console"}
 					className="absolute top-2 right-2 size-7 text-muted-foreground hover:text-foreground"

@@ -11,6 +11,7 @@ import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 import type { ServerRow } from "@/lib/domain/servers";
 import { formatBytes, pluralize } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import type { ConsoleStats } from "./use-server-console";
 
 // The live-usage strip on a server's console tab — a telemetry bar of area
 // graphs (CPU / memory / disk / network) that tick in time with the streamed
@@ -24,14 +25,10 @@ import { cn } from "@/lib/utils";
 // ~80s of history at the console's heartbeat cadence — long enough to read a
 // trend, short enough to feel immediate.
 const WINDOW = 40;
-const TICK_MS = 2000;
 const STRESS_THRESHOLD = 90;
 
 const MB = 1024 * 1024;
-// Typical sustained rates for a busy game server, and the fixed ceiling the
-// network graph scales to (so the line doesn't rescale-jitter every tick).
-const DOWN_BASE = 1.5 * MB;
-const UP_BASE = 0.4 * MB;
+// The fixed ceiling the network graph scales to.
 const NET_MAX = 3 * MB;
 
 const HUE = {
@@ -48,13 +45,6 @@ function clamp(value: number, lo: number, hi: number) {
 	return Math.min(hi, Math.max(lo, value));
 }
 
-function percent(used: number | null, total: number) {
-	if (used === null || total === 0) {
-		return null;
-	}
-	return clamp((used / total) * 100, 0, 100);
-}
-
 // Bytes/sec → a compact "1.5 MB/s" / "410 KB/s" reading. Rolls over to MB just
 // under 1024 KB so the KB reading never shows four digits.
 function formatRate(bytesPerSec: number) {
@@ -67,46 +57,6 @@ function formatRate(bytesPerSec: number) {
 	return `${Math.round(bytesPerSec)} B/s`;
 }
 
-// A believable recent history ending at the current reading. Pure (no RNG) so
-// the server-rendered markup matches the first client paint; the live ticks add
-// motion only after mount. `amp` is the swing in the metric's own units.
-function seedSeries(value: number | null, amp: number, max: number): Series {
-	if (value === null) {
-		return [];
-	}
-	return Array.from({ length: WINDOW }, (_, i) => {
-		if (i === WINDOW - 1) {
-			return value;
-		}
-		const wave =
-			Math.sin((i + value) / 2.3) * amp +
-			Math.sin((i + value) / 5.1) * amp * 0.5;
-		return clamp(value + wave, max * 0.01, max);
-	});
-}
-
-// One step of a bounded random walk: a small drift most ticks, an occasional
-// spike, clamped to the metric's range.
-function advance(
-	series: Series,
-	drift: number,
-	spikeChance: number,
-	spike: number,
-	max: number
-): Series {
-	if (series.length === 0) {
-		return series;
-	}
-	const prev = series.at(-1) ?? 0;
-	const step = (Math.random() - 0.5) * 2 * drift;
-	const jump =
-		spikeChance > 0 && Math.random() < spikeChance
-			? (Math.random() - 0.5) * 2 * spike
-			: 0;
-	const next = clamp(prev + step + jump, max * 0.01, max);
-	return [...series.slice(1), next];
-}
-
 type Buffers = {
 	cpu: Series;
 	mem: Series;
@@ -115,64 +65,43 @@ type Buffers = {
 	up: Series;
 };
 
-function seedAll(
-	cpu0: number | null,
-	mem0: number | null,
-	disk0: number | null,
-	down0: number | null,
-	up0: number | null
-): Buffers {
-	return {
-		cpu: seedSeries(cpu0, 6, 100),
-		mem: seedSeries(mem0, 2.5, 100),
-		disk: seedSeries(disk0, 0.4, 100),
-		down: seedSeries(down0, DOWN_BASE * 0.22, NET_MAX),
-		up: seedSeries(up0, UP_BASE * 0.25, NET_MAX),
-	};
-}
-
-function advanceAll(prev: Buffers): Buffers {
-	return {
-		cpu: advance(prev.cpu, 3, 0.18, 9, 100),
-		mem: advance(prev.mem, 1.3, 0.07, 4, 100),
-		disk: advance(prev.disk, 0.12, 0, 0, 100),
-		down: advance(prev.down, DOWN_BASE * 0.14, 0.2, DOWN_BASE * 0.9, NET_MAX),
-		up: advance(prev.up, UP_BASE * 0.16, 0.12, UP_BASE * 0.7, NET_MAX),
-	};
-}
-
-// CPU/memory/network only report while the container runs; disk usage lives on
-// the volume, so it graphs whenever there's a reading — running or not.
-function useLiveUsage(server: ServerRow) {
+// Accumulate the live CPU% + memory% samples from the daemon's stats frames into
+// rolling series. Disk + network aren't in the stats frame yet, so they read "No
+// live data" until those subsystems land.
+function useLiveUsage(server: ServerRow, live: ConsoleStats | null): Buffers {
 	const running = server.state === "running";
-	const cpu0 = running ? server.cpuPercent : null;
-	const mem0 = running
-		? percent(server.memUsedBytes, server.memLimitBytes)
-		: null;
-	const disk0 = percent(server.diskUsedBytes, server.diskLimitBytes);
-	const down0 = running ? DOWN_BASE : null;
-	const up0 = running ? UP_BASE : null;
-
-	const [buffers, setBuffers] = useState<Buffers>(() =>
-		seedAll(cpu0, mem0, disk0, down0, up0)
-	);
+	const [series, setSeries] = useState<{ cpu: Series; mem: Series }>({
+		cpu: [],
+		mem: [],
+	});
 
 	useEffect(() => {
-		setBuffers(seedAll(cpu0, mem0, disk0, down0, up0));
-		if (!(running || disk0 !== null)) {
+		if (!(running && live)) {
+			setSeries({ cpu: [], mem: [] });
 			return;
 		}
-		const timer = setInterval(() => {
-			setBuffers(advanceAll);
-		}, TICK_MS);
-		return () => clearInterval(timer);
-	}, [running, cpu0, mem0, disk0, down0, up0]);
+		const cpu = clamp(live.cpuPct, 0, 100);
+		const mem =
+			live.memLimit > 0
+				? clamp((live.memBytes / live.memLimit) * 100, 0, 100)
+				: 0;
+		setSeries((prev) => ({
+			cpu: [...prev.cpu, cpu].slice(-WINDOW),
+			mem: [...prev.mem, mem].slice(-WINDOW),
+		}));
+	}, [running, live]);
 
-	return buffers;
+	return { cpu: series.cpu, mem: series.mem, disk: [], down: [], up: [] };
 }
 
-export function ServerUsageCard({ server }: { server: ServerRow }) {
-	const { cpu, mem, disk, down, up } = useLiveUsage(server);
+export function ServerUsageCard({
+	live,
+	server,
+}: {
+	live: ConsoleStats | null;
+	server: ServerRow;
+}) {
+	const { cpu, mem, disk, down, up } = useLiveUsage(server, live);
 	const running = server.state === "running";
 
 	const cpuNow = cpu.at(-1) ?? null;
