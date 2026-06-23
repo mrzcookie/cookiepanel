@@ -27,6 +27,8 @@ import (
 	"time"
 
 	"github.com/cookiepanel/cookied/internal/docker"
+	"github.com/cookiepanel/cookied/internal/firewall"
+	"github.com/cookiepanel/cookied/internal/network"
 	"github.com/cookiepanel/cookied/internal/server"
 	"github.com/cookiepanel/cookied/internal/system"
 	cookietls "github.com/cookiepanel/cookied/internal/tls"
@@ -44,6 +46,8 @@ type Server struct {
 	tls           *cookietls.Material
 	dockerClient  *docker.Client
 	servers       *server.Manager
+	networks      *network.Manager
+	firewall      *firewall.Manager
 
 	server   *http.Server
 	listener net.Listener
@@ -58,8 +62,10 @@ type Config struct {
 	StaticInfo    map[string]any // os/arch/cpus/mem/disk/daemonVersion
 	StartedAt     time.Time
 	TLS           *cookietls.Material
-	DockerClient  *docker.Client  // may be nil if docker is unavailable
-	Servers       *server.Manager // server-container lifecycle
+	DockerClient  *docker.Client    // may be nil if docker is unavailable
+	Servers       *server.Manager   // server-container lifecycle
+	Networks      *network.Manager  // docker network lifecycle
+	Firewall      *firewall.Manager // host firewall
 }
 
 // New constructs but does not start the server.
@@ -74,6 +80,8 @@ func New(cfg Config) *Server {
 		tls:           cfg.TLS,
 		dockerClient:  cfg.DockerClient,
 		servers:       cfg.Servers,
+		networks:      cfg.Networks,
+		firewall:      cfg.Firewall,
 	}
 }
 
@@ -130,6 +138,14 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/servers/{id}/stop", s.handleStopServer)
 	mux.HandleFunc("POST /api/v1/servers/{id}/restart", s.handleRestartServer)
 	mux.HandleFunc("POST /api/v1/servers/{id}/command", s.handleServerCommand)
+	mux.HandleFunc("GET /api/v1/networks", s.handleListNetworks)
+	mux.HandleFunc("POST /api/v1/networks", s.handleCreateNetwork)
+	mux.HandleFunc("DELETE /api/v1/networks/{id}", s.handleDeleteNetwork)
+	mux.HandleFunc("POST /api/v1/networks/{id}/attach", s.handleAttachNetwork)
+	mux.HandleFunc("POST /api/v1/networks/{id}/detach", s.handleDetachNetwork)
+	mux.HandleFunc("GET /api/v1/firewall", s.handleFirewallStatus)
+	mux.HandleFunc("POST /api/v1/firewall/open", s.handleFirewallOpen)
+	mux.HandleFunc("POST /api/v1/firewall/close", s.handleFirewallClose)
 	outer.Handle("/", recoverPanic(s.bearerAuth(mux)))
 	return outer
 }
@@ -278,6 +294,107 @@ func (s *Server) handleServerCommand(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.servers.SendCommand(r.Context(), r.PathValue("id"), body.Command); err != nil {
 		writeJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ─── networks ────────────────────────────────────────────────────────────────
+
+func (s *Server) handleListNetworks(w http.ResponseWriter, r *http.Request) {
+	list, err := s.networks.List(r.Context())
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if list == nil {
+		list = []network.Network{}
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+func (s *Server) handleCreateNetwork(w http.ResponseWriter, r *http.Request) {
+	var req network.CreateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	nw, err := s.networks.Create(r.Context(), req)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, nw)
+}
+
+func (s *Server) handleDeleteNetwork(w http.ResponseWriter, r *http.Request) {
+	if err := s.networks.Delete(r.Context(), r.PathValue("id")); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleAttachNetwork(w http.ResponseWriter, r *http.Request) {
+	s.networkAttach(w, r, s.networks.Attach)
+}
+
+func (s *Server) handleDetachNetwork(w http.ResponseWriter, r *http.Request) {
+	s.networkAttach(w, r, s.networks.Detach)
+}
+
+func (s *Server) networkAttach(
+	w http.ResponseWriter,
+	r *http.Request,
+	op func(ctx context.Context, networkID, serverID string) error,
+) {
+	var req network.AttachRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := op(r.Context(), r.PathValue("id"), req.ServerID); err != nil {
+		writeJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ─── firewall ────────────────────────────────────────────────────────────────
+
+func (s *Server) handleFirewallStatus(w http.ResponseWriter, r *http.Request) {
+	st, err := s.firewall.Status(r.Context())
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, st)
+}
+
+func (s *Server) handleFirewallOpen(w http.ResponseWriter, r *http.Request) {
+	s.firewallMutate(w, r, s.firewall.Open)
+}
+
+func (s *Server) handleFirewallClose(w http.ResponseWriter, r *http.Request) {
+	s.firewallMutate(w, r, s.firewall.Close)
+}
+
+func (s *Server) firewallMutate(
+	w http.ResponseWriter,
+	r *http.Request,
+	op func(ctx context.Context, rule firewall.Rule) error,
+) {
+	var rule firewall.Rule
+	if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := op(r.Context(), rule); err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, firewall.ErrUnsupported) {
+			status = http.StatusNotImplemented
+		}
+		writeJSONError(w, status, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

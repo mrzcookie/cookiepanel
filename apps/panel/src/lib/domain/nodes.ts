@@ -95,7 +95,7 @@ export type DriveRow = {
 };
 
 export type FirewallBackend = "ufw" | "iptables" | "none";
-export type FirewallRule = { port: number; protocol: AllocationProtocol };
+type FirewallRule = { port: number; protocol: AllocationProtocol };
 export type FirewallRow = {
 	nodeId: string;
 	backend: FirewallBackend;

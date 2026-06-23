@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
 import { Lock, Network, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -36,7 +37,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import {
 	Table,
 	TableBody,
@@ -45,23 +45,25 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import {
+	createAllocation,
+	invalidateAllocations,
+	removeAllocation,
+	useNodeAllocations,
+} from "@/lib/allocation-queries";
 import type {
 	AllocationProtocol,
 	AllocationRow,
 	NetworkRow,
 } from "@/lib/domain/networks";
 import type { FirewallRow, NodeRow } from "@/lib/domain/nodes";
-import { useNode } from "@/lib/node-queries";
-import { useNetworks } from "@/lib/stores/networks-store";
 import {
-	addAllocation,
-	addFirewallRule,
-	releaseAllocation,
-	removeFirewallRule,
-	setFirewallActive,
-	useAllocations,
-	useFirewall,
-} from "@/lib/stores/node-resources-store";
+	deleteNetwork,
+	invalidateNetworks,
+	nodeFirewallQueryOptions,
+	useNetworks,
+} from "@/lib/networking-queries";
+import { useNode } from "@/lib/node-queries";
 
 export const Route = createFileRoute("/_app/nodes/$nodeId/networking")({
 	component: NodeNetworking,
@@ -73,8 +75,7 @@ function NodeNetworking() {
 	const { nodeId } = Route.useParams();
 	const node = useNode(nodeId);
 	const networks = useNetworks().filter((network) => network.nodeId === nodeId);
-	const allocations = useAllocations(nodeId);
-	const firewall = useFirewall(nodeId);
+	const allocations = useNodeAllocations(nodeId);
 
 	if (!node) {
 		return null;
@@ -94,13 +95,12 @@ function NodeNetworking() {
 		<div className="space-y-6">
 			{node.status === "offline" ? (
 				<div className="rounded-lg border border-dashed p-3 text-muted-foreground text-sm">
-					This node is offline. The networking details below were last reported{" "}
-					{node.lastHeartbeat ?? "a while ago"} and may be out of date.
+					This node is offline. Networking details may be out of date.
 				</div>
 			) : null}
 			<NetworksCard networks={networks} node={node} />
 			<AllocationsCard allocations={allocations} node={node} />
-			<FirewallCard firewall={firewall} node={node} />
+			<FirewallCard node={node} />
 		</div>
 	);
 }
@@ -112,15 +112,28 @@ function NetworksCard({
 	networks: NetworkRow[];
 	node: NodeRow;
 }) {
+	const queryClient = useQueryClient();
 	const [open, setOpen] = useState(false);
+
+	async function remove(network: NetworkRow) {
+		try {
+			await deleteNetwork(node.id, network.id);
+			await invalidateNetworks(queryClient);
+			toast.success(`Deleted ${network.name}.`);
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't delete the network."
+			);
+		}
+	}
 
 	return (
 		<Card>
 			<CardHeader>
 				<CardTitle>Networks</CardTitle>
 				<CardDescription>
-					Networks on {node.name}. Servers attach to a network to reach each
-					other.
+					Docker networks on {node.name}. Servers attach to a network to reach
+					each other.
 				</CardDescription>
 				<CardAction>
 					<Button onClick={() => setOpen(true)} size="sm">
@@ -140,7 +153,9 @@ function NetworksCard({
 							<TableRow>
 								<TableHead>Network</TableHead>
 								<TableHead>Subnet</TableHead>
-								<TableHead className="text-right">Servers</TableHead>
+								<TableHead className="w-0">
+									<span className="sr-only">Actions</span>
+								</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
@@ -151,24 +166,19 @@ function NetworksCard({
 											badge={network.internal ? <IsolatedBadge /> : null}
 											icon={Network}
 											subtitle={network.driver}
-											title={
-												<Link
-													className="hover:underline"
-													params={{ networkId: network.id }}
-													to="/networks/$networkId"
-												>
-													{network.name}
-												</Link>
-											}
+											title={network.name}
 										/>
 									</TableCell>
 									<TableCell className="font-mono text-muted-foreground text-xs">
 										{network.subnet ?? <span className="font-sans">Auto</span>}
 									</TableCell>
-									<TableCell className="text-right text-muted-foreground tabular-nums">
-										{network.serverIds.length === 0
-											? "—"
-											: network.serverIds.length}
+									<TableCell>
+										{network.name === "bridge" ? null : (
+											<RemoveButton
+												label={`Delete ${network.name}`}
+												onClick={() => remove(network)}
+											/>
+										)}
 									</TableCell>
 								</TableRow>
 							))}
@@ -188,11 +198,19 @@ function AllocationsCard({
 	allocations: AllocationRow[];
 	node: NodeRow;
 }) {
+	const queryClient = useQueryClient();
 	const [open, setOpen] = useState(false);
 
-	function release(allocation: AllocationRow) {
-		releaseAllocation(allocation.id);
-		toast.success(`Released ${allocation.ip}:${allocation.port}.`);
+	async function release(allocation: AllocationRow) {
+		try {
+			await removeAllocation(allocation.id);
+			await invalidateAllocations(queryClient);
+			toast.success(`Released ${allocation.ip}:${allocation.port}.`);
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't release the port."
+			);
+		}
 	}
 
 	return (
@@ -200,8 +218,8 @@ function AllocationsCard({
 			<CardHeader>
 				<CardTitle>Port allocations</CardTitle>
 				<CardDescription>
-					Ports reserved on {node.name}. Each server binds to one of these to be
-					reachable.
+					Ports reserved on {node.name}. Each server binds one to be reachable;
+					the firewall opens it in lockstep.
 				</CardDescription>
 				<CardAction>
 					<Button onClick={() => setOpen(true)} size="sm" variant="outline">
@@ -273,6 +291,7 @@ function AddAllocationDialog({
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
 }) {
+	const queryClient = useQueryClient();
 	const [ip, setIp] = useState("0.0.0.0");
 	const [port, setPort] = useState("");
 	const [protocol, setProtocol] = useState<AllocationProtocol>("tcp");
@@ -287,20 +306,24 @@ function AddAllocationDialog({
 		setProtocol("tcp");
 	}
 
-	function submit() {
+	async function submit() {
 		const bind = `${ip.trim() || "0.0.0.0"}:${portNumber}`;
-		const reserved = addAllocation(node.id, {
-			ip: ip.trim() || "0.0.0.0",
-			port: portNumber,
-			protocol,
-		});
-		if (reserved) {
+		try {
+			await createAllocation({
+				nodeId: node.id,
+				ip: ip.trim() || "0.0.0.0",
+				port: portNumber,
+				protocol,
+			});
+			await invalidateAllocations(queryClient);
 			toast.success(`Reserved ${bind}.`);
-		} else {
-			toast.info(`${bind} is already reserved.`);
+			onOpenChange(false);
+			reset();
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : `Couldn't reserve ${bind}.`
+			);
 		}
-		onOpenChange(false);
-		reset();
 	}
 
 	return (
@@ -393,15 +416,17 @@ function AddAllocationDialog({
 	);
 }
 
-function FirewallCard({
-	firewall,
-	node,
-}: {
-	firewall: FirewallRow | undefined;
-	node: NodeRow;
-}) {
-	const [open, setOpen] = useState(false);
-	const managed = firewall !== undefined && firewall.backend !== "none";
+// The firewall is a read-only view of the daemon's host firewall. Ports are
+// opened/closed in lockstep with allocations (above), so there's no manual
+// rule editing here — and SSH (22) + the daemon port can never be closed
+// (enforced authoritatively on the daemon).
+function FirewallCard({ node }: { node: NodeRow }) {
+	const live = node.status === "online" || node.status === "unhealthy";
+	const query = useQuery({
+		...nodeFirewallQueryOptions(node.id),
+		enabled: live,
+	});
+	const firewall = query.data?.ok ? query.data.data : null;
 
 	return (
 		<Card>
@@ -410,27 +435,18 @@ function FirewallCard({
 				<CardDescription>
 					The host firewall on {node.name} and the ports it allows in.
 				</CardDescription>
-				{managed ? (
-					<CardAction>
-						<Button onClick={() => setOpen(true)} size="sm" variant="outline">
-							<Plus />
-							Add rule
-						</Button>
-					</CardAction>
-				) : null}
 			</CardHeader>
 			<CardContent className="space-y-4">
 				{firewall ? (
 					<FirewallBody daemonPort={node.daemonPort} firewall={firewall} />
 				) : (
 					<p className="text-muted-foreground text-sm">
-						No firewall reported for this node yet.
+						{live
+							? "Reading the firewall from the node…"
+							: "The node is offline, so its firewall can't be read."}
 					</p>
 				)}
 			</CardContent>
-			{firewall ? (
-				<AddFirewallRuleDialog node={node} onOpenChange={setOpen} open={open} />
-			) : null}
 		</Card>
 	);
 }
@@ -449,11 +465,6 @@ function FirewallBody({
 				? "iptables"
 				: "None";
 
-	function removeRule(port: number, protocol: AllocationProtocol) {
-		removeFirewallRule(firewall.nodeId, port, protocol);
-		toast.success(`Closed port ${port}/${protocol}.`);
-	}
-
 	return (
 		<>
 			<div className="divide-y">
@@ -463,184 +474,67 @@ function FirewallBody({
 				</div>
 				<div className="flex items-center justify-between gap-4 py-3 last:pb-0">
 					<span className="text-muted-foreground text-sm">Active</span>
-					{firewall.backend === "none" ? (
-						<StatusIndicator status={{ label: "Inactive", tone: "muted" }} />
-					) : (
-						<Switch
-							aria-label="Firewall active"
-							checked={firewall.active}
-							onCheckedChange={(active) => {
-								setFirewallActive(firewall.nodeId, active);
-								toast.success(
-									active ? "Firewall enabled." : "Firewall disabled."
-								);
-							}}
-						/>
-					)}
+					<StatusIndicator
+						status={
+							firewall.active
+								? { label: "Active", tone: "online" }
+								: { label: "Inactive", tone: "muted" }
+						}
+					/>
 				</div>
 			</div>
 
 			{firewall.backend === "none" ? (
 				<p className="text-muted-foreground text-sm">
-					No managed firewall on this node. CookiePanel isn't filtering inbound
-					traffic here.
+					No managed firewall on this node (no ufw or iptables). CookiePanel
+					isn't filtering inbound traffic here.
 				</p>
 			) : (
 				<div className="space-y-2">
 					<p className="font-medium text-sm">Allowed ports</p>
 					<p className="text-muted-foreground text-xs">
-						SSH (22) and the daemon port ({daemonPort}) are always allowed and
-						can't be closed, so a change here can never lock you out of this
-						node.
+						These open in lockstep with port allocations. SSH (22) and the
+						daemon port ({daemonPort}) are always allowed and can't be closed.
 					</p>
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Port</TableHead>
-								<TableHead>Protocol</TableHead>
-								<TableHead className="w-0">
-									<span className="sr-only">Actions</span>
-								</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{firewall.rules.map((rule) => {
-								const locked = rule.port === 22 || rule.port === daemonPort;
-								return (
-									<TableRow key={`${rule.port}-${rule.protocol}`}>
-										<TableCell>
-											<span className="flex items-center gap-2">
-												<span className="font-mono text-sm">{rule.port}</span>
-												{locked ? (
-													<Badge variant="secondary">
-														<Lock />
-														Protected
-													</Badge>
-												) : null}
-											</span>
-										</TableCell>
-										<TableCell className="font-mono text-muted-foreground text-xs">
-											{rule.protocol.toUpperCase()}
-										</TableCell>
-										<TableCell>
-											{locked ? null : (
-												<RemoveButton
-													label={`Close port ${rule.port}`}
-													onClick={() => removeRule(rule.port, rule.protocol)}
-												/>
-											)}
-										</TableCell>
-									</TableRow>
-								);
-							})}
-						</TableBody>
-					</Table>
+					{firewall.rules.length === 0 ? (
+						<p className="text-muted-foreground text-sm">
+							No managed rules yet.
+						</p>
+					) : (
+						<Table>
+							<TableHeader>
+								<TableRow>
+									<TableHead>Port</TableHead>
+									<TableHead>Protocol</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{firewall.rules.map((rule) => {
+									const locked = rule.port === 22 || rule.port === daemonPort;
+									return (
+										<TableRow key={`${rule.port}-${rule.protocol}`}>
+											<TableCell>
+												<span className="flex items-center gap-2">
+													<span className="font-mono text-sm">{rule.port}</span>
+													{locked ? (
+														<Badge variant="secondary">
+															<Lock />
+															Protected
+														</Badge>
+													) : null}
+												</span>
+											</TableCell>
+											<TableCell className="font-mono text-muted-foreground text-xs">
+												{rule.protocol.toUpperCase()}
+											</TableCell>
+										</TableRow>
+									);
+								})}
+							</TableBody>
+						</Table>
+					)}
 				</div>
 			)}
 		</>
-	);
-}
-
-function AddFirewallRuleDialog({
-	node,
-	onOpenChange,
-	open,
-}: {
-	node: NodeRow;
-	onOpenChange: (open: boolean) => void;
-	open: boolean;
-}) {
-	const [port, setPort] = useState("");
-	const [protocol, setProtocol] = useState<AllocationProtocol>("tcp");
-
-	const portNumber = Number(port);
-	const valid =
-		Number.isInteger(portNumber) && portNumber >= 1 && portNumber <= 65535;
-
-	function submit() {
-		const opened = addFirewallRule(node.id, { port: portNumber, protocol });
-		if (opened) {
-			toast.success(`Opened port ${portNumber}/${protocol}.`);
-		} else {
-			toast.info(`Port ${portNumber}/${protocol} is already open.`);
-		}
-		onOpenChange(false);
-		setPort("");
-		setProtocol("tcp");
-	}
-
-	return (
-		<Dialog
-			onOpenChange={(next) => {
-				onOpenChange(next);
-				if (!next) {
-					setPort("");
-					setProtocol("tcp");
-				}
-			}}
-			open={open}
-		>
-			<DialogContent>
-				<form
-					onSubmit={(event) => {
-						event.preventDefault();
-						submit();
-					}}
-				>
-					<DialogHeader>
-						<DialogTitle>Open a port</DialogTitle>
-						<DialogDescription>
-							Allow inbound traffic to a port on {node.name}.
-						</DialogDescription>
-					</DialogHeader>
-					<div className="flex flex-col gap-4 py-4 sm:flex-row">
-						<div className="grid flex-1 gap-2">
-							<Label htmlFor="fw-port">Port</Label>
-							<Input
-								className="tabular-nums"
-								id="fw-port"
-								inputMode="numeric"
-								max={65535}
-								min={1}
-								onChange={(event) => setPort(event.target.value)}
-								placeholder="25565"
-								type="number"
-								value={port}
-							/>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="fw-protocol">Protocol</Label>
-							<Select
-								onValueChange={(value) =>
-									setProtocol(value as AllocationProtocol)
-								}
-								value={protocol}
-							>
-								<SelectTrigger className="w-28" id="fw-protocol">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{PROTOCOLS.map((option) => (
-										<SelectItem key={option} value={option}>
-											{option.toUpperCase()}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-					</div>
-					<DialogFooter>
-						<DialogClose asChild>
-							<Button type="button" variant="outline">
-								Cancel
-							</Button>
-						</DialogClose>
-						<Button disabled={!valid} type="submit">
-							Open port
-						</Button>
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
 	);
 }

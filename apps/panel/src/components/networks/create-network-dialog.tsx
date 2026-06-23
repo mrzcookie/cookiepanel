@@ -1,4 +1,5 @@
 import { useForm } from "@tanstack/react-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,10 +20,9 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import type { NetworkDriver } from "@/lib/domain/networks";
 import type { NodeRow } from "@/lib/domain/nodes";
-import { createNetwork } from "@/lib/stores/networks-store";
+import { createNetwork, invalidateNetworks } from "@/lib/networking-queries";
 
 const DRIVERS: NetworkDriver[] = ["bridge", "macvlan", "ipvlan"];
 
@@ -40,33 +40,40 @@ export function CreateNetworkDialog({
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
 }) {
+	const queryClient = useQueryClient();
 	const form = useForm({
 		defaultValues: {
 			driver: "bridge" as NetworkDriver,
 			gateway: "",
-			internal: false,
 			name: "",
 			nodeId: node?.id ?? "",
 			subnet: "",
 		},
-		onSubmit: ({ value, formApi }) => {
+		onSubmit: async ({ value, formApi }) => {
 			const target =
 				node ?? nodes?.find((candidate) => candidate.id === value.nodeId);
 			if (!target) {
 				return;
 			}
-			createNetwork({
-				driver: value.driver,
-				gateway: value.gateway.trim() || null,
-				internal: value.internal,
-				name: value.name.trim(),
-				nodeId: target.id,
-				nodeName: target.name,
-				subnet: value.subnet.trim() || null,
-			});
-			toast.success(`Created “${value.name.trim()}”.`);
-			onOpenChange(false);
-			formApi.reset();
+			try {
+				await createNetwork({
+					nodeId: target.id,
+					name: value.name.trim(),
+					driver: value.driver,
+					subnet: value.subnet.trim() || undefined,
+					gateway: value.gateway.trim() || undefined,
+				});
+				await invalidateNetworks(queryClient);
+				toast.success(`Created “${value.name.trim()}”.`);
+				onOpenChange(false);
+				formApi.reset();
+			} catch (error) {
+				toast.error(
+					error instanceof Error
+						? error.message
+						: "Couldn't create the network."
+				);
+			}
 		},
 	});
 
@@ -197,23 +204,6 @@ export function CreateNetworkDialog({
 								)}
 							</form.Field>
 						</div>
-						<form.Field name="internal">
-							{(field) => (
-								<div className="flex items-center justify-between gap-4 rounded-lg border p-3">
-									<div className="space-y-0.5">
-										<Label htmlFor={field.name}>Isolated network</Label>
-										<p className="text-muted-foreground text-xs">
-											Block outbound internet access.
-										</p>
-									</div>
-									<Switch
-										checked={field.state.value}
-										id={field.name}
-										onCheckedChange={field.handleChange}
-									/>
-								</div>
-							)}
-						</form.Field>
 					</div>
 					<DialogFooter>
 						<DialogClose asChild>

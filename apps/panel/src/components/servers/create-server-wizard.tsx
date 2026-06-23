@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { LayoutTemplate, Plus, Server, SlidersHorizontal } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { WizardFrame } from "@/components/wizard/wizard-frame";
 import type { WizardStep } from "@/components/wizard/wizard-stepper";
+import { nodeAllocationsQueryOptions } from "@/lib/allocation-queries";
 import {
 	basePortFor,
 	clampInt,
@@ -28,7 +29,7 @@ import {
 	isDeployTarget,
 	serverCaps,
 } from "@/lib/domain/deploy";
-import type { AllocationProtocol } from "@/lib/domain/networks";
+import type { AllocationProtocol, AllocationRow } from "@/lib/domain/networks";
 import type { NodeRow } from "@/lib/domain/nodes";
 import {
 	defaultRuntimeLabel,
@@ -39,7 +40,6 @@ import {
 import { formatBytes } from "@/lib/format";
 import { useNodes } from "@/lib/node-queries";
 import { createServer, invalidateServers } from "@/lib/server-queries";
-import { addAllocation, portInUse } from "@/lib/stores/allocations-store";
 import { bumpTemplateServerCount, useTemplates } from "@/lib/templates-queries";
 
 const STEPS: WizardStep[] = [
@@ -100,11 +100,13 @@ function seedValues(template: Template): Record<string, string> {
 
 function nextFreePort(
 	base: number,
-	nodeId: string,
-	protocol: AllocationProtocol
+	protocol: AllocationProtocol,
+	allocations: AllocationRow[]
 ): number {
+	const used = (p: number) =>
+		allocations.some((a) => a.port === p && a.protocol === protocol);
 	let port = base;
-	for (let i = 0; i < 500 && portInUse(nodeId, port, protocol); i++) {
+	for (let i = 0; i < 500 && used(port); i++) {
 		port++;
 	}
 	return Math.min(port, 65535);
@@ -160,6 +162,14 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 		? nodes.find((item) => item.id === draft.nodeId)
 		: undefined;
 	const selectableNodes = nodes.filter(isDeployTarget);
+	// The selected node's allocations — for the free-port suggestion + in-use check.
+	const nodeAllocations =
+		useQuery({
+			...nodeAllocationsQueryOptions(draft.nodeId ?? ""),
+			enabled: Boolean(draft.nodeId),
+		}).data ?? [];
+	const portUsed = (port: number, protocol: AllocationProtocol) =>
+		nodeAllocations.some((a) => a.port === port && a.protocol === protocol);
 
 	function selectTemplate(id: string) {
 		const next = templates.find((item) => item.id === id);
@@ -186,19 +196,16 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 				current.port !== "" &&
 				Number.isInteger(currentPort) &&
 				currentPort >= 1 &&
-				currentPort <= 65535 &&
-				!portInUse(next.id, currentPort, current.protocol);
+				currentPort <= 65535;
 			return {
 				...current,
 				cpuCores: clampInt(current.cpuCores, 1, caps.cpuCores),
 				diskGb: clampInt(current.diskGb, 1, caps.diskGb),
 				memGb: clampInt(current.memGb, 1, caps.memGb),
 				nodeId: id,
-				port: keepPort
-					? current.port
-					: String(
-							nextFreePort(basePortFor(template), next.id, current.protocol)
-						),
+				// The new node's allocations load async; default to the template's base
+				// port and let the user adjust / Suggest.
+				port: keepPort ? current.port : String(basePortFor(template)),
 			};
 		});
 	}
@@ -210,7 +217,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 		const base = Number(draft.port) || basePortFor(template);
 		setDraft((current) => ({
 			...current,
-			port: String(nextFreePort(base, node.id, current.protocol)),
+			port: String(nextFreePort(base, current.protocol, nodeAllocations)),
 		}));
 	}
 
@@ -227,7 +234,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 	const portInRange =
 		Number.isInteger(portNum) && portNum >= 1 && portNum <= 65535;
 	const portTaken = Boolean(
-		node && portInRange && portInUse(node.id, portNum, draft.protocol)
+		node && portInRange && portUsed(portNum, draft.protocol)
 	);
 	const limitsValid = caps
 		? draft.cpuCores >= 1 &&
@@ -263,7 +270,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 			toast.error("Enter a port between 1 and 65535.");
 			return;
 		}
-		if (portInUse(node.id, portNum, draft.protocol)) {
+		if (portUsed(portNum, draft.protocol)) {
 			toast.error(
 				`Port ${portNum}/${draft.protocol} is already in use on ${node.name}.`
 			);
@@ -288,15 +295,8 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 				diskLimitBytes: draft.diskGb * GiB,
 				variables,
 			});
-			// Reserve the port allocation (still a stub) + bump the template count.
-			addAllocation({
-				ip: "0.0.0.0",
-				nodeId: node.id,
-				port: portNum,
-				protocol: draft.protocol,
-				serverId: server.id,
-				serverName: server.name,
-			});
+			// createServer reserved the primary port allocation server-side; just
+			// bump the template's server count.
 			bumpTemplateServerCount(queryClient, template.id, 1);
 			await invalidateServers(queryClient);
 			toast.success(`Deploying “${draft.name.trim()}” on ${node.name}.`);

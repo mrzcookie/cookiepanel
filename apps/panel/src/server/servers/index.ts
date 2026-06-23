@@ -4,6 +4,10 @@ import { z } from "zod";
 import type { ServerRow, ServerState } from "@/lib/domain/servers";
 import { formatRelativeTime } from "@/lib/format";
 import { recordActivity } from "@/server/activity/record";
+import {
+	releaseServerFirewall,
+	reserveAllocation,
+} from "@/server/allocations/service";
 import { requireOrg } from "@/server/auth/guards";
 import { seal, unseal } from "@/server/crypto";
 import { signBrowserToken } from "@/server/jwt";
@@ -341,6 +345,14 @@ export const createServer = createServerFn({ method: "POST" })
 				})) ?? record;
 		}
 
+		// Reserve the primary port allocation + open the firewall (best-effort; the
+		// port was pre-checked free in the wizard, and a noop firewall is fine).
+		try {
+			await reserveAllocation(orgId, data.nodeId, serverId, data.port, "tcp");
+		} catch {
+			// Port already allocated — the server stands; the slot just isn't recorded.
+		}
+
 		await recordActivity({
 			category: "server",
 			action: "server.created",
@@ -357,24 +369,35 @@ export const createServer = createServerFn({ method: "POST" })
 
 // ─── power ───────────────────────────────────────────────────────────────────
 
-function powerFn(action: "start" | "stop" | "restart") {
-	return createServerFn({ method: "POST" })
-		.validator(idInput)
-		.handler(async ({ data }): Promise<ServerRow> => {
-			const { orgId } = await requireOrg();
-			const { record, node } = await requireServer(orgId, data.id);
-			const live = await controlServerOnNode(record.nodeId, record.id, action);
-			const updated = await serversRepository.update(orgId, record.id, {
-				state: mapDaemonState(live.state),
-				lastError: null,
-			});
-			return toServerRow(updated ?? record, node);
-		});
+// Shared power-control body. A plain server-only helper (not a `createServerFn`
+// factory) so the three exports below stay statically-analyzable `createServerFn`
+// declarations — a factory that returns a server fn defeats the compiler's handler
+// split and leaks server-only imports (guards/db) into the client bundle.
+async function powerServer(
+	action: "start" | "stop" | "restart",
+	id: string
+): Promise<ServerRow> {
+	const { orgId } = await requireOrg();
+	const { record, node } = await requireServer(orgId, id);
+	const live = await controlServerOnNode(record.nodeId, record.id, action);
+	const updated = await serversRepository.update(orgId, record.id, {
+		state: mapDaemonState(live.state),
+		lastError: null,
+	});
+	return toServerRow(updated ?? record, node);
 }
 
-export const startServer = powerFn("start");
-export const stopServer = powerFn("stop");
-export const restartServer = powerFn("restart");
+export const startServer = createServerFn({ method: "POST" })
+	.validator(idInput)
+	.handler(({ data }) => powerServer("start", data.id));
+
+export const stopServer = createServerFn({ method: "POST" })
+	.validator(idInput)
+	.handler(({ data }) => powerServer("stop", data.id));
+
+export const restartServer = createServerFn({ method: "POST" })
+	.validator(idInput)
+	.handler(({ data }) => powerServer("restart", data.id));
 
 // ─── delete ──────────────────────────────────────────────────────────────────
 
@@ -383,6 +406,9 @@ export const removeServer = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const { orgId, userId, userName } = await requireOrg();
 		const { record } = await requireServer(orgId, data.id);
+		// Close the firewall for the server's port allocations before they cascade
+		// away with the row below.
+		await releaseServerFirewall(orgId, record.id);
 		// Best-effort container teardown; the registry row goes regardless so a
 		// dead box can't strand a server in the panel.
 		try {

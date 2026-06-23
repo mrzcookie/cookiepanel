@@ -20,10 +20,15 @@ import {
 import type { NetworkRow } from "@/lib/domain/networks";
 import { pluralize } from "@/lib/format";
 import { useListView } from "@/lib/list-view";
-import { useNetworks } from "@/lib/stores/networks-store";
-import { NODES } from "@/lib/stubs";
+import {
+	networksListQueryOptions,
+	useNetworks,
+} from "@/lib/networking-queries";
+import { useNodes } from "@/lib/node-queries";
 
 export const Route = createFileRoute("/_app/networks/")({
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(networksListQueryOptions()),
 	component: Networks,
 });
 
@@ -34,6 +39,7 @@ function serversLabel(count: number) {
 function Networks() {
 	const [view, setView] = useListView("networks");
 	const networks = useNetworks();
+	const nodes = useNodes();
 	const [createOpen, setCreateOpen] = useState(false);
 
 	return (
@@ -62,7 +68,7 @@ function Networks() {
 				view={view}
 			/>
 			<CreateNetworkDialog
-				nodes={NODES}
+				nodes={nodes}
 				onOpenChange={setCreateOpen}
 				open={createOpen}
 			/>

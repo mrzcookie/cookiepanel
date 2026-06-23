@@ -366,3 +366,97 @@ export async function sendCommandOnNode(
 		body: { command },
 	});
 }
+
+// ─── networks ────────────────────────────────────────────────────────────────
+
+export type DaemonNetwork = {
+	id: string;
+	networkId: string;
+	name: string;
+	driver: string;
+	subnet?: string;
+	gateway?: string;
+};
+
+export type DaemonNetworkSpec = {
+	networkId: string;
+	name: string;
+	driver?: string;
+	subnet?: string;
+	gateway?: string;
+};
+
+export async function getNodeNetworks(
+	nodeId: string
+): Promise<DaemonNetwork[]> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		path: "/api/v1/networks",
+	})) as DaemonNetwork[];
+}
+
+export async function createNetworkOnNode(
+	nodeId: string,
+	spec: DaemonNetworkSpec
+): Promise<DaemonNetwork> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: "/api/v1/networks",
+		body: spec,
+	})) as DaemonNetwork;
+}
+
+export async function deleteNetworkOnNode(
+	nodeId: string,
+	networkId: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "DELETE",
+		path: `/api/v1/networks/${networkId}`,
+	});
+}
+
+export async function setNetworkAttachment(
+	nodeId: string,
+	networkId: string,
+	serverId: string,
+	action: "attach" | "detach"
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `/api/v1/networks/${networkId}/${action}`,
+		body: { serverId },
+	});
+}
+
+// ─── firewall ────────────────────────────────────────────────────────────────
+
+export type DaemonFirewall = {
+	backend: string;
+	active: boolean;
+	rules: Array<{ port: number; protocol: string }>;
+};
+
+export async function getNodeFirewall(nodeId: string): Promise<DaemonFirewall> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		path: "/api/v1/firewall",
+	})) as DaemonFirewall;
+}
+
+export async function setFirewallPort(
+	nodeId: string,
+	port: number,
+	protocol: string,
+	action: "open" | "close"
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `/api/v1/firewall/${action}`,
+		body: { port, protocol },
+	});
+}

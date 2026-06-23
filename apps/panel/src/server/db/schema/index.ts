@@ -12,6 +12,7 @@
  * `organizationId` for the repository-layer org-scoping backstop (`security.md`).
  */
 export * from "./activity";
+export * from "./allocations";
 export * from "./auth";
 export * from "./billing";
 export * from "./nodes";
