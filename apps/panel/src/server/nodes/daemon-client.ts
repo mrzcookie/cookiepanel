@@ -356,7 +356,9 @@ export async function getNodeHost(nodeId: string): Promise<NodeHostInfo> {
 // abort it.
 const SERVER_CREATE_TIMEOUT_MS = 5 * 60 * 1000;
 
-/** The daemon's snapshot of a server. `state`/`status` are Docker's raw values. */
+/** The daemon's snapshot of a server. `state`/`status` are Docker's raw values;
+ * `error` carries the failure detail when state is "failed" (e.g. a non-zero
+ * install script). State may also be the panel-side transient "installing". */
 export type DaemonServer = {
 	serverId: string;
 	name: string;
@@ -364,6 +366,7 @@ export type DaemonServer = {
 	image: string;
 	state: string;
 	status: string;
+	error?: string;
 };
 
 /** What the panel POSTs to create a container. */
@@ -381,6 +384,15 @@ export type DaemonServerSpec = {
 		hostPort: number;
 		containerPort: number;
 		protocol?: string;
+	};
+	// An egg install step the daemon runs once (throwaway container) before the
+	// long-lived container. When set, the daemon create is async (returns
+	// "installing"); the panel reconciles to running/failed on the detail poll.
+	install?: {
+		image: string;
+		entrypoint?: string;
+		script: string;
+		env?: Record<string, string>;
 	};
 };
 

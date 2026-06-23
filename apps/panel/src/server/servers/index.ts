@@ -44,14 +44,19 @@ import { type ServerRecord, serversRepository } from "./repository";
 const secretAad = (orgId: string, serverId: string, envVar: string) =>
 	`server-var:${orgId}:${serverId}:${envVar}`;
 
-// Map Docker's raw container state onto the domain vocabulary. `installing` and
-// `failed` are panel-tracked transients, never Docker states.
+// Map the daemon's reported state onto the domain vocabulary. Most values are
+// Docker's raw container states; `installing` / `failed` are reported by the
+// daemon's install tracker while a server has no container yet.
 function mapDaemonState(raw: string): ServerState {
 	switch (raw) {
 		case "running":
 			return "running";
 		case "restarting":
 			return "starting";
+		case "installing":
+			return "installing";
+		case "failed":
+			return "failed";
 		default:
 			// created / exited / dead / paused / removing → not running.
 			return "stopped";
@@ -169,9 +174,29 @@ function resolveStartup(startup: string, env: Record<string, string>): string {
 	return out;
 }
 
+/** The egg install step for a template, or undefined when it has no script. */
+function installSpec(
+	template: TemplateRecord,
+	runtimeImage: string,
+	env: Record<string, string>
+): DaemonServerSpec["install"] {
+	if (template.installScript.trim() === "") {
+		return undefined;
+	}
+	return {
+		// A template with a script but no install image is misconfigured; fall back
+		// to the runtime image (the daemon does the same, but be explicit).
+		image: template.installContainerImage || runtimeImage,
+		entrypoint: template.installEntrypoint,
+		script: template.installScript,
+		env,
+	};
+}
+
 function daemonSpec(
 	record: ServerRecord,
-	env: Record<string, string>
+	env: Record<string, string>,
+	install?: DaemonServerSpec["install"]
 ): DaemonServerSpec {
 	const spec: DaemonServerSpec = {
 		// The container name is the (regex-safe) server id; the daemon keys off the
@@ -184,6 +209,7 @@ function daemonSpec(
 		nanoCpus: record.cpuLimitMillicores * 1_000_000,
 		memoryMb: Math.round(record.memLimitBytes / (1024 * 1024)),
 		stopSignal: record.stopSignal ?? undefined,
+		install,
 	};
 	if (record.port !== null) {
 		spec.portBinding = {
@@ -253,9 +279,16 @@ export const syncServer = createServerFn({ method: "GET" })
 		try {
 			const live = await getServerOnNode(record.nodeId, record.id);
 			const state = mapDaemonState(live.state);
-			if (state !== record.state) {
+			// Carry the daemon's failure detail (e.g. a failed install) into
+			// lastError; clear it once the server is no longer failed.
+			const lastError =
+				state === "failed"
+					? (live.error ?? record.lastError ?? "Install failed")
+					: null;
+			if (state !== record.state || lastError !== record.lastError) {
 				const updated = await serversRepository.update(orgId, record.id, {
 					state,
+					lastError,
 				});
 				return toServerRow(updated ?? record, node);
 			}
@@ -327,15 +360,16 @@ export const createServer = createServerFn({ method: "POST" })
 			lastError: null,
 		});
 
+		const install = installSpec(template, image, env);
 		try {
 			const live = await createServerOnNode(
 				data.nodeId,
-				daemonSpec(record, env)
+				daemonSpec(record, env, install)
 			);
 			record =
 				(await serversRepository.update(orgId, serverId, {
 					state: mapDaemonState(live.state),
-					lastError: null,
+					lastError: live.error ?? null,
 				})) ?? record;
 		} catch (error) {
 			record =

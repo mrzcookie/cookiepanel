@@ -405,6 +405,28 @@ func (c *Client) FollowLogs(
 	return res, nil
 }
 
+// SnapshotLogs returns the container's logs once (no follow), multiplexed in
+// docker's framed format — demux with stdcopy. `tail` bounds the history
+// ("all" for everything). Used to capture a one-shot job's output.
+func (c *Client) SnapshotLogs(
+	ctx context.Context,
+	containerID, tail string,
+) (io.ReadCloser, error) {
+	if c == nil || c.api == nil {
+		return nil, errors.New("docker client not initialized")
+	}
+	res, err := c.api.ContainerLogs(ctx, containerID, moby.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Follow:     false,
+		Tail:       tail,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("logs %s: %w", containerID, err)
+	}
+	return res, nil
+}
+
 // StreamStats returns the streaming docker /stats body (~1 JSON sample/sec); the
 // caller decodes it and forwards the relevant fields.
 func (c *Client) StreamStats(

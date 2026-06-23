@@ -3,14 +3,22 @@
 // a labelled container created from an image with env, an optional port binding,
 // and a per-server named data volume mounted at /data (its working directory) so
 // its files survive a recreate and the file manager can reach them on the host.
-// The egg install pipeline and disk-quota enforcement land in later slices.
+//
+// A template with an install script runs it **once** in a throwaway container
+// before the long-lived container exists (the egg install pipeline). That can
+// take minutes, so create is asynchronous for installs: it returns "installing"
+// immediately and runs install→create→start in the background, tracking the
+// transient state in-memory (Get/List report it until the container exists).
+// Disk-quota enforcement and config-file templating land in later slices.
 package server
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
+	"sync"
 
 	"github.com/cookiepanel/cookied/internal/docker"
 )
@@ -29,15 +37,68 @@ const (
 // DataVolumeName is the named volume holding a server's data.
 func DataVolumeName(serverID string) string { return dataVolumePrefix + serverID }
 
-// Manager owns server-container lifecycle over the docker client.
+// Manager owns server-container lifecycle over the docker client. It also tracks
+// in-progress (and failed) installs in-memory, since during an install there's no
+// long-lived container for Get/List to read state from.
 type Manager struct {
 	docker *docker.Client
+
+	mu       sync.Mutex
+	installs map[string]*installStatus
 }
+
+// installStatus is the transient state of a server whose install is running or
+// failed — held only until the long-lived container exists (success) or the
+// server is deleted. Lost on daemon restart (a rare mid-install crash).
+type installStatus struct {
+	state  string             // stateInstalling | stateFailed
+	err    string             // failure detail, for stateFailed
+	cancel context.CancelFunc // aborts the in-flight install goroutine (delete)
+}
+
+const (
+	stateInstalling = "installing"
+	stateFailed     = "failed"
+)
 
 // NewManager builds a Manager. The docker client may be nil/unavailable; the
 // lifecycle methods then surface a clear error rather than panicking.
 func NewManager(d *docker.Client) *Manager {
-	return &Manager{docker: d}
+	return &Manager{docker: d, installs: make(map[string]*installStatus)}
+}
+
+func (m *Manager) getInstall(serverID string) *installStatus {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.installs[serverID]
+}
+
+// finishInstall records the install's outcome, but only if `want` is still the
+// current record — so a delete that raced the goroutine isn't undone (the
+// goroutine would otherwise re-add a "failed" entry after its ctx was cancelled).
+func (m *Manager) finishInstall(serverID string, want *installStatus, failErr error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.installs[serverID] != want {
+		return
+	}
+	if failErr == nil {
+		delete(m.installs, serverID)
+		return
+	}
+	m.installs[serverID] = &installStatus{state: stateFailed, err: failErr.Error()}
+}
+
+// cancelInstall aborts an in-flight install and drops the record (used by delete).
+func (m *Manager) cancelInstall(serverID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if st := m.installs[serverID]; st != nil {
+		if st.cancel != nil {
+			st.cancel()
+		}
+		delete(m.installs, serverID)
+	}
 }
 
 // PortBinding maps a host ip+port onto a container port.
@@ -59,6 +120,18 @@ type CreateRequest struct {
 	MemoryMB       int               `json:"memoryMb,omitempty"`
 	StopSignal     string            `json:"stopSignal,omitempty"`
 	PortBinding    *PortBinding      `json:"portBinding,omitempty"`
+	// Install, when set, is an egg install step run once (in its own throwaway
+	// container, data volume at /mnt/server) before the long-lived container.
+	Install *InstallSpec `json:"install,omitempty"`
+}
+
+// InstallSpec is an egg's installation script. The script runs as
+// `entrypoint -c <script>` inside Image, with Env exported.
+type InstallSpec struct {
+	Image      string            `json:"image"`
+	Entrypoint string            `json:"entrypoint"`
+	Script     string            `json:"script"`
+	Env        map[string]string `json:"env,omitempty"`
 }
 
 // Server is the daemon's snapshot of a server, returned to the panel. State and
@@ -70,11 +143,16 @@ type Server struct {
 	Image       string `json:"image"`
 	State       string `json:"state"`
 	Status      string `json:"status"`
+	// Error carries the failure detail when State is "failed" (e.g. a non-zero
+	// install script), so the panel can surface it as the server's lastError.
+	Error string `json:"error,omitempty"`
 }
 
-// Create pulls the image, creates the labelled container, and starts it. Rolls
-// the container back if it fails to start. Refuses if one already exists for the
-// server id (idempotency guard).
+// Create provisions a server. Without an install step it runs synchronously
+// (pull → create → start) and returns the live snapshot. With an install step it
+// returns "installing" immediately and runs install→create→start in the
+// background (the install can take minutes); Get/List report the transient state.
+// Refuses if a container or an in-progress install already exists for the id.
 func (m *Manager) Create(ctx context.Context, req CreateRequest) (*Server, error) {
 	if req.ServerID == "" {
 		return nil, errors.New("serverId is required")
@@ -84,6 +162,9 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (*Server, error
 	}
 	if !nameRE.MatchString(req.Name) {
 		return nil, fmt.Errorf("name %q must match %s", req.Name, nameRE)
+	}
+	if m.getInstall(req.ServerID) != nil {
+		return nil, fmt.Errorf("server %s is already installing", req.ServerID)
 	}
 	existing, err := m.docker.InspectByServerID(ctx, req.ServerID)
 	if err != nil {
@@ -95,18 +176,51 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (*Server, error
 		)
 	}
 
-	if err := m.docker.PullImage(ctx, req.Image); err != nil {
-		return nil, err
-	}
-
 	// The data volume holds the server's files (mounted at /data, its working
-	// directory). Created idempotently before the container so a recreate reuses
-	// the same data and the file manager has a stable root.
+	// directory) and is where the install step lays them down. Created
+	// idempotently before either so a recreate reuses the same data.
 	volName := DataVolumeName(req.ServerID)
 	if err := m.docker.CreateVolume(ctx, volName, req.ServerID); err != nil {
 		return nil, err
 	}
+	spec := m.buildSpec(req, volName)
 
+	// No install → provision synchronously and return the live snapshot.
+	if req.Install == nil {
+		if err := m.provision(ctx, req, spec); err != nil {
+			return nil, err
+		}
+		return m.snapshotByServerID(ctx, req.ServerID)
+	}
+
+	// Install → run install→create→start in the background, reporting "installing"
+	// now. A detached context (bounded by provisionTimeout) so the work outlives
+	// the create request; the record's cancel lets delete abort it.
+	bg, cancel := context.WithTimeout(context.Background(), provisionTimeout)
+	st := &installStatus{state: stateInstalling, cancel: cancel}
+	m.mu.Lock()
+	m.installs[req.ServerID] = st
+	m.mu.Unlock()
+	go func() {
+		defer cancel()
+		if err := m.provision(bg, req, spec); err != nil {
+			slog.Error("server install failed", "server", req.ServerID, "err", err)
+			m.finishInstall(req.ServerID, st, err)
+			return
+		}
+		m.finishInstall(req.ServerID, st, nil)
+	}()
+	return &Server{
+		ServerID: req.ServerID,
+		Name:     spec.Name,
+		Image:    req.Image,
+		State:    stateInstalling,
+	}, nil
+}
+
+// buildSpec maps a CreateRequest onto the docker create spec (name prefix, data
+// volume mount, optional port binding).
+func (m *Manager) buildSpec(req CreateRequest, volName string) docker.CreateSpec {
 	spec := docker.CreateSpec{
 		ServerID:       req.ServerID,
 		Name:           "cookied-" + req.Name,
@@ -127,16 +241,34 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (*Server, error
 			Protocol:      req.PortBinding.Protocol,
 		}
 	}
+	return spec
+}
 
+// provision pulls the runtime image, runs the install step (if any) into the data
+// volume, then creates + starts the long-lived container — rolling the container
+// back if it fails to start. Shared by the sync + async create paths.
+func (m *Manager) provision(
+	ctx context.Context,
+	req CreateRequest,
+	spec docker.CreateSpec,
+) error {
+	if err := m.docker.PullImage(ctx, req.Image); err != nil {
+		return err
+	}
+	if req.Install != nil {
+		if err := m.runInstall(ctx, req); err != nil {
+			return err
+		}
+	}
 	id, err := m.docker.CreateContainer(ctx, spec)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if err := m.docker.StartContainer(ctx, id); err != nil {
 		_ = m.docker.RemoveContainer(context.Background(), id, true)
-		return nil, err
+		return err
 	}
-	return m.snapshotByServerID(ctx, req.ServerID)
+	return nil
 }
 
 func (m *Manager) Start(ctx context.Context, serverID string) (*Server, error) {
@@ -189,8 +321,10 @@ func (m *Manager) SendCommand(
 
 // Delete removes the server's container and its data volume. A missing container
 // is not an error (the desired end-state is "gone"); the volume is torn down
-// regardless so deleting a server reclaims its disk.
+// regardless so deleting a server reclaims its disk. Any in-flight or failed
+// install is aborted + dropped first.
 func (m *Manager) Delete(ctx context.Context, serverID string) error {
+	m.cancelInstall(serverID)
 	c, err := m.docker.InspectByServerID(ctx, serverID)
 	if err != nil {
 		return err
@@ -206,7 +340,12 @@ func (m *Manager) Delete(ctx context.Context, serverID string) error {
 }
 
 // Get returns the server snapshot, or (nil, nil) if no container exists for it.
+// A server mid-install (or with a failed install) has no container yet, so its
+// transient state is reported from the install tracker.
 func (m *Manager) Get(ctx context.Context, serverID string) (*Server, error) {
+	if st := m.getInstall(serverID); st != nil {
+		return &Server{ServerID: serverID, State: st.state, Error: st.err}, nil
+	}
 	c, err := m.docker.InspectByServerID(ctx, serverID)
 	if err != nil {
 		return nil, err
@@ -217,7 +356,8 @@ func (m *Manager) Get(ctx context.Context, serverID string) (*Server, error) {
 	return toServer(c), nil
 }
 
-// List returns every managed server container on this box.
+// List returns every managed server container on this box, plus any servers that
+// are mid-install / failed-install (which have no container yet).
 func (m *Manager) List(ctx context.Context) ([]Server, error) {
 	cs, err := m.docker.ListManaged(ctx, docker.KindServer)
 	if err != nil {
@@ -227,6 +367,11 @@ func (m *Manager) List(ctx context.Context) ([]Server, error) {
 	for i := range cs {
 		out = append(out, *toServer(&cs[i]))
 	}
+	m.mu.Lock()
+	for id, st := range m.installs {
+		out = append(out, Server{ServerID: id, State: st.state, Error: st.err})
+	}
+	m.mu.Unlock()
 	return out, nil
 }
 
