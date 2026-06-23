@@ -160,6 +160,8 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/upload", s.handleFilesUpload)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/url-download", s.handleFilesURLDownload)
 	mux.HandleFunc("GET /api/v1/servers/{id}/files/url-download/{jobId}", s.handleFilesURLDownloadStatus)
+	mux.HandleFunc("POST /api/v1/servers/{id}/files/archive", s.handleFilesArchive)
+	mux.HandleFunc("POST /api/v1/servers/{id}/files/extract", s.handleFilesExtract)
 	mux.HandleFunc("GET /api/v1/servers/{id}/files/trash", s.handleTrashList)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/restore", s.handleTrashRestore)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/delete", s.handleTrashDelete)
@@ -666,6 +668,47 @@ func (s *Server) handleTrashPurge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]int{"purged": purged})
+}
+
+// handleFilesArchive packs paths into a new archive (zip / tar.gz / tar.xz /
+// tar.bz2 / tar.zst) at dest, inside the server's data volume.
+func (s *Server) handleFilesArchive(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Paths  []string `json:"paths"`
+		Dest   string   `json:"dest"`
+		Format string   `json:"format"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.files.Archive(
+		r.Context(), r.PathValue("id"), body.Paths, body.Dest, body.Format,
+	); err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleFilesExtract unpacks an archive (format auto-detected: zip / tar(.gz/
+// .bz2/.xz/.zst) / 7z / rar / …) into dest, inside the server's data volume.
+func (s *Server) handleFilesExtract(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Path string `json:"path"`
+		Dest string `json:"dest"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.files.Extract(
+		r.Context(), r.PathValue("id"), body.Path, body.Dest,
+	); err != nil {
+		s.writeFilesErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) writeFilesErr(w http.ResponseWriter, err error) {

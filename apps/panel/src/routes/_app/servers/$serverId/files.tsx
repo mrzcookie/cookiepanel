@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+	Archive,
 	ChevronLeft,
 	ChevronRight,
 	CloudDownload,
@@ -13,6 +14,7 @@ import {
 	KeyRound,
 	Loader2,
 	MoreHorizontal,
+	PackageOpen,
 	Pencil,
 	Trash2,
 	Upload,
@@ -56,6 +58,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import {
 	Table,
 	TableBody,
 	TableCell,
@@ -64,10 +73,14 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import {
+	ARCHIVE_FORMATS,
+	type ArchiveFormat,
+	archiveBaseName,
 	basename,
 	type FileEntry,
 	fileLanguage,
 	fileNameFromUrl,
+	isArchive,
 	isTextFile,
 	joinPath,
 	parentPath,
@@ -77,9 +90,11 @@ import {
 	validateName,
 } from "@/lib/domain/files";
 import {
+	archiveFiles,
 	createDirectory,
 	createFile,
 	deleteEntry,
+	extractFile,
 	fileContentQueryOptions,
 	fileDownloadUrl,
 	invalidateFiles,
@@ -171,6 +186,8 @@ function FileBrowser({
 	const [urlOpen, setUrlOpen] = useState(false);
 	const [sftpOpen, setSftpOpen] = useState(false);
 	const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+	// Paths queued for the compress dialog (selection or a single row), or null.
+	const [zipSources, setZipSources] = useState<string[] | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const existingNames = new Set(entries.map((entry) => entry.name));
@@ -330,6 +347,44 @@ function FileBrowser({
 		}
 	}
 
+	async function compress(base: string, format: ArchiveFormat) {
+		const sources = zipSources ?? [];
+		const name = `${base.trim()}.${format}`;
+		const dismiss = toast.loading(
+			`Compressing ${pluralize(sources.length, "item")}…`
+		);
+		try {
+			await archiveFiles(serverId, sources, joinPath(currentDir, name), format);
+			setSelected(new Set());
+			await refresh();
+			toast.success(`Created ${name}.`, { id: dismiss });
+		} catch (archiveError) {
+			toast.error(
+				archiveError instanceof Error
+					? archiveError.message
+					: "Couldn't create the archive.",
+				{ id: dismiss }
+			);
+		}
+	}
+
+	async function extract(entry: FileEntry) {
+		const folder = archiveBaseName(entry.name);
+		const dismiss = toast.loading(`Extracting ${entry.name}…`);
+		try {
+			await extractFile(serverId, entry.path, joinPath(currentDir, folder));
+			await refresh();
+			toast.success(`Extracted into ${folder}/.`, { id: dismiss });
+		} catch (extractError) {
+			toast.error(
+				extractError instanceof Error
+					? extractError.message
+					: "Couldn't extract the archive.",
+				{ id: dismiss }
+			);
+		}
+	}
+
 	return (
 		<Card>
 			<CardHeader>
@@ -396,6 +451,9 @@ function FileBrowser({
 					<SelectionBar
 						count={selectedHere.length}
 						onClear={() => setSelected(new Set())}
+						onCompress={() =>
+							setZipSources(selectedHere.map((entry) => entry.path))
+						}
 						onDelete={() => setBulkDeleteOpen(true)}
 					/>
 				) : null}
@@ -468,8 +526,10 @@ function FileBrowser({
 											entry={entry}
 											folderDrag={folderDrag}
 											key={entry.path}
+											onCompress={(target) => setZipSources([target.path])}
 											onDelete={remove}
 											onEdit={onEdit}
+											onExtract={extract}
 											onNavigate={navigate}
 											onRenamed={refresh}
 											onToggleSelect={toggleSelect}
@@ -520,6 +580,11 @@ function FileBrowser({
 				open={urlOpen}
 			/>
 			<SftpDialog onOpenChange={setSftpOpen} open={sftpOpen} />
+			<ZipDialog
+				onConfirm={compress}
+				onOpenChange={(open) => setZipSources(open ? zipSources : null)}
+				sources={zipSources}
+			/>
 			<ConfirmDialog
 				confirmLabel="Delete"
 				description={`Move ${pluralize(selectedHere.length, "item")} to the server's recycle bin.`}
@@ -610,10 +675,12 @@ function JobRow({
 function SelectionBar({
 	count,
 	onClear,
+	onCompress,
 	onDelete,
 }: {
 	count: number;
 	onClear: () => void;
+	onCompress: () => void;
 	onDelete: () => void;
 }) {
 	return (
@@ -622,6 +689,10 @@ function SelectionBar({
 				{pluralize(count, "item")} selected
 			</span>
 			<div className="flex items-center gap-2">
+				<Button onClick={onCompress} size="sm" variant="outline">
+					<Archive />
+					Compress
+				</Button>
 				<Button onClick={onDelete} size="sm" variant="outline">
 					<Trash2 />
 					Delete
@@ -696,8 +767,10 @@ type FolderDrag = {
 function FileRow({
 	entry,
 	folderDrag,
+	onCompress,
 	onDelete,
 	onEdit,
+	onExtract,
 	onNavigate,
 	onRenamed,
 	onToggleSelect,
@@ -706,8 +779,10 @@ function FileRow({
 }: {
 	entry: FileEntry;
 	folderDrag: FolderDrag;
+	onCompress: (entry: FileEntry) => void;
 	onDelete: (entry: FileEntry) => void;
 	onEdit: (path: string) => void;
+	onExtract: (entry: FileEntry) => void;
 	onNavigate: (path: string) => void;
 	onRenamed: () => void;
 	onToggleSelect: (path: string) => void;
@@ -784,8 +859,10 @@ function FileRow({
 				<FileRowActions
 					editable={editable}
 					entry={entry}
+					onCompress={onCompress}
 					onDelete={onDelete}
 					onEdit={onEdit}
+					onExtract={onExtract}
 					onNavigate={onNavigate}
 					onRenamed={onRenamed}
 					serverId={serverId}
@@ -798,16 +875,20 @@ function FileRow({
 function FileRowActions({
 	editable,
 	entry,
+	onCompress,
 	onDelete,
 	onEdit,
+	onExtract,
 	onNavigate,
 	onRenamed,
 	serverId,
 }: {
 	editable: boolean;
 	entry: FileEntry;
+	onCompress: (entry: FileEntry) => void;
 	onDelete: (entry: FileEntry) => void;
 	onEdit: (path: string) => void;
+	onExtract: (entry: FileEntry) => void;
 	onNavigate: (path: string) => void;
 	onRenamed: () => void;
 	serverId: string;
@@ -846,6 +927,16 @@ function FileRowActions({
 							</DropdownMenuItem>
 						</>
 					)}
+					{isArchive(entry) ? (
+						<DropdownMenuItem onClick={() => onExtract(entry)}>
+							<PackageOpen />
+							Extract here
+						</DropdownMenuItem>
+					) : null}
+					<DropdownMenuItem onClick={() => onCompress(entry)}>
+						<Archive />
+						Compress…
+					</DropdownMenuItem>
 					<DropdownMenuItem onClick={() => setRenameOpen(true)}>
 						<Pencil />
 						Rename
@@ -1200,6 +1291,98 @@ function UrlDialog({
 						</DialogClose>
 						<Button disabled={!canSubmit} type="submit">
 							Download
+						</Button>
+					</DialogFooter>
+				</form>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function ZipDialog({
+	onConfirm,
+	onOpenChange,
+	sources,
+}: {
+	onConfirm: (base: string, format: ArchiveFormat) => void;
+	onOpenChange: (open: boolean) => void;
+	sources: string[] | null;
+}) {
+	const open = sources !== null;
+	const single = sources?.length === 1 ? sources[0] : null;
+	const [base, setBase] = useState("archive");
+	const [format, setFormat] = useState<ArchiveFormat>("zip");
+
+	useEffect(() => {
+		if (open) {
+			setBase(single ? basename(single) : "archive");
+			setFormat("zip");
+		}
+	}, [open, single]);
+
+	const error = validateName(base);
+	const count = sources?.length ?? 0;
+
+	return (
+		<Dialog onOpenChange={onOpenChange} open={open}>
+			<DialogContent>
+				<form
+					onSubmit={(event) => {
+						event.preventDefault();
+						if (error) {
+							return;
+						}
+						onConfirm(base.trim(), format);
+						onOpenChange(false);
+					}}
+				>
+					<DialogHeader>
+						<DialogTitle>Compress {pluralize(count, "item")}</DialogTitle>
+						<DialogDescription>
+							Create an archive in the current folder.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="flex flex-col gap-4 py-4 sm:flex-row sm:items-end">
+						<div className="grid flex-1 gap-2">
+							<Label htmlFor="zip-name">Archive name</Label>
+							<Input
+								autoFocus
+								className="font-mono"
+								id="zip-name"
+								onChange={(event) => setBase(event.target.value)}
+								value={base}
+							/>
+						</div>
+						<div className="grid gap-2">
+							<Label htmlFor="zip-format">Format</Label>
+							<Select
+								onValueChange={(value) => setFormat(value as ArchiveFormat)}
+								value={format}
+							>
+								<SelectTrigger className="w-36" id="zip-format">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{ARCHIVE_FORMATS.map((option) => (
+										<SelectItem key={option} value={option}>
+											.{option}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					</div>
+					{base.trim() !== "" && error ? (
+						<p className="-mt-2 pb-2 text-destructive text-xs">{error}</p>
+					) : null}
+					<DialogFooter>
+						<DialogClose asChild>
+							<Button type="button" variant="outline">
+								Cancel
+							</Button>
+						</DialogClose>
+						<Button disabled={Boolean(error)} type="submit">
+							Compress
 						</Button>
 					</DialogFooter>
 				</form>

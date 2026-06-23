@@ -690,6 +690,40 @@ export async function getNodeUrlDownload(
 	})) as DaemonDownloadJob;
 }
 
+/** Packs `paths` into a new archive at `dest` (format: zip / tar.gz / tar.xz / …). */
+export async function archiveNodeFiles(
+	nodeId: string,
+	serverId: string,
+	paths: string[],
+	dest: string,
+	format: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${filesBase(serverId)}/archive`,
+		body: { paths, dest, format },
+		// Compressing a large directory can take a while.
+		timeoutMs: FILE_DOWNLOAD_TIMEOUT_MS,
+	});
+}
+
+/** Extracts the archive at `path` into `dest` (format auto-detected on the box). */
+export async function extractNodeFile(
+	nodeId: string,
+	serverId: string,
+	path: string,
+	dest: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${filesBase(serverId)}/extract`,
+		body: { path, dest },
+		timeoutMs: FILE_DOWNLOAD_TIMEOUT_MS,
+	});
+}
+
 /** Streams `body` to the daemon as the new contents of `path` (atomic on the box). */
 export async function uploadNodeFile(
 	nodeId: string,

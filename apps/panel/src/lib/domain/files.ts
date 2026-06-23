@@ -150,6 +150,61 @@ export function transferProgress(t: FileTransfer): number | null {
 	return Math.min(100, Math.round((t.done / t.total) * 100));
 }
 
+// Archive formats the panel can ask the daemon to *create* (extraction
+// auto-detects a broader set on the box — 7z, rar, gz, bz2, …). The value is
+// also the file extension the daemon keys off, so `name.format` is the dest.
+export const ARCHIVE_FORMATS = [
+	"zip",
+	"tar.gz",
+	"tar.xz",
+	"tar.bz2",
+	"tar.zst",
+] as const;
+export type ArchiveFormat = (typeof ARCHIVE_FORMATS)[number];
+
+// Suffixes the "Extract here" affordance recognises — the popular archive
+// formats the daemon can read (a superset of what it can create).
+const ARCHIVE_SUFFIXES = [
+	".zip",
+	".7z",
+	".rar",
+	".tar",
+	".tar.gz",
+	".tgz",
+	".tar.xz",
+	".txz",
+	".tar.bz2",
+	".tbz2",
+	".tar.zst",
+	".tzst",
+	".gz",
+	".bz2",
+	".xz",
+	".zst",
+];
+
+/** Whether a file looks like an extractable archive (by extension). */
+export function isArchive(entry: FileEntry): boolean {
+	if (entry.kind !== "file") {
+		return false;
+	}
+	const lower = entry.name.toLowerCase();
+	return ARCHIVE_SUFFIXES.some((suffix) => lower.endsWith(suffix));
+}
+
+/** An archive's name with its extension(s) stripped — names the extract output
+ * folder. Handles compound ".tar.gz" / ".tar.xz" / ".tar.bz2" / ".tar.zst". */
+export function archiveBaseName(name: string): string {
+	const lower = name.toLowerCase();
+	for (const compound of [".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst"]) {
+		if (lower.endsWith(compound)) {
+			return name.slice(0, -compound.length);
+		}
+	}
+	const dot = name.lastIndexOf(".");
+	return dot <= 0 ? name : name.slice(0, dot);
+}
+
 /** Derive a filename from a download URL's last path segment (query stripped);
  * "download" when there isn't a usable one. */
 export function fileNameFromUrl(url: string): string {

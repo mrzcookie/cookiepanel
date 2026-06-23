@@ -3,11 +3,13 @@ import {
 	queryOptions,
 	useQuery,
 } from "@tanstack/react-query";
-import type { FileTransfer } from "@/lib/domain/files";
+import type { ArchiveFormat, FileTransfer } from "@/lib/domain/files";
 import {
+	archiveFiles as archiveFilesFn,
 	createDirectory as createDirectoryFn,
 	createFile as createFileFn,
 	deleteEntry as deleteEntryFn,
+	extractFile as extractFileFn,
 	listFiles,
 	pullUrl as pullUrlFn,
 	readFile,
@@ -81,6 +83,19 @@ export function writeFile(serverId: string, path: string, content: string) {
 
 export function pullUrl(serverId: string, path: string, url: string) {
 	return pullUrlFn({ data: { serverId, path, url } });
+}
+
+export function archiveFiles(
+	serverId: string,
+	paths: string[],
+	dest: string,
+	format: ArchiveFormat
+) {
+	return archiveFilesFn({ data: { serverId, paths, dest, format } });
+}
+
+export function extractFile(serverId: string, path: string, dest: string) {
+	return extractFileFn({ data: { serverId, path, dest } });
 }
 
 export function invalidateFiles(

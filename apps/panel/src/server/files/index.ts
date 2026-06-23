@@ -1,7 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import {
+	archiveNodeFiles,
 	deleteNodeFile,
+	extractNodeFile,
 	getNodeUrlDownload,
 	listNodeFiles,
 	mkdirNodeFile,
@@ -124,4 +126,39 @@ export const urlJobStatus = createServerFn({ method: "GET" })
 		return toFileTransfer(
 			await getNodeUrlDownload(nodeId, data.serverId, data.jobId)
 		);
+	});
+
+export const archiveFiles = createServerFn({ method: "POST" })
+	.validator(
+		z.object({
+			serverId: z.uuid(),
+			paths: z.array(z.string().max(4096)).min(1).max(1000),
+			dest: z.string().max(4096),
+			format: z.enum(["zip", "tar.gz", "tar.xz", "tar.bz2", "tar.zst"]),
+		})
+	)
+	.handler(async ({ data }) => {
+		const { nodeId } = await requireServerNode(data.serverId);
+		await archiveNodeFiles(
+			nodeId,
+			data.serverId,
+			data.paths,
+			data.dest,
+			data.format
+		);
+		return { ok: true as const };
+	});
+
+export const extractFile = createServerFn({ method: "POST" })
+	.validator(
+		z.object({
+			serverId: z.uuid(),
+			path: z.string().max(4096),
+			dest: z.string().max(4096),
+		})
+	)
+	.handler(async ({ data }) => {
+		const { nodeId } = await requireServerNode(data.serverId);
+		await extractNodeFile(nodeId, data.serverId, data.path, data.dest);
+		return { ok: true as const };
 	});
