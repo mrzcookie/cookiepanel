@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type {
 	DaemonRead,
+	DriveRow,
 	NodeHostInfo,
 	NodeLiveStats,
 	NodeRow,
@@ -16,7 +17,21 @@ import { requireOrg } from "@/server/auth/guards";
 import { assertCanAddNode, syncNodeBilling } from "@/server/billing/node-sync";
 import { sha256Hex } from "@/server/crypto";
 import { env } from "@/server/env";
-import { DaemonError, getNodeHost, getNodeStats } from "./daemon-client";
+import {
+	type DaemonDrive,
+	DaemonError,
+	listNodeDrives as daemonDrives,
+	pruneNode as daemonPrune,
+	rebootNode as daemonReboot,
+	formatNodeDrive,
+	getNodeHost,
+	getNodeStats,
+	mountNodeDrive,
+	restartNodeDaemon,
+	setNodeDataTarget,
+	unmountNodeDrive,
+	updateNodeDaemon,
+} from "./daemon-client";
 import { reconcileManagedNodeDns } from "./dns";
 import { type NodeRecord, nodesRepository } from "./repository";
 
@@ -50,6 +65,34 @@ function normalizeArch(arch: string | undefined): NodeRow["arch"] {
 		return "arm64";
 	}
 	return null;
+}
+
+// Compare dotted version strings (a leading "v" is tolerated). <0 if a < b.
+function compareVersions(a: string, b: string): number {
+	const parts = (v: string) =>
+		v
+			.replace(/^v/, "")
+			.split(".")
+			.map((n) => Number.parseInt(n, 10) || 0);
+	const pa = parts(a);
+	const pb = parts(b);
+	for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+		const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+		if (diff !== 0) {
+			return diff < 0 ? -1 : 1;
+		}
+	}
+	return 0;
+}
+
+// A node can be updated when a latest version is configured and its daemon is
+// behind it. Absent release config = never (the Update action stays hidden).
+function daemonUpdateAvailable(version: string | null): boolean {
+	const latest = env.DAEMON_LATEST_VERSION;
+	if (!latest || !version) {
+		return false;
+	}
+	return compareVersions(version, latest) < 0;
 }
 
 /**
@@ -93,7 +136,7 @@ function toNodeRow(record: NodeRecord): NodeRow {
 		serversRunning: docker?.running ?? null,
 		serversTotal: docker?.containers ?? null,
 		daemonVersion: sys?.daemonVersion ?? null,
-		updateAvailable: false,
+		updateAvailable: daemonUpdateAvailable(sys?.daemonVersion ?? null),
 		lastHeartbeat: record.lastHeartbeatAt
 			? formatRelativeTime(record.lastHeartbeatAt)
 			: null,
@@ -313,4 +356,163 @@ export const nodeHost = createServerFn({ method: "GET" })
 						: "Could not reach the node",
 			};
 		}
+	});
+
+// ─── host maintenance + drives (daemon-derived) ──────────────────────────────
+// Maintenance is a set of intents the panel dials over the pinned channel after
+// establishing org scope. Reads (drives) degrade to `{ ok: false }`; the
+// destructive actions throw so the UI can surface the failure on its toast.
+
+// Establish the org scope for a node action and return the registry row, or a
+// generic not-found so a cross-org id can't be probed. Private to this module.
+async function requireNode(id: string): Promise<NodeRecord> {
+	const { orgId } = await requireOrg();
+	const record = await nodesRepository.findById(orgId, id);
+	if (!record) {
+		throw new Error("Not found");
+	}
+	return record;
+}
+
+function toDriveRow(d: DaemonDrive, nodeId: string): DriveRow {
+	return {
+		id: d.device,
+		nodeId,
+		device: d.device,
+		model: d.model || d.device,
+		sizeBytes: d.sizeBytes,
+		usedBytes: d.usedBytes,
+		filesystem: d.filesystem || null,
+		mountpoint: d.mountpoint || null,
+		isDataTarget: d.isDataTarget,
+		system: d.system,
+	};
+}
+
+// Resolve the binary URL + checksum for the configured latest release, for this
+// node's arch. The panel owns "what version is latest"; the daemon just fetches
+// the URL it's handed and verifies the checksum. Throws if no release is set up.
+async function resolveDaemonRelease(
+	arch: NodeRow["arch"]
+): Promise<{ url: string; sha256: string }> {
+	const version = env.DAEMON_LATEST_VERSION;
+	const base = env.DAEMON_RELEASE_BASE_URL;
+	if (!version || !base) {
+		throw new Error("No daemon release is configured.");
+	}
+	const goarch = arch === "arm64" ? "arm64" : "amd64";
+	const url = `${base.replace(/\/$/, "")}/v${version.replace(/^v/, "")}/cookied-linux-${goarch}`;
+	const res = await fetch(`${url}.sha256`);
+	if (!res.ok) {
+		throw new Error(
+			`Couldn't fetch the release checksum (HTTP ${res.status}).`
+		);
+	}
+	const sha256 = (await res.text()).trim().split(/\s+/)[0] ?? "";
+	if (!/^[0-9a-f]{64}$/i.test(sha256)) {
+		throw new Error("The release checksum is malformed.");
+	}
+	return { url, sha256 };
+}
+
+// A block-device path the daemon will accept (defense in depth; the daemon
+// re-validates and checks membership in its enumerated disks).
+const deviceInput = idInput.extend({
+	device: z.string().regex(/^\/dev\/[a-zA-Z0-9]+$/, "Invalid device path."),
+});
+
+export const listNodeDrives = createServerFn({ method: "GET" })
+	.validator(idInput)
+	.handler(async ({ data }): Promise<DaemonRead<DriveRow[]>> => {
+		const record = await requireNode(data.id);
+		try {
+			const drives = await daemonDrives(data.id);
+			return { ok: true, data: drives.map((d) => toDriveRow(d, record.id)) };
+		} catch (error) {
+			return {
+				ok: false,
+				error:
+					error instanceof DaemonError
+						? error.message
+						: "Could not reach the node",
+			};
+		}
+	});
+
+export const formatDrive = createServerFn({ method: "POST" })
+	.validator(
+		deviceInput.extend({
+			filesystem: z.enum(["ext4", "xfs", "btrfs"]),
+			mountpoint: z.string().trim().min(2).max(255),
+		})
+	)
+	.handler(async ({ data }) => {
+		await requireNode(data.id);
+		await formatNodeDrive(
+			data.id,
+			data.device,
+			data.filesystem,
+			data.mountpoint
+		);
+		return { ok: true as const };
+	});
+
+export const mountDrive = createServerFn({ method: "POST" })
+	.validator(
+		deviceInput.extend({ mountpoint: z.string().trim().min(2).max(255) })
+	)
+	.handler(async ({ data }) => {
+		await requireNode(data.id);
+		await mountNodeDrive(data.id, data.device, data.mountpoint);
+		return { ok: true as const };
+	});
+
+export const unmountDrive = createServerFn({ method: "POST" })
+	.validator(deviceInput)
+	.handler(async ({ data }) => {
+		await requireNode(data.id);
+		await unmountNodeDrive(data.id, data.device);
+		return { ok: true as const };
+	});
+
+export const setDataTarget = createServerFn({ method: "POST" })
+	.validator(deviceInput)
+	.handler(async ({ data }) => {
+		await requireNode(data.id);
+		await setNodeDataTarget(data.id, data.device);
+		return { ok: true as const };
+	});
+
+export const rebootNode = createServerFn({ method: "POST" })
+	.validator(idInput)
+	.handler(async ({ data }) => {
+		await requireNode(data.id);
+		await daemonReboot(data.id);
+		return { ok: true as const };
+	});
+
+export const pruneNode = createServerFn({ method: "POST" })
+	.validator(idInput)
+	.handler(async ({ data }) => {
+		await requireNode(data.id);
+		return await daemonPrune(data.id);
+	});
+
+export const restartDaemon = createServerFn({ method: "POST" })
+	.validator(idInput)
+	.handler(async ({ data }) => {
+		await requireNode(data.id);
+		await restartNodeDaemon(data.id);
+		return { ok: true as const };
+	});
+
+export const updateDaemon = createServerFn({ method: "POST" })
+	.validator(idInput)
+	.handler(async ({ data }) => {
+		const record = await requireNode(data.id);
+		const { url, sha256 } = await resolveDaemonRelease(
+			normalizeArch(record.systemInfo?.arch)
+		);
+		await updateNodeDaemon(data.id, url, sha256);
+		return { ok: true as const };
 	});

@@ -1,7 +1,7 @@
 // Package system reports the host's slow-changing info (hostname, OS, kernel,
 // CPU model, totals) and fast-changing live stats (CPU%, memory/disk used, load)
-// via gopsutil. Mutating host maintenance (hostname, reboot, OS updates) lands in
-// a later slice.
+// via gopsutil, and performs host maintenance (reboot, daemon restart, daemon
+// self-update) by shelling out to host tools — see maintenance.go.
 package system
 
 import (

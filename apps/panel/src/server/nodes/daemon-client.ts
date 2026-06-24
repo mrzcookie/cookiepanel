@@ -350,6 +350,134 @@ export async function getNodeHost(nodeId: string): Promise<NodeHostInfo> {
 	};
 }
 
+// ─── host maintenance ────────────────────────────────────────────────────────
+
+// Reboot/restart return fast (202). A daemon self-update downloads + verifies the
+// new binary synchronously before announcing success, so it can run for minutes.
+const DAEMON_UPDATE_TIMEOUT_MS = 10 * 60 * 1000;
+
+/** POST /api/v1/system/reboot — reboot the whole host. */
+export async function rebootNode(nodeId: string): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: "/api/v1/system/reboot",
+	});
+}
+
+/** POST /api/v1/system/prune — free disk (dangling images + build cache only). */
+export async function pruneNode(
+	nodeId: string
+): Promise<{ imagesDeleted: number; spaceReclaimedBytes: number }> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: "/api/v1/system/prune",
+	})) as { imagesDeleted: number; spaceReclaimedBytes: number };
+}
+
+/** POST /api/v1/system/restart-daemon — restart the cookied agent (via systemd). */
+export async function restartNodeDaemon(nodeId: string): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: "/api/v1/system/restart-daemon",
+	});
+}
+
+/** POST /api/v1/system/update-daemon — download+verify+swap the binary, then restart. */
+export async function updateNodeDaemon(
+	nodeId: string,
+	url: string,
+	sha256: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: "/api/v1/system/update-daemon",
+		body: { url, sha256 },
+		timeoutMs: DAEMON_UPDATE_TIMEOUT_MS,
+	});
+}
+
+// ─── drives ────────────────────────────────────────────────────────────────────
+
+// Formatting and the Docker-data-root relocation shell out to mkfs / `systemctl
+// restart docker`, which run well past the default 10s.
+const DRIVE_OP_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** The daemon's view of one physical disk. */
+export type DaemonDrive = {
+	device: string;
+	model: string;
+	sizeBytes: number;
+	usedBytes: number | null;
+	filesystem: string; // "" when unformatted
+	mountpoint: string; // "" when unmounted
+	isDataTarget: boolean;
+	system: boolean;
+};
+
+export async function listNodeDrives(nodeId: string): Promise<DaemonDrive[]> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		path: "/api/v1/drives",
+	})) as DaemonDrive[];
+}
+
+export async function formatNodeDrive(
+	nodeId: string,
+	device: string,
+	filesystem: string,
+	mountpoint: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: "/api/v1/drives/format",
+		body: { device, filesystem, mountpoint },
+		timeoutMs: DRIVE_OP_TIMEOUT_MS,
+	});
+}
+
+export async function mountNodeDrive(
+	nodeId: string,
+	device: string,
+	mountpoint: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: "/api/v1/drives/mount",
+		body: { device, mountpoint },
+	});
+}
+
+export async function unmountNodeDrive(
+	nodeId: string,
+	device: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: "/api/v1/drives/unmount",
+		body: { device },
+	});
+}
+
+export async function setNodeDataTarget(
+	nodeId: string,
+	device: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: "/api/v1/drives/data-target",
+		body: { device },
+		timeoutMs: DRIVE_OP_TIMEOUT_MS,
+	});
+}
+
 // ─── servers (container lifecycle) ───────────────────────────────────────────
 
 // An image pull (+ first start) can take minutes; the default 10s timeout would

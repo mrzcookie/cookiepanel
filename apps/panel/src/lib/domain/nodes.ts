@@ -88,10 +88,17 @@ export type DriveRow = {
 	usedBytes: number | null;
 	/** null = unformatted. */
 	filesystem: string | null;
-	/** null = unmounted; "/" or "/boot" = the protected system disk. */
+	/** null = unmounted. */
 	mountpoint: string | null;
 	/** Server data is stored here. */
 	isDataTarget: boolean;
+	/**
+	 * The OS/system disk (it — or a partition under it — holds `/`, `/boot`, …).
+	 * The daemon computes this across the whole block-device tree (a disk whose
+	 * own mountpoint is empty can still be system via its partitions), so the UI
+	 * locks it against format/mount/unmount rather than guessing from mountpoint.
+	 */
+	system: boolean;
 };
 
 export type FirewallBackend = "ufw" | "iptables" | "none";

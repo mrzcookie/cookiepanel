@@ -28,9 +28,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { NodeCaps, NodeRow } from "@/lib/domain/nodes";
+import { formatBytes } from "@/lib/format";
 import {
 	invalidateNodes,
+	pruneNode,
+	rebootNode,
 	removeNode,
+	restartDaemon,
+	updateDaemon,
 	updateNode,
 	updateNodeCaps,
 	useNode,
@@ -315,12 +320,22 @@ function CapField({
 	);
 }
 
+type BusyAction = "update" | "restart" | "reboot" | "prune" | null;
+
+function errorMessage(error: unknown, fallback: string) {
+	return error instanceof Error ? error.message : fallback;
+}
+
 function DangerZone({ node }: { node: NodeRow }) {
 	const navigate = Route.useNavigate();
 	const queryClient = useQueryClient();
 	const [removeOpen, setRemoveOpen] = useState(false);
+	const [rebootOpen, setRebootOpen] = useState(false);
+	const [updateOpen, setUpdateOpen] = useState(false);
 	const [removing, setRemoving] = useState(false);
+	const [busy, setBusy] = useState<BusyAction>(null);
 	const reachable = node.status === "online" || node.status === "unhealthy";
+	const disabled = !reachable || busy !== null;
 
 	async function remove() {
 		setRemoving(true);
@@ -330,10 +345,67 @@ function DangerZone({ node }: { node: NodeRow }) {
 			toast.success(`Removed “${node.name}”.`);
 			navigate({ to: "/nodes" });
 		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Couldn't remove the node."
-			);
+			toast.error(errorMessage(error, "Couldn't remove the node."));
 			setRemoving(false);
+		}
+	}
+
+	async function restart() {
+		setBusy("restart");
+		const id = toast.loading("Restarting the daemon…");
+		try {
+			await restartDaemon(node.id);
+			toast.success("The daemon is restarting.", { id });
+		} catch (error) {
+			toast.error(errorMessage(error, "Couldn't restart the daemon."), { id });
+		} finally {
+			setBusy(null);
+		}
+	}
+
+	async function prune() {
+		setBusy("prune");
+		const id = toast.loading("Pruning unused data…");
+		try {
+			const res = await pruneNode(node.id);
+			toast.success(
+				res.spaceReclaimedBytes > 0
+					? `Freed ${formatBytes(res.spaceReclaimedBytes)}.`
+					: "Nothing to prune — already clean.",
+				{ id }
+			);
+		} catch (error) {
+			toast.error(errorMessage(error, "Couldn't prune the node."), { id });
+		} finally {
+			setBusy(null);
+		}
+	}
+
+	async function reboot() {
+		setBusy("reboot");
+		const id = toast.loading("Rebooting the node…");
+		try {
+			await rebootNode(node.id);
+			toast.success("The node is rebooting.", { id });
+			setRebootOpen(false);
+		} catch (error) {
+			toast.error(errorMessage(error, "Couldn't reboot the node."), { id });
+		} finally {
+			setBusy(null);
+		}
+	}
+
+	async function update() {
+		setBusy("update");
+		const id = toast.loading("Updating the daemon…");
+		try {
+			await updateDaemon(node.id);
+			toast.success("The daemon updated and is restarting.", { id });
+			setUpdateOpen(false);
+		} catch (error) {
+			toast.error(errorMessage(error, "Couldn't update the daemon."), { id });
+		} finally {
+			setBusy(null);
 		}
 	}
 
@@ -351,8 +423,8 @@ function DangerZone({ node }: { node: NodeRow }) {
 					<DangerRow
 						action={
 							<Button
-								disabled={!reachable}
-								onClick={() => toast.success("Updating the daemon…")}
+								disabled={disabled}
+								onClick={() => setUpdateOpen(true)}
 								size="sm"
 								variant="outline"
 							>
@@ -366,8 +438,8 @@ function DangerZone({ node }: { node: NodeRow }) {
 				<DangerRow
 					action={
 						<Button
-							disabled={!reachable}
-							onClick={() => toast.success("Restarting the daemon…")}
+							disabled={disabled}
+							onClick={restart}
 							size="sm"
 							variant="outline"
 						>
@@ -380,8 +452,8 @@ function DangerZone({ node }: { node: NodeRow }) {
 				<DangerRow
 					action={
 						<Button
-							disabled={!reachable}
-							onClick={() => toast.success("Rebooting the node…")}
+							disabled={disabled}
+							onClick={() => setRebootOpen(true)}
 							size="sm"
 							variant="outline"
 						>
@@ -394,8 +466,8 @@ function DangerZone({ node }: { node: NodeRow }) {
 				<DangerRow
 					action={
 						<Button
-							disabled={!reachable}
-							onClick={() => toast.success("Pruning unused data…")}
+							disabled={disabled}
+							onClick={prune}
 							size="sm"
 							variant="outline"
 						>
@@ -419,6 +491,55 @@ function DangerZone({ node }: { node: NodeRow }) {
 					title="Remove node"
 				/>
 			</DangerRows>
+
+			<Dialog onOpenChange={setUpdateOpen} open={updateOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Update the daemon?</DialogTitle>
+						<DialogDescription>
+							Download the latest cookied and replace the agent (cookied{" "}
+							{node.daemonVersion} is behind). The agent restarts to finish;
+							your servers keep running.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<DialogClose asChild>
+							<Button type="button" variant="outline">
+								Cancel
+							</Button>
+						</DialogClose>
+						<Button disabled={busy === "update"} onClick={update}>
+							Update daemon
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog onOpenChange={setRebootOpen} open={rebootOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Reboot this node?</DialogTitle>
+						<DialogDescription>
+							Restart the whole machine. Every server on “{node.name}” goes
+							offline until it boots back up.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<DialogClose asChild>
+							<Button type="button" variant="outline">
+								Cancel
+							</Button>
+						</DialogClose>
+						<Button
+							disabled={busy === "reboot"}
+							onClick={reboot}
+							variant="destructive"
+						>
+							Reboot node
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
 			<Dialog onOpenChange={setRemoveOpen} open={removeOpen}>
 				<DialogContent>

@@ -29,6 +29,7 @@ import (
 	"github.com/cookiepanel/cookied/internal/backup"
 	"github.com/cookiepanel/cookied/internal/credentials"
 	"github.com/cookiepanel/cookied/internal/docker"
+	"github.com/cookiepanel/cookied/internal/drive"
 	"github.com/cookiepanel/cookied/internal/filesystem"
 	"github.com/cookiepanel/cookied/internal/firewall"
 	"github.com/cookiepanel/cookied/internal/network"
@@ -185,6 +186,7 @@ func newRunCmd() *cobra.Command {
 				}
 
 				backupMgr := backup.NewManager(dockerClient, st)
+				driveMgr := drive.NewManager(st)
 
 				// Scheduler: server automations fire from the local store, so they
 				// keep running across restarts and while the panel is offline.
@@ -213,6 +215,7 @@ func newRunCmd() *cobra.Command {
 					SFTP:          sftpMgr,
 					Scheduler:     sched,
 					Backups:       backupMgr,
+					Drives:        driveMgr,
 				})
 				if err := apiSrv.Start(); err != nil {
 					return err

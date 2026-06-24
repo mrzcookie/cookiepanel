@@ -7,8 +7,9 @@
 // The surface today covers system/stats, the server-container lifecycle, the
 // console WebSocket, docker networks, the host firewall, the sandboxed per-server
 // file manager (list/read/write/mkdir/rename/delete, upload/download, archive,
-// URL-download jobs, the recycle bin), SFTP sessions, and server-automation
-// schedules. Backups land in a later slice.
+// URL-download jobs, the recycle bin), SFTP sessions, server-automation
+// schedules, borg backups, host maintenance (reboot, prune, daemon restart +
+// self-update), and physical-drive management.
 package api
 
 import (
@@ -28,6 +29,7 @@ import (
 
 	"github.com/cookiepanel/cookied/internal/backup"
 	"github.com/cookiepanel/cookied/internal/docker"
+	"github.com/cookiepanel/cookied/internal/drive"
 	"github.com/cookiepanel/cookied/internal/filesystem"
 	"github.com/cookiepanel/cookied/internal/firewall"
 	"github.com/cookiepanel/cookied/internal/network"
@@ -57,6 +59,7 @@ type Server struct {
 	sftp          *sftp.Manager
 	scheduler     *scheduler.Scheduler
 	backups       *backup.Manager
+	drives        *drive.Manager
 
 	server   *http.Server
 	listener net.Listener
@@ -79,6 +82,7 @@ type Config struct {
 	SFTP          *sftp.Manager        // SFTP session mint/revoke
 	Scheduler     *scheduler.Scheduler // server automations (cron)
 	Backups       *backup.Manager      // borg snapshot/restore
+	Drives        *drive.Manager       // physical-disk management
 }
 
 // New constructs but does not start the server.
@@ -99,6 +103,7 @@ func New(cfg Config) *Server {
 		sftp:          cfg.SFTP,
 		scheduler:     cfg.Scheduler,
 		backups:       cfg.Backups,
+		drives:        cfg.Drives,
 	}
 }
 
@@ -147,6 +152,15 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/system", s.handleSystem)
 	mux.HandleFunc("GET /api/v1/system/host", s.handleSystemHost)
 	mux.HandleFunc("GET /api/v1/system/stats", s.handleSystemStats)
+	mux.HandleFunc("POST /api/v1/system/reboot", s.handleReboot)
+	mux.HandleFunc("POST /api/v1/system/prune", s.handlePrune)
+	mux.HandleFunc("POST /api/v1/system/restart-daemon", s.handleRestartDaemon)
+	mux.HandleFunc("POST /api/v1/system/update-daemon", s.handleUpdateDaemon)
+	mux.HandleFunc("GET /api/v1/drives", s.handleListDrives)
+	mux.HandleFunc("POST /api/v1/drives/format", s.handleFormatDrive)
+	mux.HandleFunc("POST /api/v1/drives/mount", s.handleMountDrive)
+	mux.HandleFunc("POST /api/v1/drives/unmount", s.handleUnmountDrive)
+	mux.HandleFunc("POST /api/v1/drives/data-target", s.handleSetDataTarget)
 	mux.HandleFunc("GET /api/v1/servers", s.handleListServers)
 	mux.HandleFunc("POST /api/v1/servers", s.handleCreateServer)
 	mux.HandleFunc("GET /api/v1/servers/{id}", s.handleGetServer)
@@ -462,6 +476,162 @@ func (s *Server) handleSystemStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, stats)
+}
+
+// ─── host maintenance ────────────────────────────────────────────────────────
+
+func (s *Server) handleReboot(w http.ResponseWriter, r *http.Request) {
+	if err := system.Reboot(r.Context()); err != nil {
+		writeSystemErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "rebooting"})
+}
+
+// handlePrune frees disk by clearing dangling images + build cache. Never
+// touches managed containers/volumes (see docker.Prune).
+func (s *Server) handlePrune(w http.ResponseWriter, r *http.Request) {
+	res, err := s.dockerClient.Prune(r.Context())
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (s *Server) handleRestartDaemon(w http.ResponseWriter, r *http.Request) {
+	if err := system.RestartDaemon(r.Context()); err != nil {
+		writeSystemErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "restarting"})
+}
+
+// handleUpdateDaemon downloads + verifies + swaps the daemon binary, then
+// restarts after the response flushes so the new image boots. The download is
+// detached from the request context (it can run minutes) and bounded at 10m; a
+// failed download/verify surfaces as an error before the swap is announced.
+func (s *Server) handleUpdateDaemon(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		URL    string `json:"url"`
+		SHA256 string `json:"sha256"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	if err := system.UpdateDaemon(ctx, body.URL, body.SHA256); err != nil {
+		cancel()
+		writeSystemErr(w, err)
+		return
+	}
+	go func() {
+		defer cancel()
+		time.Sleep(time.Second)
+		_ = system.RestartDaemon(context.Background())
+	}()
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "updating"})
+}
+
+func writeSystemErr(w http.ResponseWriter, err error) {
+	if errors.Is(err, system.ErrUnsupported) {
+		writeJSONError(w, http.StatusNotImplemented, err)
+		return
+	}
+	writeJSONError(w, http.StatusInternalServerError, err)
+}
+
+// ─── drives ──────────────────────────────────────────────────────────────────
+
+func (s *Server) handleListDrives(w http.ResponseWriter, r *http.Request) {
+	list, err := s.drives.List(r.Context())
+	if err != nil {
+		s.writeDriveErr(w, err)
+		return
+	}
+	if list == nil {
+		list = []drive.Drive{}
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+func (s *Server) handleFormatDrive(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Device     string `json:"device"`
+		Filesystem string `json:"filesystem"`
+		Mountpoint string `json:"mountpoint"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.drives.Format(r.Context(), body.Device, body.Filesystem, body.Mountpoint); err != nil {
+		s.writeDriveErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleMountDrive(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Device     string `json:"device"`
+		Mountpoint string `json:"mountpoint"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.drives.Mount(r.Context(), body.Device, body.Mountpoint); err != nil {
+		s.writeDriveErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleUnmountDrive(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Device string `json:"device"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.drives.Unmount(r.Context(), body.Device); err != nil {
+		s.writeDriveErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleSetDataTarget(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Device string `json:"device"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.drives.SetDataTarget(r.Context(), body.Device); err != nil {
+		s.writeDriveErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) writeDriveErr(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, drive.ErrUnsupported):
+		writeJSONError(w, http.StatusNotImplemented, err)
+	case errors.Is(err, drive.ErrNotFound):
+		writeJSONError(w, http.StatusNotFound, err)
+	case errors.Is(err, drive.ErrSystemDrive), errors.Is(err, drive.ErrDataTarget):
+		writeJSONError(w, http.StatusForbidden, err)
+	case errors.Is(err, drive.ErrInvalid):
+		writeJSONError(w, http.StatusBadRequest, err)
+	default:
+		writeJSONError(w, http.StatusInternalServerError, err)
+	}
 }
 
 // ─── files ───────────────────────────────────────────────────────────────────

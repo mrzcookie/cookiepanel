@@ -3,14 +3,28 @@ import {
 	queryOptions,
 	useQuery,
 } from "@tanstack/react-query";
-import type { NodeCaps, NodeRow } from "@/lib/domain/nodes";
+import type {
+	DaemonRead,
+	DriveRow,
+	NodeCaps,
+	NodeRow,
+} from "@/lib/domain/nodes";
 import {
 	createNode as createNodeFn,
+	formatDrive as formatDriveFn,
 	getNode as getNodeFn,
+	listNodeDrives as listNodeDrivesFn,
 	listNodes,
+	mountDrive as mountDriveFn,
 	nodeHost as nodeHostFn,
 	nodeStats as nodeStatsFn,
+	pruneNode as pruneNodeFn,
+	rebootNode as rebootNodeFn,
 	removeNode as removeNodeFn,
+	restartDaemon as restartDaemonFn,
+	setDataTarget as setDataTargetFn,
+	unmountDrive as unmountDriveFn,
+	updateDaemon as updateDaemonFn,
 	updateNode as updateNodeFn,
 } from "@/server/nodes";
 
@@ -77,6 +91,25 @@ export function nodeHostQueryOptions(id: string) {
 	});
 }
 
+/**
+ * The node's physical disks (the Storage tab). Daemon-derived, so it degrades to
+ * `{ ok: false }` offline. Disks change only on operator action, so it isn't
+ * polled — the actions invalidate it. Keyed under `["node-live"]` so a registry
+ * mutation doesn't dial the box.
+ */
+function nodeDrivesQueryOptions(id: string) {
+	return queryOptions({
+		queryKey: ["node-live", "drives", id] as const,
+		queryFn: () => listNodeDrivesFn({ data: { id } }),
+		retry: false,
+		staleTime: 10_000,
+	});
+}
+
+export function useNodeDrives(id: string): DaemonRead<DriveRow[]> | undefined {
+	return useQuery(nodeDrivesQueryOptions(id)).data;
+}
+
 // ─── read hooks ──────────────────────────────────────────────────────────────
 
 export function useNodes(): NodeRow[] {
@@ -134,7 +167,60 @@ export function removeNode(id: string) {
 	return removeNodeFn({ data: { id } });
 }
 
+// ─── host maintenance + drives ───────────────────────────────────────────────
+
+/** Reboot the whole host. */
+export function rebootNode(id: string) {
+	return rebootNodeFn({ data: { id } });
+}
+
+/** Free disk on the node (dangling images + build cache). Returns reclaimed. */
+export function pruneNode(id: string) {
+	return pruneNodeFn({ data: { id } });
+}
+
+/** Restart the cookied agent (servers keep running). */
+export function restartDaemon(id: string) {
+	return restartDaemonFn({ data: { id } });
+}
+
+/** Install the latest daemon release, then restart the agent. */
+export function updateDaemon(id: string) {
+	return updateDaemonFn({ data: { id } });
+}
+
+export function formatDrive(
+	id: string,
+	device: string,
+	filesystem: "ext4" | "xfs" | "btrfs",
+	mountpoint: string
+) {
+	return formatDriveFn({ data: { id, device, filesystem, mountpoint } });
+}
+
+export function mountDrive(id: string, device: string, mountpoint: string) {
+	return mountDriveFn({ data: { id, device, mountpoint } });
+}
+
+export function unmountDrive(id: string, device: string) {
+	return unmountDriveFn({ data: { id, device } });
+}
+
+export function setDataTarget(id: string, device: string) {
+	return setDataTargetFn({ data: { id, device } });
+}
+
 /** Refresh every node feed after a mutation. */
 export function invalidateNodes(queryClient: QueryClient): Promise<void> {
 	return queryClient.invalidateQueries({ queryKey: ["nodes"] });
+}
+
+/** Refresh a node's drive list (after a format/mount/unmount/data-target op). */
+export function invalidateNodeDrives(
+	queryClient: QueryClient,
+	id: string
+): Promise<void> {
+	return queryClient.invalidateQueries({
+		queryKey: ["node-live", "drives", id],
+	});
 }

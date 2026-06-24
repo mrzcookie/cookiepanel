@@ -54,7 +54,8 @@ plane; `cookied` is the hands on the box.
 | **Backup** | Snapshot/restore of a server's data volume, deduplicated with retention, run **in a short-lived container** (no host install needed). |
 | **Filesystem** | Sandboxed per-server file manager (list/read/write/mkdir/rename/delete, upload/download, URL-download jobs), rooted at the server's volume, with a recycle bin. |
 | **Disk quota** | Best-effort hard size cap on a server's data dir (real enforcement only where the FS supports it; a safe no-op elsewhere — never blocks server creation). |
-| **System** | Host maintenance via a package-manager abstraction (apt/dnf/yum/pacman/zypper/apk): info/stats, hostname, reboot, OS updates, Docker prune. |
+| **System** | Host info/stats (gopsutil) + maintenance: reboot, Docker prune (dangling images + build cache only — never managed containers/volumes), daemon restart (systemd), and daemon self-update (download + sha256-verify + atomic binary swap → restart). Shells out to host tools with arg vectors; degrades to `ErrUnsupported` where a tool is absent. |
+| **Drive** | Physical-disk management: enumerate via lsblk, format (mkfs ext4/xfs/btrfs)/mount/unmount a data disk, and point Docker's data-root at one (rewrites `daemon.json` + restarts the engine). The OS/system disk (it or any partition holds `/`, `/boot`, …) is locked against every op, server-side. |
 | **Store** | Embedded local state (an embedded key/value DB), `0600`. Holds node status + the schedule definitions so they survive offline. Source of truth for the box. |
 | **IPC** | The local control socket (root-only Unix socket) exposing status + server controls to the TUI and CLI. Separate from the panel API so the box stays locally controllable offline. |
 | **TLS** | Provisions the API cert: **self-signed** (pinned by the panel) or **ACME** for the FQDN. |
@@ -93,5 +94,6 @@ Because the daemon is root, validation is consistent and up front:
   `version`. `run` wires Docker, the server lifecycle (incl. the egg install
   pipeline + config-file templating), the console WebSocket, networks/firewall,
   the sandboxed file manager (browse/edit/upload/download/archive), the embedded
-  SFTP server, the cron scheduler, and borg backups; the offline IPC socket lands
-  in a later slice.
+  SFTP server, the cron scheduler, borg backups, host maintenance (reboot/prune/
+  daemon restart + self-update), and physical-drive management; the offline IPC
+  socket lands in a later slice.

@@ -4,7 +4,6 @@
 // and per-server named volumes (so a server's data survives a recreate and the
 // file manager can reach it on the host). Every managed container and volume is
 // labelled `cookiepanel.*` so the daemon only ever touches its own resources.
-// The egg install pipeline and prune land in later slices.
 package docker
 
 import (
@@ -302,6 +301,39 @@ func (c *Client) VolumeMountpoint(ctx context.Context, name string) (string, err
 		return "", fmt.Errorf("volume %s has no mountpoint", name)
 	}
 	return res.Volume.Mountpoint, nil
+}
+
+// PruneResult reports what a Prune reclaimed.
+type PruneResult struct {
+	ImagesDeleted  int    `json:"imagesDeleted"`
+	SpaceReclaimed uint64 `json:"spaceReclaimedBytes"`
+}
+
+// Prune frees disk by removing dangling images and unused build cache. It
+// deliberately never prunes containers or volumes: a stopped managed server and
+// its data volume must survive a prune, and docker's own container/volume prune
+// has no way to spare them. So this is safe to run on a live node — it only
+// clears layers and build caches no image references.
+func (c *Client) Prune(ctx context.Context) (PruneResult, error) {
+	if c == nil || c.api == nil {
+		return PruneResult{}, errors.New("docker client not initialized")
+	}
+	var res PruneResult
+	imgRes, err := c.api.ImagePrune(ctx, moby.ImagePruneOptions{
+		Filters: make(moby.Filters).Add("dangling", "true"),
+	})
+	if err != nil {
+		return res, fmt.Errorf("prune images: %w", err)
+	}
+	res.ImagesDeleted = len(imgRes.Report.ImagesDeleted)
+	res.SpaceReclaimed += imgRes.Report.SpaceReclaimed
+
+	cacheRes, err := c.api.BuildCachePrune(ctx, moby.BuildCachePruneOptions{})
+	if err != nil {
+		return res, fmt.Errorf("prune build cache: %w", err)
+	}
+	res.SpaceReclaimed += cacheRes.Report.SpaceReclaimed
+	return res, nil
 }
 
 // RemoveVolume force-removes a named volume. Idempotent: a missing volume is not

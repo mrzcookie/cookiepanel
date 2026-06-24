@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Database, HardDrive, Lock, MoreHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -40,16 +41,18 @@ import {
 } from "@/components/ui/select";
 import type { DriveRow } from "@/lib/domain/nodes";
 import { formatBytes, pluralize } from "@/lib/format";
-import { useNode } from "@/lib/node-queries";
 import {
 	formatDrive,
+	invalidateNodeDrives,
 	mountDrive,
 	setDataTarget,
 	unmountDrive,
-	useDrives,
-} from "@/lib/stores/node-resources-store";
+	useNode,
+	useNodeDrives,
+} from "@/lib/node-queries";
 
-const FILESYSTEMS = ["ext4", "xfs", "btrfs"];
+const FILESYSTEMS = ["ext4", "xfs", "btrfs"] as const;
+type Filesystem = (typeof FILESYSTEMS)[number];
 
 export const Route = createFileRoute("/_app/nodes/$nodeId/storage")({
 	component: NodeStorage,
@@ -62,14 +65,14 @@ function percent(used: number | null, total: number) {
 	return Math.round((used / total) * 100);
 }
 
-function isSystemDrive(drive: DriveRow) {
-	return drive.mountpoint === "/" || drive.mountpoint === "/boot";
+function errorMessage(error: unknown, fallback: string) {
+	return error instanceof Error ? error.message : fallback;
 }
 
 function NodeStorage() {
 	const { nodeId } = Route.useParams();
 	const node = useNode(nodeId);
-	const drives = useDrives(nodeId);
+	const drivesRead = useNodeDrives(nodeId);
 
 	if (!node) {
 		return null;
@@ -93,6 +96,26 @@ function NodeStorage() {
 			/>
 		);
 	}
+	if (!drivesRead) {
+		return (
+			<EmptyState
+				description="Reading the disks attached to this node…"
+				icon={HardDrive}
+				title="Loading storage"
+			/>
+		);
+	}
+	if (!drivesRead.ok) {
+		return (
+			<EmptyState
+				description={drivesRead.error}
+				icon={HardDrive}
+				title="Couldn't reach the node"
+			/>
+		);
+	}
+
+	const drives = drivesRead.data;
 	if (drives.length === 0) {
 		return (
 			<EmptyState
@@ -134,7 +157,7 @@ function NodeStorage() {
 }
 
 function DriveBadge({ drive }: { drive: DriveRow }) {
-	if (isSystemDrive(drive)) {
+	if (drive.system) {
 		return (
 			<Badge variant="secondary">
 				<Lock />
@@ -206,21 +229,44 @@ function DriveRowItem({
 }
 
 function DriveActions({ drive, nodeId }: { drive: DriveRow; nodeId: string }) {
+	const queryClient = useQueryClient();
 	const [formatOpen, setFormatOpen] = useState(false);
 	const [mountOpen, setMountOpen] = useState(false);
+	const [dataTargetOpen, setDataTargetOpen] = useState(false);
+	const [busy, setBusy] = useState(false);
 
-	if (isSystemDrive(drive)) {
+	// The system disk is locked against every mutation (enforced server-side too).
+	if (drive.system) {
 		return null;
 	}
 
 	const formatted = drive.filesystem !== null;
 	const mounted = drive.mountpoint !== null;
 
+	async function unmount() {
+		setBusy(true);
+		const id = toast.loading(`Unmounting ${drive.device}…`);
+		try {
+			await unmountDrive(nodeId, drive.device);
+			await invalidateNodeDrives(queryClient, nodeId);
+			toast.success(`Unmounted ${drive.device}.`, { id });
+		} catch (error) {
+			toast.error(errorMessage(error, "Couldn't unmount the disk."), { id });
+		} finally {
+			setBusy(false);
+		}
+	}
+
 	return (
 		<>
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
-					<Button className="text-muted-foreground" size="icon" variant="ghost">
+					<Button
+						className="text-muted-foreground"
+						disabled={busy}
+						size="icon"
+						variant="ghost"
+					>
 						<MoreHorizontal />
 						<span className="sr-only">Drive actions for {drive.model}</span>
 					</Button>
@@ -237,24 +283,12 @@ function DriveActions({ drive, nodeId }: { drive: DriveRow; nodeId: string }) {
 						</DropdownMenuItem>
 					) : null}
 					{mounted && !drive.isDataTarget ? (
-						<DropdownMenuItem
-							onClick={() => {
-								setDataTarget(nodeId, drive.id);
-								toast.success(`Server data set to ${drive.model}.`);
-							}}
-						>
+						<DropdownMenuItem onClick={() => setDataTargetOpen(true)}>
 							Set as server data
 						</DropdownMenuItem>
 					) : null}
 					{mounted && !drive.isDataTarget ? (
-						<DropdownMenuItem
-							onClick={() => {
-								unmountDrive(drive.id);
-								toast.success(`Unmounted ${drive.device}.`);
-							}}
-						>
-							Unmount
-						</DropdownMenuItem>
+						<DropdownMenuItem onClick={unmount}>Unmount</DropdownMenuItem>
 					) : null}
 					{formatted ? (
 						<>
@@ -268,13 +302,21 @@ function DriveActions({ drive, nodeId }: { drive: DriveRow; nodeId: string }) {
 			</DropdownMenu>
 			<FormatDriveDialog
 				drive={drive}
+				nodeId={nodeId}
 				onOpenChange={setFormatOpen}
 				open={formatOpen}
 			/>
 			<MountDriveDialog
 				drive={drive}
+				nodeId={nodeId}
 				onOpenChange={setMountOpen}
 				open={mountOpen}
+			/>
+			<DataTargetDialog
+				drive={drive}
+				nodeId={nodeId}
+				onOpenChange={setDataTargetOpen}
+				open={dataTargetOpen}
 			/>
 		</>
 	);
@@ -282,29 +324,42 @@ function DriveActions({ drive, nodeId }: { drive: DriveRow; nodeId: string }) {
 
 function FormatDriveDialog({
 	drive,
+	nodeId,
 	onOpenChange,
 	open,
 }: {
 	drive: DriveRow;
+	nodeId: string;
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
 }) {
-	const [filesystem, setFilesystem] = useState(drive.filesystem ?? "ext4");
+	const queryClient = useQueryClient();
+	const [filesystem, setFilesystem] = useState<Filesystem>("ext4");
 	const [mountpoint, setMountpoint] = useState(drive.mountpoint ?? "/data");
+	const [busy, setBusy] = useState(false);
 
 	// Re-seed from the drive each time the dialog opens (a cancelled edit
 	// shouldn't linger on reopen — same reasoning as the rename dialog).
 	useEffect(() => {
 		if (open) {
-			setFilesystem(drive.filesystem ?? "ext4");
+			setFilesystem(isFilesystem(drive.filesystem) ? drive.filesystem : "ext4");
 			setMountpoint(drive.mountpoint ?? "/data");
 		}
 	}, [open, drive.filesystem, drive.mountpoint]);
 
-	function submit() {
-		formatDrive(drive.id, filesystem, mountpoint.trim());
-		toast.success(`Formatted ${drive.device} as ${filesystem}.`);
-		onOpenChange(false);
+	async function submit() {
+		setBusy(true);
+		const id = toast.loading(`Formatting ${drive.device} as ${filesystem}…`);
+		try {
+			await formatDrive(nodeId, drive.device, filesystem, mountpoint.trim());
+			await invalidateNodeDrives(queryClient, nodeId);
+			toast.success(`Formatted ${drive.device} as ${filesystem}.`, { id });
+			onOpenChange(false);
+		} catch (error) {
+			toast.error(errorMessage(error, "Couldn't format the disk."), { id });
+		} finally {
+			setBusy(false);
+		}
 	}
 
 	return (
@@ -326,7 +381,10 @@ function FormatDriveDialog({
 					<div className="flex flex-col gap-4 py-4 sm:flex-row">
 						<div className="grid gap-2">
 							<Label htmlFor="fs">Filesystem</Label>
-							<Select onValueChange={setFilesystem} value={filesystem}>
+							<Select
+								onValueChange={(value) => setFilesystem(value as Filesystem)}
+								value={filesystem}
+							>
 								<SelectTrigger className="w-32" id="fs">
 									<SelectValue />
 								</SelectTrigger>
@@ -357,7 +415,7 @@ function FormatDriveDialog({
 							</Button>
 						</DialogClose>
 						<Button
-							disabled={mountpoint.trim() === ""}
+							disabled={busy || mountpoint.trim() === ""}
 							type="submit"
 							variant="destructive"
 						>
@@ -372,14 +430,18 @@ function FormatDriveDialog({
 
 function MountDriveDialog({
 	drive,
+	nodeId,
 	onOpenChange,
 	open,
 }: {
 	drive: DriveRow;
+	nodeId: string;
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
 }) {
+	const queryClient = useQueryClient();
 	const [mountpoint, setMountpoint] = useState("/data");
+	const [busy, setBusy] = useState(false);
 
 	useEffect(() => {
 		if (open) {
@@ -387,10 +449,19 @@ function MountDriveDialog({
 		}
 	}, [open]);
 
-	function submit() {
-		mountDrive(drive.id, mountpoint.trim());
-		toast.success(`Mounted ${drive.device} at ${mountpoint.trim()}.`);
-		onOpenChange(false);
+	async function submit() {
+		setBusy(true);
+		const id = toast.loading(`Mounting ${drive.device}…`);
+		try {
+			await mountDrive(nodeId, drive.device, mountpoint.trim());
+			await invalidateNodeDrives(queryClient, nodeId);
+			toast.success(`Mounted ${drive.device} at ${mountpoint.trim()}.`, { id });
+			onOpenChange(false);
+		} catch (error) {
+			toast.error(errorMessage(error, "Couldn't mount the disk."), { id });
+		} finally {
+			setBusy(false);
+		}
 	}
 
 	return (
@@ -424,7 +495,7 @@ function MountDriveDialog({
 								Cancel
 							</Button>
 						</DialogClose>
-						<Button disabled={mountpoint.trim() === ""} type="submit">
+						<Button disabled={busy || mountpoint.trim() === ""} type="submit">
 							Mount
 						</Button>
 					</DialogFooter>
@@ -432,4 +503,66 @@ function MountDriveDialog({
 			</DialogContent>
 		</Dialog>
 	);
+}
+
+// Repointing Docker's data-root restarts the engine, so every running server on
+// the node blips — an explicit confirm rather than a one-click dropdown action.
+function DataTargetDialog({
+	drive,
+	nodeId,
+	onOpenChange,
+	open,
+}: {
+	drive: DriveRow;
+	nodeId: string;
+	onOpenChange: (open: boolean) => void;
+	open: boolean;
+}) {
+	const queryClient = useQueryClient();
+	const [busy, setBusy] = useState(false);
+
+	async function submit() {
+		setBusy(true);
+		const id = toast.loading(`Pointing server data at ${drive.model}…`);
+		try {
+			await setDataTarget(nodeId, drive.device);
+			await invalidateNodeDrives(queryClient, nodeId);
+			toast.success(`Server data now lives on ${drive.model}.`, { id });
+			onOpenChange(false);
+		} catch (error) {
+			toast.error(errorMessage(error, "Couldn't set the data drive."), { id });
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<Dialog onOpenChange={onOpenChange} open={open}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Store server data on {drive.model}?</DialogTitle>
+					<DialogDescription>
+						New servers will keep their data on {drive.device} (
+						{drive.mountpoint}
+						). This restarts Docker, so servers running on this node briefly go
+						offline while it comes back.
+					</DialogDescription>
+				</DialogHeader>
+				<DialogFooter>
+					<DialogClose asChild>
+						<Button type="button" variant="outline">
+							Cancel
+						</Button>
+					</DialogClose>
+					<Button disabled={busy} onClick={submit}>
+						Set as server data
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function isFilesystem(value: string | null): value is Filesystem {
+	return value !== null && (FILESYSTEMS as readonly string[]).includes(value);
 }

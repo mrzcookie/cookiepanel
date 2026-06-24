@@ -23,7 +23,10 @@ const (
 	scheduleBkt = "schedules"
 	backupBkt   = "backups"
 	statusKey   = "status"
-	openTimeout = 5 * time.Second
+	// dataTargetKey holds the block device the operator chose to back server
+	// data (the drive subsystem points Docker's data-root at its mountpoint).
+	dataTargetKey = "dataTarget"
+	openTimeout   = 5 * time.Second
 )
 
 // Store wraps a bbolt database. Safe for concurrent use by multiple goroutines.
@@ -139,6 +142,26 @@ func (s *Store) UpdateStatus(fn func(Status) Status) error {
 	})
 }
 
+// PutDataTarget records the block device chosen to back server data (empty
+// string clears it).
+func (s *Store) PutDataTarget(device string) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket([]byte(systemBkt)).Put([]byte(dataTargetKey), []byte(device))
+	})
+}
+
+// GetDataTarget returns the chosen server-data device, or "" if none is set.
+func (s *Store) GetDataTarget() (string, error) {
+	var device string
+	err := s.db.View(func(tx *bolt.Tx) error {
+		if v := tx.Bucket([]byte(systemBkt)).Get([]byte(dataTargetKey)); v != nil {
+			device = string(v)
+		}
+		return nil
+	})
+	return device, err
+}
+
 // ─── schedules ───────────────────────────────────────────────────────────────
 
 // Schedule is a daemon-side automation: a script run against a server on a cron
@@ -159,8 +182,8 @@ type Schedule struct {
 
 // ScheduleStep is one action in a schedule's script, executed in order.
 type ScheduleStep struct {
-	// Type is "command" (send console input), "wait" (sleep), or "power"
-	// (start/stop/restart the server). "backup" is reserved for the backups slice.
+	// Type is "command" (send console input), "wait" (sleep), "power"
+	// (start/stop/restart the server), or "backup" (snapshot the data volume).
 	Type    string `json:"type"`
 	Command string `json:"command,omitempty"` // type=command
 	Seconds int    `json:"seconds,omitempty"` // type=wait

@@ -1,31 +1,13 @@
-// Placeholder data for the UI-first phase. One source of truth so pages agree —
-// the same nodes back the servers + drives stubs, the same template labels recur,
-// so the fleet reads as one believable org. Replace these when the data layer
-// lands (nodes/networks/allocations/firewall already have). Every row here is
-// client-safe: no secrets, and never a raw Docker image string (templates expose
-// only a friendly label).
+// Placeholder data for the UI-first phase. What remains here are the *official*
+// (platform-owned) template authoring records, which also seed the database (see
+// server/db/seed.ts). The nodes/servers/drives/networks/allocations/firewall
+// stubs were all retired as those features moved onto the real data layer. Every
+// row is client-safe: no secrets, and never a raw Docker image string (templates
+// expose only a friendly label).
 //
 // Ids are UUIDs, matching the real schema (the panel mints UUID primary keys).
 
-import type { DriveRow } from "@/lib/domain/nodes";
 import type { Template } from "@/lib/domain/templates";
-
-const GiB = 1024 ** 3;
-const TiB = 1024 ** 4;
-
-// — Nodes ————————————————————————————————————————————————————————————————————
-
-// Node UUIDs, still referenced by the servers + drives stubs (by nodeId). The
-// nodes/networks/allocations/firewall stub arrays were retired once those
-// features moved onto the real data layer.
-const NODE_ID = {
-	atlas: "a7f3c1d2-4e5b-4a6c-9d8e-1f2a3b4c5d6e",
-	valhalla: "b8e4d2c3-5f6a-4b7d-8e9f-2a3b4c5d6e7f",
-	orion: "c9f5e3d4-6a7b-4c8e-9f0a-3b4c5d6e7f80",
-	helios: "d0a6f4e5-7b8c-4d9f-8a1b-4c5d6e7f8091",
-	nova: "e1b7a5f6-8c9d-4e0a-9b2c-5d6e7f8091a2",
-	titan: "f2c8b6a7-9d0e-4f1b-8c3d-6e7f8091a2b3",
-} as const;
 
 // — Templates —————————————————————————————————————————————————————————————————
 // Full authoring records (the panel's "eggs"). Domain types + helpers live in
@@ -889,122 +871,5 @@ export const TEMPLATES: Template[] = [
 		installEntrypoint: "bash",
 		configFiles: [],
 		features: [{ key: "database:browser" }],
-	},
-];
-
-// — Drives / Allocations / Firewall (daemon-derived, per node) —————————————————
-
-// Only the reporting (online/unhealthy) nodes have drives; offline/pending nodes
-// show their tab's stale/empty state instead.
-export const DRIVES: DriveRow[] = [
-	{
-		id: "5a1b2c3d-1111-4a22-8b33-aa01bb02cc03",
-		nodeId: NODE_ID.atlas,
-		device: "/dev/nvme0n1p1",
-		model: "Samsung PM9A3",
-		sizeBytes: 128 * GiB,
-		usedBytes: 41 * GiB,
-		filesystem: "ext4",
-		mountpoint: "/",
-		isDataTarget: false,
-	},
-	{
-		id: "5a1b2c3d-2222-4a22-8b33-aa01bb02cc04",
-		nodeId: NODE_ID.atlas,
-		device: "/dev/nvme1n1",
-		model: "Samsung PM9A3 1.9TB",
-		sizeBytes: 2 * TiB,
-		usedBytes: 1 * TiB,
-		filesystem: "ext4",
-		mountpoint: "/var/lib/cookiepanel",
-		isDataTarget: true,
-	},
-	{
-		id: "5a1b2c3d-3333-4a22-8b33-aa01bb02cc05",
-		nodeId: NODE_ID.atlas,
-		device: "/dev/sda",
-		model: "Seagate IronWolf 4TB",
-		sizeBytes: 4 * TiB,
-		usedBytes: null,
-		filesystem: null,
-		mountpoint: null,
-		isDataTarget: false,
-	},
-	{
-		id: "6b2c3d4e-1111-4b33-9c44-bb02cc03dd04",
-		nodeId: NODE_ID.valhalla,
-		device: "/dev/sda2",
-		model: "Crucial MX500",
-		sizeBytes: 256 * GiB,
-		usedBytes: 52 * GiB,
-		filesystem: "ext4",
-		mountpoint: "/",
-		isDataTarget: false,
-	},
-	{
-		id: "6b2c3d4e-2222-4b33-9c44-bb02cc03dd05",
-		nodeId: NODE_ID.valhalla,
-		device: "/dev/sdb1",
-		model: "WD Red 1TB",
-		sizeBytes: 1 * TiB,
-		usedBytes: 700 * GiB,
-		filesystem: "xfs",
-		mountpoint: "/data",
-		isDataTarget: true,
-	},
-	{
-		id: "7c3d4e5f-1111-4c44-8d55-cc03dd04ee05",
-		nodeId: NODE_ID.orion,
-		device: "/dev/nvme0n1p1",
-		model: "WD Black SN850X",
-		sizeBytes: 1 * GiB,
-		usedBytes: 0.3 * GiB,
-		filesystem: "ext4",
-		mountpoint: "/boot",
-		isDataTarget: false,
-	},
-	{
-		id: "7c3d4e5f-2222-4c44-8d55-cc03dd04ee06",
-		nodeId: NODE_ID.orion,
-		device: "/dev/nvme0n1p2",
-		model: "WD Black SN850X",
-		sizeBytes: 200 * GiB,
-		usedBytes: 64 * GiB,
-		filesystem: "ext4",
-		mountpoint: "/",
-		isDataTarget: false,
-	},
-	{
-		id: "7c3d4e5f-3333-4c44-8d55-cc03dd04ee07",
-		nodeId: NODE_ID.orion,
-		device: "/dev/nvme1n1",
-		model: "Micron 7450 3.84TB",
-		sizeBytes: 4 * TiB,
-		usedBytes: 1.5 * TiB,
-		filesystem: "ext4",
-		mountpoint: "/var/lib/cookiepanel",
-		isDataTarget: true,
-	},
-	{
-		id: "8d4e5f6a-1111-4d55-9e66-dd04ee05ff06",
-		nodeId: NODE_ID.helios,
-		device: "/dev/sda1",
-		model: "Kingston DC600M",
-		sizeBytes: 500 * GiB,
-		usedBytes: 470 * GiB,
-		filesystem: "ext4",
-		mountpoint: "/",
-		isDataTarget: false,
-	},
-	{
-		id: "8d4e5f6a-2222-4d55-9e66-dd04ee05ff07",
-		nodeId: NODE_ID.helios,
-		device: "/dev/sdb1",
-		model: "Kingston DC600M",
-		sizeBytes: 500 * GiB,
-		usedBytes: 180 * GiB,
-		filesystem: "ext4",
-		mountpoint: "/data",
-		isDataTarget: true,
 	},
 ];

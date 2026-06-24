@@ -71,6 +71,15 @@ export const env = createEnv({
 		// The Cloudflare zone id that owns the nodes' base domain.
 		CLOUDFLARE_ZONE_ID: z.string().optional(),
 
+		// --- Daemon releases (optional; powers the "Update daemon" action) ---
+		// The latest published cookied version and the base URL its release
+		// binaries live under. When DAEMON_LATEST_VERSION is set, a node running an
+		// older version shows `updateAvailable`, and Update dispatches a download of
+		// `${DAEMON_RELEASE_BASE_URL}/v<version>/cookied-linux-<arch>` (verified
+		// against its sibling `.sha256`). Absent = no update is ever offered.
+		DAEMON_LATEST_VERSION: z.string().optional(),
+		DAEMON_RELEASE_BASE_URL: z.url().optional(),
+
 		// --- Object storage — S3-compatible (optional; template icons + uploads) ---
 		// Works with Cloudflare R2 / AWS S3 / MinIO. Omit S3_ENDPOINT for AWS S3.
 		S3_ENDPOINT: z.url().optional(),
