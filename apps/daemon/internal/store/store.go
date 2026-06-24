@@ -21,6 +21,7 @@ const (
 	dbFileName  = "state.db"
 	systemBkt   = "system"
 	scheduleBkt = "schedules"
+	backupBkt   = "backups"
 	statusKey   = "status"
 	openTimeout = 5 * time.Second
 )
@@ -56,7 +57,7 @@ func Open(dir string) (*Store, error) {
 		return nil, fmt.Errorf("open state db: %w", err)
 	}
 	if err := db.Update(func(tx *bolt.Tx) error {
-		for _, b := range []string{systemBkt, scheduleBkt} {
+		for _, b := range []string{systemBkt, scheduleBkt, backupBkt} {
 			if _, err := tx.CreateBucketIfNotExists([]byte(b)); err != nil {
 				return err
 			}
@@ -226,3 +227,86 @@ func (s *Store) ListSchedules() ([]Schedule, error) {
 	}
 	return out, nil
 }
+
+// ─── backups ─────────────────────────────────────────────────────────────────
+
+// BackupMeta is the panel-facing metadata for a borg archive, keyed by archive
+// name. Borg owns archive existence + time; this holds the friendly name, size,
+// lock, and owning server (so the panel doesn't have to parse borg output or
+// re-derive ownership from the archive name).
+type BackupMeta struct {
+	Archive   string    `json:"archive"`
+	ServerID  string    `json:"serverId"`
+	Name      string    `json:"name"`
+	SizeBytes int64     `json:"sizeBytes"`
+	Locked    bool      `json:"locked"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// PutBackupMeta upserts a backup's metadata by archive name.
+func (s *Store) PutBackupMeta(meta BackupMeta) error {
+	raw, err := json.Marshal(meta)
+	if err != nil {
+		return fmt.Errorf("encode backup meta: %w", err)
+	}
+	return s.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket([]byte(backupBkt)).Put([]byte(meta.Archive), raw)
+	})
+}
+
+// GetBackupMeta returns one backup's metadata; ok=false if absent.
+func (s *Store) GetBackupMeta(archive string) (BackupMeta, bool, error) {
+	var (
+		meta BackupMeta
+		raw  []byte
+	)
+	err := s.db.View(func(tx *bolt.Tx) error {
+		if v := tx.Bucket([]byte(backupBkt)).Get([]byte(archive)); v != nil {
+			raw = append(raw, v...)
+		}
+		return nil
+	})
+	if err != nil {
+		return BackupMeta{}, false, err
+	}
+	if raw == nil {
+		return BackupMeta{}, false, nil
+	}
+	if err := json.Unmarshal(raw, &meta); err != nil {
+		return BackupMeta{}, false, fmt.Errorf("decode backup meta: %w", err)
+	}
+	return meta, true, nil
+}
+
+// DeleteBackupMeta removes a backup's metadata (idempotent).
+func (s *Store) DeleteBackupMeta(archive string) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket([]byte(backupBkt)).Delete([]byte(archive))
+	})
+}
+
+// UpdateBackupMeta mutates one backup's metadata under a write transaction. fn is
+// not called (and ErrBackupMetaMissing is returned) when the record is absent.
+func (s *Store) UpdateBackupMeta(archive string, fn func(*BackupMeta)) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(backupBkt))
+		v := b.Get([]byte(archive))
+		if v == nil {
+			return ErrBackupMetaMissing
+		}
+		var meta BackupMeta
+		if err := json.Unmarshal(v, &meta); err != nil {
+			return fmt.Errorf("decode backup meta: %w", err)
+		}
+		fn(&meta)
+		raw, err := json.Marshal(meta)
+		if err != nil {
+			return fmt.Errorf("encode backup meta: %w", err)
+		}
+		return b.Put([]byte(archive), raw)
+	})
+}
+
+// ErrBackupMetaMissing is returned by UpdateBackupMeta when the archive has no
+// stored metadata.
+var ErrBackupMetaMissing = fmt.Errorf("backup metadata not found")

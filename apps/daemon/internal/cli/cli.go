@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cookiepanel/cookied/internal/api"
+	"github.com/cookiepanel/cookied/internal/backup"
 	"github.com/cookiepanel/cookied/internal/credentials"
 	"github.com/cookiepanel/cookied/internal/docker"
 	"github.com/cookiepanel/cookied/internal/filesystem"
@@ -183,10 +184,12 @@ func newRunCmd() *cobra.Command {
 					sftpMgr = nil
 				}
 
+				backupMgr := backup.NewManager(dockerClient, st)
+
 				// Scheduler: server automations fire from the local store, so they
 				// keep running across restarts and while the panel is offline.
 				// Start failure is non-fatal — the daemon keeps serving.
-				sched := scheduler.New(st, serverMgr)
+				sched := scheduler.New(st, serverMgr, backupMgr)
 				if err := sched.Start(); err != nil {
 					slog.Warn("scheduler start failed", "err", err)
 				} else {
@@ -209,6 +212,7 @@ func newRunCmd() *cobra.Command {
 					Files:         filesystem.New(dockerClient),
 					SFTP:          sftpMgr,
 					Scheduler:     sched,
+					Backups:       backupMgr,
 				})
 				if err := apiSrv.Start(); err != nil {
 					return err

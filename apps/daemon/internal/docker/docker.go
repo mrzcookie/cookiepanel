@@ -304,6 +304,18 @@ func (c *Client) VolumeMountpoint(ctx context.Context, name string) (string, err
 	return res.Volume.Mountpoint, nil
 }
 
+// RemoveVolume force-removes a named volume. Idempotent: a missing volume is not
+// an error.
+func (c *Client) RemoveVolume(ctx context.Context, name string) error {
+	if c == nil || c.api == nil {
+		return errors.New("docker client not initialized")
+	}
+	if _, err := c.api.VolumeRemove(ctx, name, moby.VolumeRemoveOptions{Force: true}); err != nil {
+		return fmt.Errorf("remove volume %s: %w", name, err)
+	}
+	return nil
+}
+
 // RemoveVolumesByServerID force-removes every managed volume tagged with the
 // given server id. Idempotent: no matching volumes is not an error.
 func (c *Client) RemoveVolumesByServerID(ctx context.Context, serverID string) error {

@@ -93,5 +93,5 @@ Because the daemon is root, validation is consistent and up front:
   `version`. `run` wires Docker, the server lifecycle (incl. the egg install
   pipeline + config-file templating), the console WebSocket, networks/firewall,
   the sandboxed file manager (browse/edit/upload/download/archive), the embedded
-  SFTP server, and the cron scheduler; the IPC socket and backups land in later
-  slices.
+  SFTP server, the cron scheduler, and borg backups; the offline IPC socket lands
+  in a later slice.

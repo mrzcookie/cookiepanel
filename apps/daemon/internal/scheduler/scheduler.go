@@ -24,7 +24,7 @@ const (
 	StepCommand = "command" // send a console command to the server process
 	StepWait    = "wait"    // sleep for Seconds
 	StepPower   = "power"   // start/stop/restart the server
-	StepBackup  = "backup"  // reserved — lands with the backups slice
+	StepBackup  = "backup"  // create a backup of the server's data volume
 )
 
 // Power actions the scheduler can run against a server.
@@ -63,7 +63,7 @@ func validateStep(st store.ScheduleStep) error {
 			return fmt.Errorf("power step must be start|stop|restart")
 		}
 	case StepBackup:
-		return fmt.Errorf("backup steps aren't available yet")
+		// no parameters
 	default:
 		return fmt.Errorf("unknown step type %q", st.Type)
 	}
@@ -80,19 +80,26 @@ type Servers interface {
 	Restart(ctx context.Context, serverID string) (*server.Server, error)
 }
 
+// Backups is what a backup step needs. *backup.Manager satisfies it; may be nil
+// when backups are unavailable (a backup step then fails at fire time).
+type Backups interface {
+	RunBackup(ctx context.Context, serverID, name string) error
+}
+
 // Scheduler owns the cron runner. It's rebuilt wholesale from the store on any
 // change (simpler + race-free than surgically patching the runner).
 type Scheduler struct {
 	store   *store.Store
 	servers Servers
+	backups Backups
 
 	mu   sync.Mutex
 	cron *cron.Cron
 }
 
 // New constructs a Scheduler. Call Start to build + run the cron.
-func New(st *store.Store, servers Servers) *Scheduler {
-	return &Scheduler{store: st, servers: servers}
+func New(st *store.Store, servers Servers, backups Backups) *Scheduler {
+	return &Scheduler{store: st, servers: servers, backups: backups}
 }
 
 // Start builds the cron runner from persisted schedules and begins firing.
@@ -196,6 +203,9 @@ func scriptTimeout(steps []store.ScheduleStep) time.Duration {
 		switch st.Type {
 		case StepWait:
 			total += time.Duration(st.Seconds) * time.Second
+		case StepBackup:
+			// Backups can run long on big volumes; give them room.
+			total += 30 * time.Minute
 		default:
 			total += 30 * time.Second
 		}
@@ -268,6 +278,11 @@ func (s *Scheduler) runStep(ctx context.Context, serverID string, st store.Sched
 			err = fmt.Errorf("unknown power action %q", st.Power)
 		}
 		return err
+	case StepBackup:
+		if s.backups == nil {
+			return fmt.Errorf("backups are unavailable on this node")
+		}
+		return s.backups.RunBackup(ctx, serverID, "Scheduled backup")
 	default:
 		return fmt.Errorf("unknown step type %q", st.Type)
 	}

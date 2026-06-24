@@ -850,6 +850,89 @@ export async function runNodeSchedule(
 	});
 }
 
+// ─── backups ─────────────────────────────────────────────────────────────────
+
+/** The daemon's view of one backup (archive = its id). */
+export type DaemonBackup = {
+	archive: string;
+	serverId: string;
+	name: string;
+	sizeBytes: number;
+	status: string; // creating | completed | failed
+	error?: string;
+	locked: boolean;
+	createdAt: string;
+};
+
+// A borg create on a large volume can take minutes; the create call returns
+// "creating" fast, but restore runs synchronously and needs room.
+const BACKUP_TIMEOUT_MS = 30 * 60 * 1000;
+
+const backupsBase = (serverId: string) => `/api/v1/servers/${serverId}/backups`;
+
+export async function listNodeBackups(
+	nodeId: string,
+	serverId: string
+): Promise<DaemonBackup[]> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		path: backupsBase(serverId),
+	})) as DaemonBackup[];
+}
+
+export async function createNodeBackup(
+	nodeId: string,
+	serverId: string,
+	name: string
+): Promise<DaemonBackup> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: backupsBase(serverId),
+		body: { name },
+	})) as DaemonBackup;
+}
+
+export async function restoreNodeBackup(
+	nodeId: string,
+	serverId: string,
+	archive: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${backupsBase(serverId)}/restore`,
+		body: { archive },
+		timeoutMs: BACKUP_TIMEOUT_MS,
+	});
+}
+
+export async function setNodeBackupLock(
+	nodeId: string,
+	serverId: string,
+	archive: string,
+	locked: boolean
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${backupsBase(serverId)}/${archive}/lock`,
+		body: { locked },
+	});
+}
+
+export async function deleteNodeBackup(
+	nodeId: string,
+	serverId: string,
+	archive: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "DELETE",
+		path: `${backupsBase(serverId)}/${archive}`,
+	});
+}
+
 /** Streams `body` to the daemon as the new contents of `path` (atomic on the box). */
 export async function uploadNodeFile(
 	nodeId: string,

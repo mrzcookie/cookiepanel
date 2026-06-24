@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cookiepanel/cookied/internal/backup"
 	"github.com/cookiepanel/cookied/internal/docker"
 	"github.com/cookiepanel/cookied/internal/filesystem"
 	"github.com/cookiepanel/cookied/internal/firewall"
@@ -55,6 +56,7 @@ type Server struct {
 	files         *filesystem.Manager
 	sftp          *sftp.Manager
 	scheduler     *scheduler.Scheduler
+	backups       *backup.Manager
 
 	server   *http.Server
 	listener net.Listener
@@ -76,6 +78,7 @@ type Config struct {
 	Files         *filesystem.Manager  // per-server sandboxed file manager
 	SFTP          *sftp.Manager        // SFTP session mint/revoke
 	Scheduler     *scheduler.Scheduler // server automations (cron)
+	Backups       *backup.Manager      // borg snapshot/restore
 }
 
 // New constructs but does not start the server.
@@ -95,6 +98,7 @@ func New(cfg Config) *Server {
 		files:         cfg.Files,
 		sftp:          cfg.SFTP,
 		scheduler:     cfg.Scheduler,
+		backups:       cfg.Backups,
 	}
 }
 
@@ -178,6 +182,11 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/schedules", s.handleUpsertSchedule)
 	mux.HandleFunc("DELETE /api/v1/schedules/{id}", s.handleDeleteSchedule)
 	mux.HandleFunc("POST /api/v1/schedules/{id}/run", s.handleRunSchedule)
+	mux.HandleFunc("GET /api/v1/servers/{id}/backups", s.handleListBackups)
+	mux.HandleFunc("POST /api/v1/servers/{id}/backups", s.handleCreateBackup)
+	mux.HandleFunc("POST /api/v1/servers/{id}/backups/restore", s.handleRestoreBackup)
+	mux.HandleFunc("POST /api/v1/servers/{id}/backups/{archive}/lock", s.handleLockBackup)
+	mux.HandleFunc("DELETE /api/v1/servers/{id}/backups/{archive}", s.handleDeleteBackup)
 	mux.HandleFunc("GET /api/v1/servers/{id}/files/trash", s.handleTrashList)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/restore", s.handleTrashRestore)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/delete", s.handleTrashDelete)
@@ -722,6 +731,79 @@ func (s *Server) handleFilesExtract(w http.ResponseWriter, r *http.Request) {
 		r.Context(), r.PathValue("id"), body.Path, body.Dest,
 	); err != nil {
 		s.writeFilesErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ─── backups ───────────────────────────────────────────────────────────────
+
+func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request) {
+	list, err := s.backups.List(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+	if list == nil {
+		list = []backup.Backup{}
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	b, err := s.backups.Create(r.PathValue("id"), body.Name)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, b)
+}
+
+func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Archive string `json:"archive"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.backups.Restore(r.Context(), r.PathValue("id"), body.Archive); err != nil {
+		writeJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleLockBackup(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Locked bool `json:"locked"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.backups.SetLock(r.PathValue("id"), r.PathValue("archive"), body.Locked); err != nil {
+		writeJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
+	err := s.backups.Delete(r.Context(), r.PathValue("id"), r.PathValue("archive"))
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, backup.ErrLocked) {
+			status = http.StatusConflict
+		}
+		writeJSONError(w, status, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

@@ -16,12 +16,12 @@ export type ScheduleStep =
 
 export type ScheduleStepKind = ScheduleStep["kind"];
 
-// Step kinds the wizard offers. `backup` is intentionally excluded until the
-// backups slice — the daemon rejects backup steps for now.
+// Step kinds the wizard offers.
 export const SCHEDULE_STEP_KINDS: ScheduleStepKind[] = [
 	"command",
 	"wait",
 	"power",
+	"backup",
 ];
 
 export type ScheduleFrequency = "hourly" | "daily" | "weekly";

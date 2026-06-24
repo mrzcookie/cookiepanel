@@ -40,6 +40,14 @@ func (f *fakeServers) Restart(_ context.Context, _ string) (*server.Server, erro
 	return f.power(ActionRestart)
 }
 
+// fakeBackups records backup-step invocations.
+type fakeBackups struct{ runs int }
+
+func (f *fakeBackups) RunBackup(_ context.Context, _, _ string) error {
+	f.runs++
+	return nil
+}
+
 func newTestScheduler(t *testing.T, srv Servers) *Scheduler {
 	t.Helper()
 	st, err := store.Open(t.TempDir())
@@ -47,7 +55,7 @@ func newTestScheduler(t *testing.T, srv Servers) *Scheduler {
 		t.Fatalf("open store: %v", err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
-	return New(st, srv)
+	return New(st, srv, &fakeBackups{})
 }
 
 func TestValidateCron(t *testing.T) {
@@ -66,6 +74,7 @@ func TestValidateStep(t *testing.T) {
 		{Type: StepCommand, Command: "say hi"},
 		{Type: StepWait, Seconds: 30},
 		{Type: StepPower, Power: ActionRestart},
+		{Type: StepBackup}, // no params; backups slice is wired now
 	}
 	for _, st := range ok {
 		if err := validateStep(st); err != nil {
@@ -77,7 +86,6 @@ func TestValidateStep(t *testing.T) {
 		{Type: StepWait, Seconds: 0},         // out of range
 		{Type: StepWait, Seconds: 100_000},   // out of range
 		{Type: StepPower, Power: "sideways"}, // bad action
-		{Type: StepBackup},                   // reserved (backups slice)
 		{Type: "mystery"},                    // unknown
 	}
 	for _, st := range bad {
@@ -112,11 +120,25 @@ func TestUpsertPersistsAndLists(t *testing.T) {
 	if err := s.Upsert(store.Schedule{ID: "x", ServerID: "y", Cron: "bad", Steps: sc.Steps}); err == nil {
 		t.Fatal("upsert with bad cron: want error")
 	}
-	if err := s.Upsert(store.Schedule{
-		ID: "x", ServerID: "y", Cron: "0 4 * * *",
+}
+
+func TestFireBackupStep(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	backups := &fakeBackups{}
+	s := New(st, &fakeServers{}, backups)
+	sc := store.Schedule{
+		ID: "sched-b", ServerID: "srv-1", Cron: "0 4 * * *", Enabled: true,
 		Steps: []store.ScheduleStep{{Type: StepBackup}},
-	}); err == nil {
-		t.Fatal("upsert with backup step: want error")
+	}
+	if err := s.fireCtx(context.Background(), sc); err != nil {
+		t.Fatalf("fire: %v", err)
+	}
+	if backups.runs != 1 {
+		t.Fatalf("RunBackup called %d times, want 1", backups.runs)
 	}
 }
 
