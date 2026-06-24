@@ -91,6 +91,7 @@ Because the daemon is root, validation is consistent and up front:
 - Current subcommands: `configure` (exchange a bootstrap token for durable
   credentials), `run` (TLS + HTTPS API + heartbeat loop), `diagnostics`,
   `version`. `run` wires Docker, the server lifecycle (incl. the egg install
-  pipeline), the console WebSocket, networks/firewall, the sandboxed file manager
-  (browse/edit/upload/download/archive), and the embedded SFTP server; the IPC
-  socket, scheduler, and backups land in later slices.
+  pipeline + config-file templating), the console WebSocket, networks/firewall,
+  the sandboxed file manager (browse/edit/upload/download/archive), the embedded
+  SFTP server, and the cron scheduler; the IPC socket and backups land in later
+  slices.

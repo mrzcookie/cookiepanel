@@ -32,6 +32,7 @@ import (
 	"github.com/cookiepanel/cookied/internal/firewall"
 	"github.com/cookiepanel/cookied/internal/network"
 	"github.com/cookiepanel/cookied/internal/remote"
+	"github.com/cookiepanel/cookied/internal/scheduler"
 	"github.com/cookiepanel/cookied/internal/server"
 	"github.com/cookiepanel/cookied/internal/sftp"
 	"github.com/cookiepanel/cookied/internal/store"
@@ -171,6 +172,7 @@ func newRunCmd() *cobra.Command {
 				slog.Info("tls ready", "mode", tlsMat.Mode, "fqdn", creds.FQDN, "fingerprint", fingerprint)
 
 				fw := firewall.NewManager(apiPort)
+				serverMgr := server.NewManager(dockerClient)
 
 				// SFTP server (best-effort): mints per-session credentials the
 				// panel hands out, sandboxed per server. Non-fatal if it can't
@@ -179,6 +181,17 @@ func newRunCmd() *cobra.Command {
 				if err != nil {
 					slog.Warn("sftp init failed; sftp disabled", "err", err)
 					sftpMgr = nil
+				}
+
+				// Scheduler: server automations fire from the local store, so they
+				// keep running across restarts and while the panel is offline.
+				// Start failure is non-fatal — the daemon keeps serving.
+				sched := scheduler.New(st, serverMgr)
+				if err := sched.Start(); err != nil {
+					slog.Warn("scheduler start failed", "err", err)
+				} else {
+					slog.Info("scheduler started")
+					defer sched.Stop()
 				}
 
 				apiSrv := api.New(api.Config{
@@ -190,11 +203,12 @@ func newRunCmd() *cobra.Command {
 					StartedAt:     startedAt,
 					TLS:           tlsMat,
 					DockerClient:  dockerClient,
-					Servers:       server.NewManager(dockerClient),
+					Servers:       serverMgr,
 					Networks:      network.NewManager(dockerClient),
 					Firewall:      fw,
 					Files:         filesystem.New(dockerClient),
 					SFTP:          sftpMgr,
+					Scheduler:     sched,
 				})
 				if err := apiSrv.Start(); err != nil {
 					return err

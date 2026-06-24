@@ -5,10 +5,10 @@
 // request must never take the box's control plane down.
 //
 // The surface today covers system/stats, the server-container lifecycle, the
-// console WebSocket, docker networks, the host firewall, and the sandboxed
-// per-server file manager (list/read/write/mkdir/rename/delete, upload/download,
-// URL-download jobs, and the recycle bin). Schedules and backups land in later
-// slices.
+// console WebSocket, docker networks, the host firewall, the sandboxed per-server
+// file manager (list/read/write/mkdir/rename/delete, upload/download, archive,
+// URL-download jobs, the recycle bin), SFTP sessions, and server-automation
+// schedules. Backups land in a later slice.
 package api
 
 import (
@@ -30,8 +30,10 @@ import (
 	"github.com/cookiepanel/cookied/internal/filesystem"
 	"github.com/cookiepanel/cookied/internal/firewall"
 	"github.com/cookiepanel/cookied/internal/network"
+	"github.com/cookiepanel/cookied/internal/scheduler"
 	"github.com/cookiepanel/cookied/internal/server"
 	"github.com/cookiepanel/cookied/internal/sftp"
+	"github.com/cookiepanel/cookied/internal/store"
 	"github.com/cookiepanel/cookied/internal/system"
 	cookietls "github.com/cookiepanel/cookied/internal/tls"
 	"github.com/cookiepanel/cookied/internal/version"
@@ -52,6 +54,7 @@ type Server struct {
 	firewall      *firewall.Manager
 	files         *filesystem.Manager
 	sftp          *sftp.Manager
+	scheduler     *scheduler.Scheduler
 
 	server   *http.Server
 	listener net.Listener
@@ -66,12 +69,13 @@ type Config struct {
 	StaticInfo    map[string]any // os/arch/cpus/mem/disk/daemonVersion
 	StartedAt     time.Time
 	TLS           *cookietls.Material
-	DockerClient  *docker.Client      // may be nil if docker is unavailable
-	Servers       *server.Manager     // server-container lifecycle
-	Networks      *network.Manager    // docker network lifecycle
-	Firewall      *firewall.Manager   // host firewall
-	Files         *filesystem.Manager // per-server sandboxed file manager
-	SFTP          *sftp.Manager       // SFTP session mint/revoke
+	DockerClient  *docker.Client       // may be nil if docker is unavailable
+	Servers       *server.Manager      // server-container lifecycle
+	Networks      *network.Manager     // docker network lifecycle
+	Firewall      *firewall.Manager    // host firewall
+	Files         *filesystem.Manager  // per-server sandboxed file manager
+	SFTP          *sftp.Manager        // SFTP session mint/revoke
+	Scheduler     *scheduler.Scheduler // server automations (cron)
 }
 
 // New constructs but does not start the server.
@@ -90,6 +94,7 @@ func New(cfg Config) *Server {
 		firewall:      cfg.Firewall,
 		files:         cfg.Files,
 		sftp:          cfg.SFTP,
+		scheduler:     cfg.Scheduler,
 	}
 }
 
@@ -169,6 +174,10 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/servers/{id}/sftp", s.handleSftpStatus)
 	mux.HandleFunc("POST /api/v1/servers/{id}/sftp", s.handleSftpMint)
 	mux.HandleFunc("DELETE /api/v1/servers/{id}/sftp", s.handleSftpRevoke)
+	mux.HandleFunc("GET /api/v1/schedules", s.handleListSchedules)
+	mux.HandleFunc("POST /api/v1/schedules", s.handleUpsertSchedule)
+	mux.HandleFunc("DELETE /api/v1/schedules/{id}", s.handleDeleteSchedule)
+	mux.HandleFunc("POST /api/v1/schedules/{id}/run", s.handleRunSchedule)
 	mux.HandleFunc("GET /api/v1/servers/{id}/files/trash", s.handleTrashList)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/restore", s.handleTrashRestore)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/delete", s.handleTrashDelete)
@@ -713,6 +722,49 @@ func (s *Server) handleFilesExtract(w http.ResponseWriter, r *http.Request) {
 		r.Context(), r.PathValue("id"), body.Path, body.Dest,
 	); err != nil {
 		s.writeFilesErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ─── schedules ─────────────────────────────────────────────────────────────
+
+func (s *Server) handleListSchedules(w http.ResponseWriter, _ *http.Request) {
+	list, err := s.scheduler.List()
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if list == nil {
+		list = []store.Schedule{}
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+func (s *Server) handleUpsertSchedule(w http.ResponseWriter, r *http.Request) {
+	var sc store.Schedule
+	if err := json.NewDecoder(r.Body).Decode(&sc); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	if err := s.scheduler.Upsert(sc); err != nil {
+		writeJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, sc)
+}
+
+func (s *Server) handleDeleteSchedule(w http.ResponseWriter, r *http.Request) {
+	if err := s.scheduler.Remove(r.PathValue("id")); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleRunSchedule(w http.ResponseWriter, r *http.Request) {
+	if err := s.scheduler.RunNow(r.PathValue("id")); err != nil {
+		writeJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

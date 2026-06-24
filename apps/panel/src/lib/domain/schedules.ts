@@ -2,8 +2,9 @@
 //
 // A Schedule is daemon-side cron automation for a server: a trigger (how often)
 // plus an ordered list of typed steps the daemon runs in sequence. Lives on the
-// box so it fires while the panel is offline. This module is pure (no stub data,
-// no React); the mutable store is schedules-store.ts.
+// box so it fires while the panel is offline. The panel exposes a friendly
+// trigger (hourly / daily / weekly + time); the server layer translates that to
+// the 5-field cron the daemon stores, and back. This module is pure (no React).
 
 export type PowerAction = "start" | "stop" | "restart";
 
@@ -14,6 +15,14 @@ export type ScheduleStep =
 	| { id: string; kind: "backup" };
 
 export type ScheduleStepKind = ScheduleStep["kind"];
+
+// Step kinds the wizard offers. `backup` is intentionally excluded until the
+// backups slice — the daemon rejects backup steps for now.
+export const SCHEDULE_STEP_KINDS: ScheduleStepKind[] = [
+	"command",
+	"wait",
+	"power",
+];
 
 export type ScheduleFrequency = "hourly" | "daily" | "weekly";
 
@@ -29,6 +38,10 @@ export type Schedule = {
 	enabled: boolean;
 	/** Pre-formatted; null until it's run once. */
 	lastRun: string | null;
+	/** Outcome of the last run, when it has run. */
+	lastStatus: "ok" | "error" | null;
+	/** Failure detail when lastStatus is "error". */
+	lastError: string | null;
 	/** Pre-formatted friendly next-run time. */
 	nextRun: string;
 	steps: ScheduleStep[];
@@ -142,4 +155,67 @@ export function computeNextRun(
 		return `Tomorrow at ${input.time}`;
 	}
 	return `Next ${DAYS[input.dayOfWeek]} at ${input.time}`;
+}
+
+// ─── cron translation ────────────────────────────────────────────────────────
+// The daemon stores a 5-field cron; the panel works in the friendly trigger. The
+// panel only ever generates the simple shapes below, so the round-trip is exact;
+// an unrecognized cron (created outside the panel) falls back to a daily default.
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** "HH:MM" → [hour, minute], clamped to valid ranges. */
+function parseTime(time: string): [number, number] {
+	const parts = time.split(":");
+	const h = Number.parseInt(parts[0] ?? "", 10);
+	const m = Number.parseInt(parts[1] ?? "", 10);
+	const hour = Number.isNaN(h) ? 0 : Math.min(Math.max(h, 0), 23);
+	const min = Number.isNaN(m) ? 0 : Math.min(Math.max(m, 0), 59);
+	return [hour, min];
+}
+
+/** Build a 5-field cron (min hour dom mon dow) from the friendly trigger. */
+export function frequencyToCron(
+	input: Pick<ScheduleInput, "frequency" | "time" | "dayOfWeek">
+): string {
+	const [hour, min] = parseTime(input.time);
+	if (input.frequency === "hourly") {
+		return `${min} * * * *`;
+	}
+	if (input.frequency === "daily") {
+		return `${min} ${hour} * * *`;
+	}
+	return `${min} ${hour} * * ${input.dayOfWeek}`;
+}
+
+/** Parse a panel-generated cron back into the friendly trigger (best-effort). */
+export function cronToTrigger(cron: string): {
+	frequency: ScheduleFrequency;
+	time: string;
+	dayOfWeek: number;
+} {
+	const parts = cron.trim().split(/\s+/);
+	if (parts.length === 5) {
+		const [minF, hourF, dom, mon, dow] = parts;
+		const min = Number(minF);
+		const hour = Number(hourF);
+		const minOk = Number.isInteger(min) && min >= 0 && min <= 59;
+		if (dom === "*" && mon === "*" && minOk) {
+			if (hourF === "*" && dow === "*") {
+				return { frequency: "hourly", time: `00:${pad(min)}`, dayOfWeek: 0 };
+			}
+			const hourOk = Number.isInteger(hour) && hour >= 0 && hour <= 23;
+			if (hourOk) {
+				const time = `${pad(hour)}:${pad(min)}`;
+				if (dow === "*") {
+					return { frequency: "daily", time, dayOfWeek: 0 };
+				}
+				const day = Number(dow);
+				if (Number.isInteger(day) && day >= 0 && day <= 6) {
+					return { frequency: "weekly", time, dayOfWeek: day };
+				}
+			}
+		}
+	}
+	return { frequency: "daily", time: "00:00", dayOfWeek: 0 };
 }

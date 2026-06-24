@@ -783,6 +783,73 @@ export async function revokeSftpSession(
 	});
 }
 
+// ─── schedules ─────────────────────────────────────────────────────────────
+
+/** One step in a daemon schedule (flat, type-discriminated). */
+export type DaemonScheduleStep = {
+	type: string;
+	command?: string;
+	seconds?: number;
+	power?: string;
+};
+
+/** The daemon's schedule shape (cron-native; one record per automation). */
+export type DaemonSchedule = {
+	id: string;
+	serverId: string;
+	name: string;
+	cron: string;
+	steps: DaemonScheduleStep[];
+	enabled: boolean;
+	lastRunAt?: string;
+	lastError?: string;
+	lastStatus?: string;
+};
+
+/** Every schedule on the node (the panel filters to the server it's viewing). */
+export async function getNodeSchedules(
+	nodeId: string
+): Promise<DaemonSchedule[]> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		path: "/api/v1/schedules",
+	})) as DaemonSchedule[];
+}
+
+export async function upsertNodeSchedule(
+	nodeId: string,
+	schedule: DaemonSchedule
+): Promise<DaemonSchedule> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: "/api/v1/schedules",
+		body: schedule,
+	})) as DaemonSchedule;
+}
+
+export async function deleteNodeSchedule(
+	nodeId: string,
+	scheduleId: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "DELETE",
+		path: `/api/v1/schedules/${scheduleId}`,
+	});
+}
+
+export async function runNodeSchedule(
+	nodeId: string,
+	scheduleId: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `/api/v1/schedules/${scheduleId}/run`,
+	});
+}
+
 /** Streams `body` to the daemon as the new contents of `path` (atomic on the box). */
 export async function uploadNodeFile(
 	nodeId: string,

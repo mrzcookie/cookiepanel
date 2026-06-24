@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import {
 	Archive,
 	ArrowDown,
@@ -33,6 +34,7 @@ import {
 	frequencyLabel,
 	newStep,
 	type PowerAction,
+	SCHEDULE_STEP_KINDS,
 	type ScheduleFrequency,
 	type ScheduleStep,
 	type ScheduleStepKind,
@@ -40,7 +42,7 @@ import {
 	stepSummary,
 	stepValid,
 } from "@/lib/domain/schedules";
-import { createSchedule } from "@/lib/stores/schedules-store";
+import { invalidateSchedules, upsertSchedule } from "@/lib/schedules-queries";
 
 const STEP_ICON: Record<ScheduleStepKind, typeof Clock> = {
 	command: TerminalSquare,
@@ -49,7 +51,8 @@ const STEP_ICON: Record<ScheduleStepKind, typeof Clock> = {
 	backup: Archive,
 };
 
-const STEP_ORDER: ScheduleStepKind[] = ["command", "wait", "power", "backup"];
+// backup is excluded until the backups slice (see SCHEDULE_STEP_KINDS).
+const STEP_ORDER: ScheduleStepKind[] = SCHEDULE_STEP_KINDS;
 
 const PAGES = ["Schedule", "Steps", "Review"] as const;
 
@@ -64,12 +67,14 @@ export function ScheduleWizard({
 	open: boolean;
 	serverId: string;
 }) {
+	const queryClient = useQueryClient();
 	const [page, setPage] = useState(0);
 	const [name, setName] = useState("");
 	const [frequency, setFrequency] = useState<ScheduleFrequency>("daily");
 	const [time, setTime] = useState("04:00");
 	const [dayOfWeek, setDayOfWeek] = useState(0);
 	const [steps, setSteps] = useState<ScheduleStep[]>([]);
+	const [busy, setBusy] = useState(false);
 
 	useEffect(() => {
 		if (open) {
@@ -115,10 +120,28 @@ export function ScheduleWizard({
 	const canAdvance =
 		page === 0 ? scheduleValid : page === 1 ? stepsValid : true;
 
-	function create() {
-		createSchedule(serverId, { name, frequency, time, dayOfWeek, steps });
-		toast.success(`Created schedule “${name.trim()}”.`);
-		onOpenChange(false);
+	async function create() {
+		setBusy(true);
+		try {
+			await upsertSchedule({
+				serverId,
+				name: name.trim(),
+				frequency,
+				time,
+				dayOfWeek,
+				enabled: true,
+				steps,
+			});
+			await invalidateSchedules(queryClient, serverId);
+			toast.success(`Created schedule “${name.trim()}”.`);
+			onOpenChange(false);
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't create the schedule."
+			);
+		} finally {
+			setBusy(false);
+		}
 	}
 
 	return (
@@ -184,8 +207,8 @@ export function ScheduleWizard({
 							Next
 						</Button>
 					) : (
-						<Button onClick={create} type="button">
-							Create schedule
+						<Button disabled={busy} onClick={create} type="button">
+							{busy ? "Creating…" : "Create schedule"}
 						</Button>
 					)}
 				</DialogFooter>
