@@ -90,10 +90,11 @@ Because the daemon is root, validation is consistent and up front:
   linux amd64/arm64.
 - `gofmt` + `go vet` are enforced by the lefthook pre-commit hook and CI.
 - Current subcommands: `configure` (exchange a bootstrap token for durable
-  credentials), `run` (TLS + HTTPS API + heartbeat loop), `diagnostics`,
+  credentials), `run` (serve everything + heartbeat loop), `status` (print live
+  status via the local socket), `tui` (offline operator console), `diagnostics`,
   `version`. `run` wires Docker, the server lifecycle (incl. the egg install
   pipeline + config-file templating), the console WebSocket, networks/firewall,
   the sandboxed file manager (browse/edit/upload/download/archive), the embedded
   SFTP server, the cron scheduler, borg backups, host maintenance (reboot/prune/
-  daemon restart + self-update), and physical-drive management; the offline IPC
-  socket lands in a later slice.
+  daemon restart + self-update), physical-drive management, and the box-local IPC
+  control socket.

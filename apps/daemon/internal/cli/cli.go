@@ -1,12 +1,16 @@
 // Package cli implements cookied's command-line entrypoint. Subcommands:
 //
 //	configure     exchanges a single-use bootstrap token for durable credentials
-//	run           heartbeats live system info to the panel
+//	run           serves the panel API + local control socket and heartbeats home
+//	status        prints the daemon's live status via the local control socket
+//	tui           offline operator console (talks only to the local socket)
 //	diagnostics   prints system info and checks panel connectivity
 //	version       prints version information
 //
-// The HTTPS control API, the local IPC socket, Docker, networking, the firewall,
-// and the scheduler land in later slices and will be wired into `run` then.
+// `run` wires every subsystem: TLS + the panel-facing HTTPS API, Docker + the
+// server lifecycle, the console WebSocket, networks/firewall, the file manager +
+// SFTP, the scheduler + backups, host maintenance + drives, the box-local IPC
+// socket, and the heartbeat loop.
 package cli
 
 import (
@@ -32,6 +36,7 @@ import (
 	"github.com/cookiepanel/cookied/internal/drive"
 	"github.com/cookiepanel/cookied/internal/filesystem"
 	"github.com/cookiepanel/cookied/internal/firewall"
+	"github.com/cookiepanel/cookied/internal/ipc"
 	"github.com/cookiepanel/cookied/internal/network"
 	"github.com/cookiepanel/cookied/internal/remote"
 	"github.com/cookiepanel/cookied/internal/scheduler"
@@ -39,6 +44,7 @@ import (
 	"github.com/cookiepanel/cookied/internal/sftp"
 	"github.com/cookiepanel/cookied/internal/store"
 	cookietls "github.com/cookiepanel/cookied/internal/tls"
+	"github.com/cookiepanel/cookied/internal/tui"
 	"github.com/cookiepanel/cookied/internal/version"
 )
 
@@ -60,6 +66,8 @@ func Run(args []string) int {
 	root.AddCommand(
 		newConfigureCmd(),
 		newRunCmd(),
+		newStatusCmd(),
+		newTuiCmd(),
 		newDiagnosticsCmd(),
 		newVersionCmd(),
 	)
@@ -115,7 +123,7 @@ func newConfigureCmd() *cobra.Command {
 }
 
 func newRunCmd() *cobra.Command {
-	var dataDir, stateDir string
+	var dataDir, stateDir, socketPath string
 	var apiPort int
 	var once bool
 	var interval time.Duration
@@ -238,6 +246,27 @@ func newRunCmd() *cobra.Command {
 						defer sftpMgr.Shutdown()
 					}
 				}
+
+				// Box-local control socket: lets the `tui`/`status` commands manage
+				// the box (reusing the same server manager + store) even with the
+				// panel unreachable. Non-fatal — a failed socket must not stop the
+				// box from heartbeating.
+				ipcSrv := ipc.New(ipc.Config{
+					SocketPath: socketPath,
+					Store:      st,
+					Servers:    serverMgr,
+					Docker:     dockerClient,
+				})
+				if err := ipcSrv.Start(); err != nil {
+					slog.Warn("ipc start failed; local control socket disabled", "err", err)
+				} else {
+					slog.Info("ipc listening", "socket", socketPath)
+					defer func() {
+						sCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+						defer cancel()
+						_ = ipcSrv.Shutdown(sCtx)
+					}()
+				}
 			}
 
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -247,9 +276,58 @@ func newRunCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&dataDir, "data-dir", defaultDataDir, "directory holding credentials")
 	cmd.Flags().StringVar(&stateDir, "state-dir", defaultStateDir, "directory for the local state db")
+	cmd.Flags().StringVar(&socketPath, "socket", ipc.DefaultSocket, "path for the box-local control socket")
 	cmd.Flags().IntVar(&apiPort, "api-port", defaultAPIPort, "TCP port the panel-facing HTTPS API will bind (advertised in the heartbeat)")
 	cmd.Flags().BoolVar(&once, "once", false, "send a single heartbeat and exit (testing)")
 	cmd.Flags().DurationVar(&interval, "interval", 30*time.Second, "heartbeat interval")
+	return cmd
+}
+
+// newStatusCmd prints the running daemon's status by dialing its local control
+// socket — works offline (no panel), useful for a quick health check on the box.
+func newStatusCmd() *cobra.Command {
+	var socketPath string
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "Print the daemon's live status (via the local control socket)",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx, cancel := context.WithTimeout(cmd.Context(), 3*time.Second)
+			defer cancel()
+			st, err := ipc.NewClient(socketPath).Status(ctx)
+			if err != nil {
+				return fmt.Errorf("query daemon: %w", err)
+			}
+			beat := "never"
+			if !st.LastHeartbeatAt.IsZero() {
+				beat = st.LastHeartbeatAt.Local().Format(time.RFC3339)
+			}
+			fmt.Printf("node:           %s\n", st.NodeID)
+			fmt.Printf("panel:          %s\n", st.PanelURL)
+			fmt.Printf("daemon version: %s\n", st.DaemonVersion)
+			fmt.Printf("started:        %s\n", st.DaemonStartedAt.Local().Format(time.RFC3339))
+			fmt.Printf("last heartbeat: %s (ok=%t)\n", beat, st.LastHeartbeatOK)
+			if st.LastHeartbeatErr != "" {
+				fmt.Printf("heartbeat err:  %s\n", st.LastHeartbeatErr)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&socketPath, "socket", ipc.DefaultSocket, "path of the local control socket")
+	return cmd
+}
+
+// newTuiCmd launches the offline operator console (talks only to the local
+// socket — never the panel).
+func newTuiCmd() *cobra.Command {
+	var socketPath string
+	cmd := &cobra.Command{
+		Use:   "tui",
+		Short: "Manage this box's servers locally (offline panel fallback)",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return tui.Run(socketPath)
+		},
+	}
+	cmd.Flags().StringVar(&socketPath, "socket", ipc.DefaultSocket, "path of the local control socket")
 	return cmd
 }
 
