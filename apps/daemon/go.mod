@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/coder/websocket v1.8.14
+	github.com/cyphar/filepath-securejoin v0.7.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/mholt/archives v0.1.5
 	github.com/moby/moby/api v1.54.2

@@ -124,6 +124,38 @@ func TestSymlinkNotFollowed(t *testing.T) {
 	}
 }
 
+// TestIntermediateSymlinkContained is the regression test for the symlink
+// sandbox escape: a symlink *directory* planted in the volume (as the server's
+// own container process or an install script can) must not let a read or write
+// follow it out to the host filesystem. (The leaf-symlink case is covered by
+// TestSymlinkNotFollowed; this covers an intermediate component.)
+func TestIntermediateSymlinkContained(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privilege on windows")
+	}
+	m, root := newTestManager(t)
+	ctx := context.Background()
+
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "secret"), []byte("TOPSECRET"), 0o600); err != nil {
+		t.Fatalf("seed secret: %v", err)
+	}
+	// Plant `<root>/escape` → an absolute path outside the volume.
+	if err := os.Symlink(outside, filepath.Join(root, "escape")); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	// Reading through the intermediate symlink must not reach the host file.
+	if got, err := m.Read(ctx, testServer, "/escape/secret"); err == nil && string(got) == "TOPSECRET" {
+		t.Fatal("read escaped the sandbox via an intermediate symlink")
+	}
+	// Writing through it must not land outside the volume.
+	_ = m.Write(ctx, testServer, "/escape/planted", []byte("x"))
+	if _, err := os.Stat(filepath.Join(outside, "planted")); err == nil {
+		t.Fatal("write escaped the sandbox via an intermediate symlink")
+	}
+}
+
 func TestRename(t *testing.T) {
 	m, _ := newTestManager(t)
 	ctx := context.Background()

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/mholt/archives"
 )
 
@@ -198,23 +199,18 @@ func (m *Manager) Extract(ctx context.Context, serverID, src, dest string) error
 	})
 }
 
-// safeJoin resolves an archive member name under destAbs, rejecting any name
-// that would escape it — absolute paths or anything traversing above dest. This
-// is the zip-slip / tar-slip guard: a malicious archive fails loudly rather than
-// scattering files outside the extract target. The result is under destAbs.
+// safeJoin resolves an archive member name under destAbs. It first rejects any
+// name that escapes lexically — absolute paths or `..` traversal — so a malicious
+// archive fails loudly (the zip-slip / tar-slip guard), then resolves the result
+// with SecureJoin so a symlink pre-planted in the destination subtree can't
+// redirect a written member out of the volume.
 func safeJoin(destAbs, name string) (string, error) {
 	sep := string(filepath.Separator)
 	cleaned := filepath.Clean(strings.TrimSpace(name))
 	if filepath.IsAbs(cleaned) || cleaned == ".." || strings.HasPrefix(cleaned, ".."+sep) {
 		return "", ErrTraversal
 	}
-	target := filepath.Join(destAbs, cleaned)
-	// Belt-and-suspenders: the joined path must still resolve under destAbs.
-	rel, err := filepath.Rel(destAbs, target)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+sep) {
-		return "", ErrTraversal
-	}
-	return target, nil
+	return securejoin.SecureJoin(destAbs, cleaned)
 }
 
 // writeExtracted creates target's parents and writes r into it, overwriting.

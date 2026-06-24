@@ -21,6 +21,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	securejoin "github.com/cyphar/filepath-securejoin"
 )
 
 // VolumePrefix matches the per-server volume name created by the server manager;
@@ -108,20 +110,21 @@ func (m *Manager) root(ctx context.Context, serverID string) (string, error) {
 	return mp, nil
 }
 
-// resolve cleans rel and verifies the result stays under root. The returned
-// path is absolute, suitable to hand to os calls.
+// resolve turns a caller-supplied path into an absolute path guaranteed to stay
+// within root, following symlinks **scoped beneath root**, so a symlink planted
+// inside the volume (by the server's own container process or an install script)
+// can't redirect an op to the host filesystem. A lexical clean+join is not
+// enough: os.Open/ReadDir/etc. follow symlinks in intermediate path components,
+// and the daemon reads the volume via its *host* mountpoint as root, so an
+// absolute symlink target would otherwise resolve against the host. SecureJoin
+// (the primitive runc/Docker use) resolves every component within root.
+//
+// Residual: SecureJoin returns a *path*, so a TOCTOU window remains — an attacker
+// who swaps a component for a symlink between this call and the os.* call could
+// still escape. The full fix is the openat2 RESOLVE_IN_ROOT API (Linux-only);
+// tracked as follow-up hardening. This closes the trivial plant-and-read attack.
 func resolve(root, rel string) (string, error) {
-	// Normalize: an empty path means "the root itself".
-	clean := filepath.Clean("/" + strings.TrimSpace(rel))
-	// Strip the leading "/" so Join produces root + rel without doubling.
-	joined := filepath.Join(root, strings.TrimPrefix(clean, "/"))
-	// Final containment check: the resolved abs path must have root as a
-	// prefix. filepath.Rel handles the comparison cross-platform.
-	rp, err := filepath.Rel(root, joined)
-	if err != nil || rp == ".." || strings.HasPrefix(rp, ".."+string(filepath.Separator)) {
-		return "", ErrTraversal
-	}
-	return joined, nil
+	return securejoin.SecureJoin(root, strings.TrimSpace(rel))
 }
 
 // relPath maps an absolute path under root back to the "/"-prefixed

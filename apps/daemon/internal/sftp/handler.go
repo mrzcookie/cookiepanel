@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/pkg/sftp"
 )
 
@@ -21,16 +21,16 @@ func newHandlers(root string) sftp.Handlers {
 	return sftp.Handlers{FileGet: h, FilePut: h, FileCmd: h, FileList: h}
 }
 
-// resolve cleans the client-supplied path and verifies the result stays under
-// root. A path that escapes is reported as a permission error to the client.
+// resolve turns the client-supplied path into an absolute path guaranteed to
+// stay under root, following symlinks **scoped beneath root** (SecureJoin) so a
+// symlink planted in the volume can't escape the sandbox to the host. A
+// resolution error is reported to the client as a permission error.
 func (h *rootedHandler) resolve(p string) (string, error) {
-	clean := filepath.Clean("/" + strings.TrimSpace(p))
-	joined := filepath.Join(h.root, strings.TrimPrefix(clean, "/"))
-	rel, err := filepath.Rel(h.root, joined)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	abs, err := securejoin.SecureJoin(h.root, strings.TrimSpace(p))
+	if err != nil {
 		return "", os.ErrPermission
 	}
-	return joined, nil
+	return abs, nil
 }
 
 func (h *rootedHandler) Fileread(r *sftp.Request) (io.ReaderAt, error) {
