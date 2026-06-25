@@ -8,7 +8,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
@@ -221,11 +220,9 @@ func (s *Server) pumpStats(
 		}); err != nil {
 			return err
 		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(50 * time.Millisecond):
-		}
+		// No throttle needed: docker's stats stream is the pacer (~1 sample/sec),
+		// and Decode above blocks until the next one. ctx cancellation unblocks it
+		// via the stream closing.
 	}
 }
 

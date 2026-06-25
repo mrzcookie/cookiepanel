@@ -167,6 +167,11 @@ func newRunCmd() *cobra.Command {
 				return fmt.Errorf("seed status: %w", err)
 			}
 
+			// The run's lifetime: cancelled on SIGINT/SIGTERM. Background workers
+			// (the heartbeat loop, the download-job sweeper) hang off it.
+			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+
 			// Serving mode (not --once): provision the self-signed TLS cert whose
 			// fingerprint the panel pins, then start the panel-facing HTTPS API.
 			var fingerprint string
@@ -196,6 +201,11 @@ func newRunCmd() *cobra.Command {
 				backupMgr := backup.NewManager(dockerClient, st)
 				driveMgr := drive.NewManager(st)
 
+				// File manager: start the URL-download job sweeper so finished jobs
+				// don't accumulate over a long-lived daemon.
+				filesMgr := filesystem.New(dockerClient)
+				filesMgr.Jobs().StartSweeper(ctx)
+
 				// Scheduler: server automations fire from the local store, so they
 				// keep running across restarts and while the panel is offline.
 				// Start failure is non-fatal — the daemon keeps serving.
@@ -219,7 +229,7 @@ func newRunCmd() *cobra.Command {
 					Servers:       serverMgr,
 					Networks:      network.NewManager(dockerClient),
 					Firewall:      fw,
-					Files:         filesystem.New(dockerClient),
+					Files:         filesMgr,
 					SFTP:          sftpMgr,
 					Scheduler:     sched,
 					Backups:       backupMgr,
@@ -269,8 +279,6 @@ func newRunCmd() *cobra.Command {
 				}
 			}
 
-			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-			defer stop()
 			return heartbeatLoop(ctx, creds, st, dockerClient, staticInfo, fingerprint, apiPort, interval, once)
 		},
 	}

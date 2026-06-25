@@ -28,7 +28,7 @@ import {
 
 export const Route = createFileRoute("/_app/servers/$serverId")({
 	// Warm the templates cache so the per-tab template reads (startup, database)
-	// resolve without a flash. The server itself is still a stub store.
+	// resolve without a flash.
 	loader: ({ context }) =>
 		context.queryClient.ensureQueryData(templatesListQueryOptions()),
 	component: ServerDetailLayout,

@@ -1,9 +1,8 @@
 // Package scheduler is the daemon's cron runtime for server automations. A
-// schedule is a named script (command / wait / power steps) run on a 5-field
-// cron expression. Definitions live in the local store (bbolt), so the scheduler
-// keeps firing across restarts and while the panel is offline; the panel is just
-// the editing UI. Backup steps are reserved for the backups slice and rejected
-// for now.
+// schedule is a named script (command / wait / power / backup steps) run on a
+// 5-field cron expression. Definitions live in the local store (bbolt), so the
+// scheduler keeps firing across restarts and while the panel is offline; the
+// panel is just the editing UI.
 package scheduler
 
 import (

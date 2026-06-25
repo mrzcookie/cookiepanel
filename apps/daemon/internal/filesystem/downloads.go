@@ -183,6 +183,27 @@ func (j *Jobs) Cancel(id string) error {
 	return nil
 }
 
+// StartSweeper runs Sweep on a ticker until ctx is cancelled, keeping the
+// finished-jobs map bounded over a long-lived daemon. Launches its own goroutine.
+func (j *Jobs) StartSweeper(ctx context.Context) {
+	interval := j.retainFn() / 2
+	if interval < time.Minute {
+		interval = time.Minute
+	}
+	go func() {
+		t := time.NewTicker(interval)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				j.Sweep()
+			}
+		}
+	}()
+}
+
 // Sweep evicts terminal jobs older than retainFn(). Call periodically to keep
 // the map bounded; not strictly required for correctness.
 func (j *Jobs) Sweep() {

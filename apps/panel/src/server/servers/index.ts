@@ -392,31 +392,43 @@ export const createServer = createServerFn({ method: "POST" })
 			lastError: null,
 		});
 
-		const install = installSpec(template, image, env);
+		// Claim the port allocation FIRST (it opens the firewall too). Reserving
+		// before the daemon create closes the race where two concurrent deploys
+		// both pass the wizard's free-port pre-check and then bind the same slot:
+		// the loser's reserve hits the unique constraint and we fail fast without
+		// dispatching a doomed create. The allocation stays attached to the server
+		// (even a failed one) and cascades away when it's deleted.
+		let portReserved = false;
 		try {
-			const live = await createServerOnNode(
-				data.nodeId,
-				daemonSpec(record, env, install, template.configFiles)
-			);
-			record =
-				(await serversRepository.update(orgId, serverId, {
-					state: mapDaemonState(live.state),
-					lastError: live.error ?? null,
-				})) ?? record;
-		} catch (error) {
+			await reserveAllocation(orgId, data.nodeId, serverId, data.port, "tcp");
+			portReserved = true;
+		} catch {
 			record =
 				(await serversRepository.update(orgId, serverId, {
 					state: "failed",
-					lastError: error instanceof Error ? error.message : "Deploy failed",
+					lastError: `Port ${data.port} is already in use on this node.`,
 				})) ?? record;
 		}
 
-		// Reserve the primary port allocation + open the firewall (best-effort; the
-		// port was pre-checked free in the wizard, and a noop firewall is fine).
-		try {
-			await reserveAllocation(orgId, data.nodeId, serverId, data.port, "tcp");
-		} catch {
-			// Port already allocated — the server stands; the slot just isn't recorded.
+		if (portReserved) {
+			const install = installSpec(template, image, env);
+			try {
+				const live = await createServerOnNode(
+					data.nodeId,
+					daemonSpec(record, env, install, template.configFiles)
+				);
+				record =
+					(await serversRepository.update(orgId, serverId, {
+						state: mapDaemonState(live.state),
+						lastError: live.error ?? null,
+					})) ?? record;
+			} catch (error) {
+				record =
+					(await serversRepository.update(orgId, serverId, {
+						state: "failed",
+						lastError: error instanceof Error ? error.message : "Deploy failed",
+					})) ?? record;
+			}
 		}
 
 		await recordActivity({

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path"
 	"sort"
 	"strconv"
@@ -40,7 +41,11 @@ func (m *Manager) applyConfigFiles(
 
 		existing, err := m.files.Read(ctx, serverID, cf.File)
 		if err != nil && !errors.Is(err, filesystem.ErrNotFound) {
-			return fmt.Errorf("config %s: %w", cf.File, err)
+			// The current file can't be read (too large, a symlink, …). Skip
+			// templating it rather than failing the whole deploy over one config.
+			slog.Warn("skipping config-file template",
+				"server", serverID, "file", cf.File, "err", err)
+			continue
 		}
 
 		merged, err := mergeConfig(cf.Parser, existing, cf.Replace)
