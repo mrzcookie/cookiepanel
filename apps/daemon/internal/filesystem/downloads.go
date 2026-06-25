@@ -7,10 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -71,10 +73,9 @@ func newJobID() (string, error) {
 	return "dl_" + hex.EncodeToString(b[:]), nil
 }
 
-// validateURL rejects schemes other than http/https. The daemon runs as root on
-// the operator's box; an SSRF target inside their own network is their privilege
-// to fetch (they already have shell access). We just stop foot-guns like file://
-// or chrome-extension:// reaching net/http.
+// validateURL rejects schemes other than http/https. The actual SSRF defense is
+// the dial Control hook below (it sees the resolved IP) — this is just an early,
+// friendly reject of obvious foot-guns like file:// or a missing host.
 func validateURL(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil {
@@ -86,6 +87,45 @@ func validateURL(raw string) error {
 	}
 	if u.Host == "" {
 		return fmt.Errorf("url is missing a host")
+	}
+	return nil
+}
+
+// isPublicIP reports whether ip is a routable public address. The daemon runs as
+// root in the host network namespace, so a URL pull must not be steerable at the
+// host's own loopback/private services or the cloud metadata endpoint
+// (169.254.169.254 — link-local). With panel RBAC deferred, any org member can
+// trigger a pull, so this is deny-by-default for every non-public range; a
+// private-mirror allowlist would be a future opt-in.
+func isPublicIP(ip net.IP) bool {
+	if ip == nil {
+		return false
+	}
+	return !(ip.IsLoopback() ||
+		ip.IsLinkLocalUnicast() || // 169.254/16 + fe80::/10 (incl. metadata)
+		ip.IsLinkLocalMulticast() ||
+		ip.IsInterfaceLocalMulticast() ||
+		ip.IsMulticast() ||
+		ip.IsPrivate() || // 10/8, 172.16/12, 192.168/16, fc00::/7
+		ip.IsUnspecified())
+}
+
+// dialGuard is the dial Control hook the URL-download client uses. It defaults to
+// the real public-IP check; tests override it (with restore) to reach a loopback
+// httptest server. Production never touches it.
+var dialGuard = safeDialControl
+
+// safeDialControl runs after DNS resolution, before connect, on every dial — the
+// initial request AND every redirect hop — so it closes the DNS-rebinding TOCTOU
+// a pre-resolve check would leave open. address is the resolved "ip:port".
+func safeDialControl(_, address string, _ syscall.RawConn) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return fmt.Errorf("bad dial address %q: %w", address, err)
+	}
+	ip := net.ParseIP(host)
+	if !isPublicIP(ip) {
+		return fmt.Errorf("refusing to fetch from non-public address %s", host)
 	}
 	return nil
 }
@@ -228,6 +268,14 @@ func (j *Jobs) Sweep() {
 
 var urlDownloadClient = &http.Client{
 	Transport: &http.Transport{
+		// The Control hook rejects non-public IPs on every dial (initial + each
+		// redirect), so an attacker-supplied URL can't reach host loopback/private
+		// services or the metadata endpoint — even via a redirect or DNS rebind.
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+			Control:   func(n, a string, c syscall.RawConn) error { return dialGuard(n, a, c) },
+		}).DialContext,
 		ForceAttemptHTTP2:     true,
 		MaxIdleConns:          16,
 		IdleConnTimeout:       90 * time.Second,

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -208,6 +209,12 @@ func TestTrashRoundTrip(t *testing.T) {
 }
 
 func TestURLDownloadJob(t *testing.T) {
+	// The httptest server listens on loopback, which the SSRF guard blocks in
+	// production; relax it for this test (restored after).
+	prev := dialGuard
+	dialGuard = func(_, _ string, _ syscall.RawConn) error { return nil }
+	defer func() { dialGuard = prev }()
+
 	m, _ := newTestManager(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("downloaded-bytes"))
