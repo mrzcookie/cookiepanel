@@ -133,11 +133,16 @@ export async function recordHeartbeat(input: {
 /**
  * The observed client IP of a daemon request. Behind Cloudflare (managed nodes),
  * `CF-Connecting-IP` is the verified peer and can't be spoofed by the caller, so
- * prefer it; then `X-Real-IP`; then the left-most `X-Forwarded-For`.
+ * prefer it; then `X-Real-IP`; then `X-Forwarded-For`.
  *
- * SECURITY: only trust `X-Forwarded-For` behind a proxy that overwrites it — a
- * raw left-most XFF from the open internet is attacker-controlled. The deployment
- * must terminate at a trusted ingress (this is why we prefer CF-Connecting-IP).
+ * SECURITY: for XFF we take the **right-most** entry — the IP appended by the
+ * closest proxy — never the left-most. The left-most is whatever the original
+ * caller claimed (an attacker can prepend `X-Forwarded-For: 1.2.3.4` to spoof it);
+ * the right-most is set by your own trusted ingress and can't be prepended away.
+ * This still only holds behind a trusted ingress, which is why CF-Connecting-IP /
+ * X-Real-IP are preferred. The value only feeds display + the node's own managed
+ * DNS, and enrollment/heartbeat are credential-authenticated, so the blast radius
+ * is a node mislabeling its own IP — never cross-tenant.
  */
 export function requestClientIp(request: Request): string | null {
 	const cf = request.headers.get("cf-connecting-ip");
@@ -150,7 +155,7 @@ export function requestClientIp(request: Request): string | null {
 	}
 	const forwarded = request.headers.get("x-forwarded-for");
 	if (forwarded) {
-		return forwarded.split(",")[0]?.trim() || null;
+		return forwarded.split(",").at(-1)?.trim() || null;
 	}
 	return null;
 }
