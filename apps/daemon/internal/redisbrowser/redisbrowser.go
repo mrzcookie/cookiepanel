@@ -99,12 +99,15 @@ type StreamEntry struct {
 }
 
 // KeyDetail is a key's full, type-shaped value. Only the slice for the key's type
-// is populated.
+// is populated. Truncated is true when the value was capped (Length is the real
+// element count / byte length) so the daemon never loads an unbounded structure.
 type KeyDetail struct {
 	Key        string        `json:"key"`
 	Type       string        `json:"type"`
 	TTLSeconds int64         `json:"ttlSeconds"`
 	SizeBytes  int64         `json:"sizeBytes"`
+	Length     int64         `json:"length"`
+	Truncated  bool          `json:"truncated"`
 	String     string        `json:"string,omitempty"`
 	Fields     []Field       `json:"fields,omitempty"`
 	Items      []string      `json:"items,omitempty"`
@@ -220,7 +223,9 @@ func keyLength(ctx context.Context, c *redis.Client, key, typ string) int64 {
 	}
 }
 
-// GetKey returns a key's full value, shaped by its type. A missing key is an error.
+// GetKey returns a key's value, shaped by its type. Every branch is bounded — the
+// daemon runs as root, so a member must not be able to make it load a
+// million-field hash or a 512 MB string into memory. A missing key is an error.
 func GetKey(ctx context.Context, conn Conn, key string) (KeyDetail, error) {
 	c := dial(conn)
 	defer c.Close()
@@ -239,31 +244,39 @@ func GetKey(ctx context.Context, conn Conn, key string) (KeyDetail, error) {
 	if n, err := c.MemoryUsage(ctx, key).Result(); err == nil {
 		d.SizeBytes = n
 	}
+	d.Length = keyLength(ctx, c, key, typ)
 
 	switch typ {
 	case "string":
-		d.String, err = c.Get(ctx, key).Result()
+		if d.Length > maxStringBytes {
+			d.String, err = c.GetRange(ctx, key, 0, maxStringBytes-1).Result()
+			d.Truncated = true
+		} else {
+			d.String, err = c.Get(ctx, key).Result()
+		}
 	case "hash":
-		var m map[string]string
-		m, err = c.HGetAll(ctx, key).Result()
-		d.Fields = fieldsFromMap(m)
+		d.Fields, err = scanHash(ctx, c, key)
+		d.Truncated = d.Length > int64(len(d.Fields))
+	case "set":
+		d.Items, err = scanSet(ctx, c, key)
+		d.Truncated = d.Length > int64(len(d.Items))
 	case "list":
 		d.Items, err = c.LRange(ctx, key, 0, maxElems-1).Result()
-	case "set":
-		d.Items, err = c.SMembers(ctx, key).Result()
-		sort.Strings(d.Items)
+		d.Truncated = d.Length > int64(len(d.Items))
 	case "zset":
 		var zs []redis.Z
 		zs, err = c.ZRangeWithScores(ctx, key, 0, maxElems-1).Result()
 		for _, z := range zs {
 			d.Members = append(d.Members, ScoreMember{Member: fmt.Sprint(z.Member), Score: z.Score})
 		}
+		d.Truncated = d.Length > int64(len(d.Members))
 	case "stream":
 		var msgs []redis.XMessage
-		msgs, err = c.XRange(ctx, key, "-", "+").Result()
+		msgs, err = c.XRangeN(ctx, key, "-", "+", maxElems).Result()
 		for _, m := range msgs {
 			d.Entries = append(d.Entries, StreamEntry{ID: m.ID, Fields: fieldsFromAny(m.Values)})
 		}
+		d.Truncated = d.Length > int64(len(d.Entries))
 	}
 	if err != nil {
 		return KeyDetail{}, fmt.Errorf("redis read %s: %w", typ, err)
@@ -271,9 +284,59 @@ func GetKey(ctx context.Context, conn Conn, key string) (KeyDetail, error) {
 	return d, nil
 }
 
-// maxElems bounds how many elements of a collection GetKey returns (a guard
-// against pulling a million-item list into one response).
-const maxElems = 1000
+// maxElems bounds how many collection elements GetKey returns; maxStringBytes
+// bounds a single string value — both guard the root daemon against loading an
+// unbounded structure into memory (it sets Truncated when it caps).
+const (
+	maxElems       = 1000
+	maxStringBytes = 256 * 1024
+)
+
+// scanHash collects up to maxElems hash field/value pairs via HSCAN, so a huge
+// hash is bounded incrementally rather than loaded whole (HGETALL).
+func scanHash(ctx context.Context, c *redis.Client, key string) ([]Field, error) {
+	var out []Field
+	var cursor uint64
+	for len(out) < maxElems {
+		kv, next, err := c.HScan(ctx, key, cursor, "*", 200).Result()
+		if err != nil {
+			return nil, err
+		}
+		for i := 0; i+1 < len(kv) && len(out) < maxElems; i += 2 {
+			out = append(out, Field{Field: kv[i], Value: kv[i+1]})
+		}
+		cursor = next
+		if cursor == 0 {
+			break
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Field < out[j].Field })
+	return out, nil
+}
+
+// scanSet collects up to maxElems set members via SSCAN (bounded like scanHash).
+func scanSet(ctx context.Context, c *redis.Client, key string) ([]string, error) {
+	var out []string
+	var cursor uint64
+	for len(out) < maxElems {
+		members, next, err := c.SScan(ctx, key, cursor, "*", 200).Result()
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range members {
+			if len(out) >= maxElems {
+				break
+			}
+			out = append(out, m)
+		}
+		cursor = next
+		if cursor == 0 {
+			break
+		}
+	}
+	sort.Strings(out)
+	return out, nil
+}
 
 // SetKey creates or fully replaces a key with the value for its type, then applies
 // the TTL. Replace semantics keep create + edit one operation.
@@ -380,15 +443,6 @@ func ttlToSeconds(d time.Duration) int64 {
 		return -1
 	}
 	return int64(d / time.Second)
-}
-
-func fieldsFromMap(m map[string]string) []Field {
-	out := make([]Field, 0, len(m))
-	for k, v := range m {
-		out = append(out, Field{Field: k, Value: v})
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Field < out[j].Field })
-	return out
 }
 
 func fieldsFromAny(m map[string]any) []Field {

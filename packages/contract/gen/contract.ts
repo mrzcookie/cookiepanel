@@ -1442,6 +1442,9 @@ export interface components {
             ttlSeconds: number;
             /** Format: int64 */
             sizeBytes: number;
+            /** Format: int64 */
+            length: number;
+            truncated: boolean;
             string?: string;
             fields?: components["schemas"]["RedisField"][];
             items?: string[];

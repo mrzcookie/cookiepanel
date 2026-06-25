@@ -22,6 +22,7 @@ import {
 } from "@/server/nodes/daemon-client";
 import { signingSecretAad } from "@/server/nodes/enrollment";
 import { type NodeRecord, nodesRepository } from "@/server/nodes/repository";
+import { serverSecretAad } from "@/server/servers/secrets";
 import {
 	type TemplateImageRecord,
 	type TemplateRecord,
@@ -42,8 +43,10 @@ import { type ServerRecord, serversRepository } from "./repository";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-const secretAad = (orgId: string, serverId: string, envVar: string) =>
-	`server-var:${orgId}:${serverId}:${envVar}`;
+// The secret-var AAD lives in ./secrets (shared with the Redis browser, which
+// recovers REDIS_PASSWORD the same way). Aliased so the existing call sites below
+// read unchanged.
+const secretAad = serverSecretAad;
 
 // Map the daemon's reported state onto the domain vocabulary. Most values are
 // Docker's raw container states; `installing` / `failed` are reported by the

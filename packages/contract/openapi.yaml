@@ -1099,12 +1099,14 @@ components:
         cursor: { type: string }
     RedisKeyDetail:
       type: object
-      required: [key, type, ttlSeconds, sizeBytes]
+      required: [key, type, ttlSeconds, sizeBytes, length, truncated]
       properties:
         key: { type: string }
         type: { type: string }
         ttlSeconds: { type: integer, format: int64 }
         sizeBytes: { type: integer, format: int64 }
+        length: { type: integer, format: int64 }
+        truncated: { type: boolean }
         string: { type: string }
         fields: { type: array, items: { $ref: "#/components/schemas/RedisField" } }
         items: { type: array, items: { type: string } }

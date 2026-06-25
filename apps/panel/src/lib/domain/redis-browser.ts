@@ -1,45 +1,34 @@
-// Redis "Key Browser" domain types + pure helpers. The Redis face of the single
-// `database:browser` add-on (engine resolved via databaseEngine()): browse the
-// keyspace, inspect a key's type / TTL / value, and create or delete keys. Types
-// only — stub data lives in `redis-browser-store.ts`.
+import type { components } from "@cookiepanel/contract";
 
-export const REDIS_TYPES = [
+// Redis "Browser" domain: the panel-facing types are the generated contract
+// schemas (the daemon's wire shapes), plus a few pure helpers. The Redis face of
+// the single `database:browser` add-on (engine resolved via databaseEngine()).
+
+type S = components["schemas"];
+export type RedisOverview = S["RedisOverview"];
+export type RedisKeyList = S["RedisKeyList"];
+export type RedisKeySummary = S["RedisKeySummary"];
+export type RedisKeyDetail = S["RedisKeyDetail"];
+export type RedisSetRequest = S["RedisSetRequest"];
+
+/** The types the editor can create/replace (a stream is read-only here). */
+export const REDIS_SET_TYPES = [
 	"string",
 	"hash",
 	"list",
 	"set",
 	"zset",
-	"stream",
 ] as const;
-export type RedisType = (typeof REDIS_TYPES)[number];
-
-export type RedisKey = {
-	key: string;
-	type: RedisType;
-	/** Seconds until expiry; null = no expiry (persists). */
-	ttlSeconds: number | null;
-	/** Value size in bytes for a string; element count for a collection. */
-	length: number;
-	/** A short preview of the value. */
-	preview: string;
-};
-
-export type RedisData = {
-	keys: RedisKey[];
-	usedMemoryBytes: number;
-	maxMemoryBytes: number;
-	hits: number;
-	misses: number;
-};
+export type RedisSetType = (typeof REDIS_SET_TYPES)[number];
 
 /** Collections are measured in elements; strings in bytes. */
-export function isCollection(type: RedisType): boolean {
-	return type !== "string";
+export function isCollection(type: string): boolean {
+	return type !== "string" && type !== "none";
 }
 
-/** A human TTL: "Never", "45s", "12m", "2h", "3d". */
-export function ttlLabel(ttlSeconds: number | null): string {
-	if (ttlSeconds === null) {
+/** A human TTL. The daemon reports seconds, or a negative value for "no expiry". */
+export function ttlLabel(ttlSeconds: number): string {
+	if (ttlSeconds < 0) {
 		return "Never";
 	}
 	if (ttlSeconds < 60) {
@@ -55,10 +44,10 @@ export function ttlLabel(ttlSeconds: number | null): string {
 }
 
 /** Cache hit rate as a whole-percent string, or "—" with no traffic yet. */
-export function hitRate(data: RedisData): string {
-	const total = data.hits + data.misses;
+export function hitRate(hits: number, misses: number): string {
+	const total = hits + misses;
 	if (total === 0) {
 		return "—";
 	}
-	return `${Math.round((data.hits / total) * 100)}%`;
+	return `${Math.round((hits / total) * 100)}%`;
 }

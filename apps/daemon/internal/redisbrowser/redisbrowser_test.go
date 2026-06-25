@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -195,6 +196,58 @@ func TestGetMissingKey(t *testing.T) {
 	conn := liveRedis(t)
 	if _, err := GetKey(context.Background(), conn, "nope"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("GetKey(missing) = %v, want ErrNotFound", err)
+	}
+}
+
+// TestTruncation guards the audit fix: a value larger than the caps must be
+// bounded (so the root daemon never loads an unbounded structure) and reported as
+// truncated with the real Length.
+func TestTruncation(t *testing.T) {
+	conn := liveRedis(t)
+	ctx := context.Background()
+
+	// A hash with more than maxElems fields.
+	big := dial(conn)
+	defer big.Close()
+	pairs := make([]any, 0, (maxElems+50)*2)
+	for i := 0; i < maxElems+50; i++ {
+		pairs = append(pairs, fmt.Sprintf("f%05d", i), "v")
+	}
+	if err := big.HSet(ctx, "bighash", pairs...).Err(); err != nil {
+		t.Fatalf("seed big hash: %v", err)
+	}
+	d, err := GetKey(ctx, conn, "bighash")
+	if err != nil {
+		t.Fatalf("GetKey bighash: %v", err)
+	}
+	if !d.Truncated {
+		t.Error("big hash should be truncated")
+	}
+	if len(d.Fields) != maxElems {
+		t.Errorf("returned %d fields, want the cap %d", len(d.Fields), maxElems)
+	}
+	if d.Length != int64(maxElems+50) {
+		t.Errorf("Length = %d, want the real count %d", d.Length, maxElems+50)
+	}
+
+	// A string longer than maxStringBytes.
+	if err := big.Set(ctx, "bigstr", strings.Repeat("x", maxStringBytes+1000), 0).Err(); err != nil {
+		t.Fatalf("seed big string: %v", err)
+	}
+	s, err := GetKey(ctx, conn, "bigstr")
+	if err != nil {
+		t.Fatalf("GetKey bigstr: %v", err)
+	}
+	if !s.Truncated || len(s.String) != maxStringBytes {
+		t.Errorf("big string: truncated=%v len=%d (want true, %d)", s.Truncated, len(s.String), maxStringBytes)
+	}
+
+	// A small key is not truncated.
+	if err := SetKey(ctx, conn, SetRequest{Key: "small", Type: "string", String: "ok", TTLSeconds: -1}); err != nil {
+		t.Fatalf("set small: %v", err)
+	}
+	if small, _ := GetKey(ctx, conn, "small"); small.Truncated {
+		t.Error("small key should not be truncated")
 	}
 }
 

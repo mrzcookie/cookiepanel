@@ -293,9 +293,11 @@ type RedisKeyDetail struct {
 	Fields     *[]RedisField       `json:"fields,omitempty"`
 	Items      *[]string           `json:"items,omitempty"`
 	Key        string              `json:"key"`
+	Length     int64               `json:"length"`
 	Members    *[]RedisScoreMember `json:"members,omitempty"`
 	SizeBytes  int64               `json:"sizeBytes"`
 	String     *string             `json:"string,omitempty"`
+	Truncated  bool                `json:"truncated"`
 	TtlSeconds int64               `json:"ttlSeconds"`
 	Type       string              `json:"type"`
 }

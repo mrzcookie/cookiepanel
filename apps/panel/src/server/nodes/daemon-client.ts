@@ -975,6 +975,134 @@ export async function deleteNodeBackup(
 	});
 }
 
+// ─── redis browser ─────────────────────────────────────────────────────────
+// Every call carries the admin password + logical db in the body (over the pinned
+// channel); the daemon resolves the container's published 6379 itself. Types are
+// the generated contract schemas.
+
+export type RedisOverview = Schemas["RedisOverview"];
+export type RedisKeyList = Schemas["RedisKeyList"];
+export type RedisKeyDetail = Schemas["RedisKeyDetail"];
+export type RedisSetRequest = Schemas["RedisSetRequest"];
+
+const redisBase = (serverId: string) => `/api/v1/servers/${serverId}/redis`;
+
+type RedisAuth = { password: string; db: number };
+
+export async function redisOverview(
+	nodeId: string,
+	serverId: string,
+	auth: RedisAuth
+): Promise<RedisOverview> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${redisBase(serverId)}/overview`,
+		body: auth,
+	})) as RedisOverview;
+}
+
+export async function redisKeys(
+	nodeId: string,
+	serverId: string,
+	auth: RedisAuth,
+	pattern: string,
+	cursor: string,
+	count: number
+): Promise<RedisKeyList> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${redisBase(serverId)}/keys`,
+		body: { ...auth, pattern, cursor, count },
+	})) as RedisKeyList;
+}
+
+export async function redisKey(
+	nodeId: string,
+	serverId: string,
+	auth: RedisAuth,
+	key: string
+): Promise<RedisKeyDetail> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${redisBase(serverId)}/key`,
+		body: { ...auth, key },
+	})) as RedisKeyDetail;
+}
+
+export async function redisSet(
+	nodeId: string,
+	serverId: string,
+	auth: RedisAuth,
+	set: RedisSetRequest
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${redisBase(serverId)}/set`,
+		body: { ...auth, set },
+	});
+}
+
+export async function redisDelete(
+	nodeId: string,
+	serverId: string,
+	auth: RedisAuth,
+	key: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${redisBase(serverId)}/delete`,
+		body: { ...auth, key },
+	});
+}
+
+export async function redisRename(
+	nodeId: string,
+	serverId: string,
+	auth: RedisAuth,
+	key: string,
+	newKey: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${redisBase(serverId)}/rename`,
+		body: { ...auth, key, newKey },
+	});
+}
+
+export async function redisTtl(
+	nodeId: string,
+	serverId: string,
+	auth: RedisAuth,
+	key: string,
+	ttlSeconds: number
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${redisBase(serverId)}/ttl`,
+		body: { ...auth, key, ttlSeconds },
+	});
+}
+
+export async function redisFlush(
+	nodeId: string,
+	serverId: string,
+	auth: RedisAuth
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${redisBase(serverId)}/flush`,
+		body: auth,
+	});
+}
+
 /** Streams `body` to the daemon as the new contents of `path` (atomic on the box). */
 export async function uploadNodeFile(
 	nodeId: string,
