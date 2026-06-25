@@ -2,12 +2,19 @@ import { createHash } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import { Agent, request } from "node:https";
 import type { TLSSocket } from "node:tls";
+import type { components } from "@cookiepanel/contract";
 import { eq } from "drizzle-orm";
 import type { NodeHostInfo, NodeLiveStats } from "@/lib/domain/nodes";
 import { unseal } from "@/server/crypto";
 import { db } from "@/server/db";
 import { node, nodeCredential } from "@/server/db/schema/nodes";
 import { nodeKeyAad } from "./enrollment";
+
+// The daemon wire types are the OpenAPI contract's generated schemas — the spec
+// (packages/contract/openapi.yaml) is the single source of truth, so these are
+// aliases, not hand-written duplicates. Request/response shapes both come from
+// `components["schemas"]`. (Conformance is now structural: tsc resolves the alias.)
+type Schemas = components["schemas"];
 
 /**
  * The typed boundary for panel → daemon HTTPS calls. The daemon serves a
@@ -407,16 +414,7 @@ export async function updateNodeDaemon(
 const DRIVE_OP_TIMEOUT_MS = 5 * 60 * 1000;
 
 /** The daemon's view of one physical disk. */
-export type DaemonDrive = {
-	device: string;
-	model: string;
-	sizeBytes: number;
-	usedBytes: number | null;
-	filesystem: string; // "" when unformatted
-	mountpoint: string; // "" when unmounted
-	isDataTarget: boolean;
-	system: boolean;
-};
+export type DaemonDrive = Schemas["Drive"];
 
 export async function listNodeDrives(nodeId: string): Promise<DaemonDrive[]> {
 	const { node: ref, nodeKey } = await loadDialer(nodeId);
@@ -487,52 +485,10 @@ const SERVER_CREATE_TIMEOUT_MS = 5 * 60 * 1000;
 /** The daemon's snapshot of a server. `state`/`status` are Docker's raw values;
  * `error` carries the failure detail when state is "failed" (e.g. a non-zero
  * install script). State may also be the panel-side transient "installing". */
-export type DaemonServer = {
-	serverId: string;
-	name: string;
-	containerId: string;
-	image: string;
-	state: string;
-	status: string;
-	error?: string;
-};
+export type DaemonServer = Schemas["Server"];
 
 /** What the panel POSTs to create a container. */
-export type DaemonServerSpec = {
-	serverId: string;
-	name: string;
-	image: string;
-	startupCommand?: string;
-	env?: Record<string, string>;
-	nanoCpus?: number;
-	memoryMb?: number;
-	// Best-effort hard cap on the data volume (XFS project quota on the box; a
-	// no-op where the filesystem doesn't support it).
-	diskMb?: number;
-	stopSignal?: string;
-	portBinding?: {
-		hostIp: string;
-		hostPort: number;
-		containerPort: number;
-		protocol?: string;
-	};
-	// An egg install step the daemon runs once (throwaway container) before the
-	// long-lived container. When set, the daemon create is async (returns
-	// "installing"); the panel reconciles to running/failed on the detail poll.
-	install?: {
-		image: string;
-		entrypoint?: string;
-		script: string;
-		env?: Record<string, string>;
-	};
-	// Managed config files merged into the data volume after install, before the
-	// container boots. The panel has already substituted {{token}} values.
-	configFiles?: Array<{
-		file: string;
-		parser: string;
-		replace: Record<string, string>;
-	}>;
-};
+export type DaemonServerSpec = Schemas["CreateServerRequest"];
 
 export async function createServerOnNode(
 	nodeId: string,
@@ -598,22 +554,9 @@ export async function sendCommandOnNode(
 
 // ─── networks ────────────────────────────────────────────────────────────────
 
-export type DaemonNetwork = {
-	id: string;
-	networkId: string;
-	name: string;
-	driver: string;
-	subnet?: string;
-	gateway?: string;
-};
+export type DaemonNetwork = Schemas["Network"];
 
-export type DaemonNetworkSpec = {
-	networkId: string;
-	name: string;
-	driver?: string;
-	subnet?: string;
-	gateway?: string;
-};
+export type DaemonNetworkSpec = Schemas["CreateNetworkRequest"];
 
 export async function getNodeNetworks(
 	nodeId: string
@@ -663,11 +606,7 @@ export async function setNetworkAttachment(
 
 // ─── firewall ────────────────────────────────────────────────────────────────
 
-export type DaemonFirewall = {
-	backend: string;
-	active: boolean;
-	rules: Array<{ port: number; protocol: string }>;
-};
+export type DaemonFirewall = Schemas["FirewallStatus"];
 
 export async function getNodeFirewall(nodeId: string): Promise<DaemonFirewall> {
 	const { node: ref, nodeKey } = await loadDialer(nodeId);
@@ -697,28 +636,10 @@ export async function setFirewallPort(
 const FILE_DOWNLOAD_TIMEOUT_MS = 5 * 60 * 1000;
 
 /** One entry in a daemon directory listing. */
-export type DaemonFileEntry = {
-	name: string;
-	path: string;
-	type: "file" | "dir" | "symlink";
-	size: number;
-	mode: string;
-	modTime: string;
-};
+export type DaemonFileEntry = Schemas["FileEntry"];
 
 /** The daemon's snapshot of an in-flight (or finished) URL-download job. */
-export type DaemonDownloadJob = {
-	id: string;
-	serverId: string;
-	path: string;
-	url: string;
-	total: number;
-	done: number;
-	state: "running" | "done" | "error" | "cancelled";
-	error?: string;
-	startedAt: string;
-	updatedAt: string;
-};
+export type DaemonDownloadJob = Schemas["DownloadJob"];
 
 const filesBase = (serverId: string) => `/api/v1/servers/${serverId}/files`;
 const withPath = (base: string, path: string) =>
@@ -865,20 +786,10 @@ export async function extractNodeFile(
 // ─── sftp sessions ─────────────────────────────────────────────────────────
 
 /** A freshly-minted SFTP credential (the password is only returned here, once). */
-export type DaemonSftpMint = {
-	username: string;
-	password: string;
-	expiresAt: string;
-	port: number;
-};
+export type DaemonSftpMint = Schemas["SftpMintResponse"];
 
 /** The non-secret status of a server's SFTP session. */
-export type DaemonSftpStatus = {
-	active: boolean;
-	username?: string;
-	expiresAt?: string;
-	port: number;
-};
+export type DaemonSftpStatus = Schemas["SftpStatusResponse"];
 
 const sftpPath = (serverId: string) => `/api/v1/servers/${serverId}/sftp`;
 
@@ -917,25 +828,10 @@ export async function revokeSftpSession(
 // ─── schedules ─────────────────────────────────────────────────────────────
 
 /** One step in a daemon schedule (flat, type-discriminated). */
-export type DaemonScheduleStep = {
-	type: string;
-	command?: string;
-	seconds?: number;
-	power?: string;
-};
+export type DaemonScheduleStep = Schemas["ScheduleStep"];
 
 /** The daemon's schedule shape (cron-native; one record per automation). */
-export type DaemonSchedule = {
-	id: string;
-	serverId: string;
-	name: string;
-	cron: string;
-	steps: DaemonScheduleStep[];
-	enabled: boolean;
-	lastRunAt?: string;
-	lastError?: string;
-	lastStatus?: string;
-};
+export type DaemonSchedule = Schemas["Schedule"];
 
 /** Every schedule on the node (the panel filters to the server it's viewing). */
 export async function getNodeSchedules(
@@ -984,16 +880,7 @@ export async function runNodeSchedule(
 // ─── backups ─────────────────────────────────────────────────────────────────
 
 /** The daemon's view of one backup (archive = its id). */
-export type DaemonBackup = {
-	archive: string;
-	serverId: string;
-	name: string;
-	sizeBytes: number;
-	status: string; // creating | completed | failed
-	error?: string;
-	locked: boolean;
-	createdAt: string;
-};
+export type DaemonBackup = Schemas["Backup"];
 
 // A borg create on a large volume can take minutes; the create call returns
 // "creating" fast, but restore runs synchronously and needs room.

@@ -97,31 +97,39 @@ generation produces typed bindings for **both** sides:
 - **Go types** (`oapi-codegen`, models-only) the daemon imports as
   `internal/contract`.
 
-Generated bindings are **committed** (not gitignored) so a fresh checkout builds,
-type-checks, and runs conformance without a generate step. Two layers keep the
-halves honest:
+Generated bindings are **committed** (not gitignored) so a fresh checkout builds
+and type-checks without a generate step. The two sides bind to the contract
+differently, by their role:
 
-1. **Conformance.** Each side keeps its own hand-written wire types (the daemon's
-   domain structs, the panel's `daemon-client` types) and **asserts they conform**
-   to the generated ones — a Go JSON round-trip test
-   (`internal/contract/conformance_test.go`) and TS `Expect<Equal<…>>` assertions
-   (`src/server/contract/conformance.ts`). These run in the normal `go test` /
-   `tsc`, so a struct that drifts from the spec fails the build.
-2. **Drift check.** A CI job regenerates from the spec and fails if the committed
-   bindings are stale (`git diff --exit-code`).
+- **Panel (the API's client) consumes the generated types directly.** The
+  `daemon-client` wire types are aliases of `components["schemas"][…]` — there's
+  nothing to drift, because the panel's types *are* the spec's. A spec change
+  regenerates `gen/contract.ts`; the panel then either still compiles or fails at
+  the consumer, in the normal `tsc`.
+- **Daemon (the API's owner) keeps its hand-written domain structs and asserts
+  conformance.** Those structs have behavior and identity (they're the box's
+  domain model, not pure DTOs), so they stay hand-owned; a Go JSON round-trip test
+  (`internal/contract/conformance_test.go`, in the normal `go test`) fails the
+  build if any struct's wire form drifts from the spec.
+- **Drift check.** A CI job regenerates from the spec and fails if the committed
+  bindings are stale (`git diff --exit-code`).
 
-So the workflow to evolve the API is: edit `openapi.yaml`, run
-`pnpm --filter @cookiepanel/contract generate`, reconcile the hand-written types
-until conformance passes, and commit the spec **and** the regenerated output.
+So the loop is: daemon struct ⟷ spec (conformance) ⟷ generated types ⟷ panel
+(direct consumption) — drift anywhere fails a build. The workflow to evolve the
+API: edit `openapi.yaml`, run `pnpm --filter @cookiepanel/contract generate`,
+reconcile the daemon structs until conformance passes (the panel just recompiles),
+and commit the spec **and** the regenerated output.
 
 The contract covers the full panel→daemon surface: system, servers, networks,
 firewall, drives, files, sftp, schedules, backups. The console WebSocket is
 intentionally **not** modelled — it isn't request/response shaped.
 
-> The hand-written types were deliberately **kept** (not replaced by the generated
-> ones) — conformance gives the anti-drift guarantee without a risky full
-> migration. Swapping each side to consume the generated types directly is
-> available as incremental follow-up.
+> Why the asymmetry: the panel is a *client* of the API, so consuming generated
+> types is the correct dependency direction. The daemon *implements* the API, so
+> aliasing its domain model to the wire codegen would invert that direction (and
+> force Go-specific pointer-skip hints into the neutral spec) for no gain over
+> conformance — which already guarantees no drift. So the daemon stays hand-written
+> + asserted.
 
 ## Panel-side note
 

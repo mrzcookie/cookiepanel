@@ -9,7 +9,8 @@ the panel (TypeScript) and the daemon (Go) can't drift apart.
 
 - **`openapi.yaml`** — the spec. The one thing you edit to change the API.
 - **`gen/contract.ts`** — generated TypeScript types (committed). The panel imports
-  these as `@cookiepanel/contract`.
+  these as `@cookiepanel/contract` and its `daemon-client` wire types **are** these
+  schemas (aliases), so it consumes the contract directly.
 - **`../../apps/daemon/internal/contract/contract.gen.go`** — generated Go types
   (committed). The daemon imports them as `internal/contract`.
 
@@ -22,17 +23,19 @@ spec.
 
 1. Edit `openapi.yaml`.
 2. `pnpm --filter @cookiepanel/contract generate` (runs both codegens).
-3. Update the hand-written types on whichever side changed
-   (`apps/panel/src/server/nodes/daemon-client.ts` /
-   the daemon's domain structs) until conformance passes.
+3. Reconcile the **daemon's** domain structs until conformance passes (the panel
+   consumes the generated types directly, so it just recompiles — fix any consumer
+   the new shape breaks).
 4. Commit the spec **and** the regenerated `gen/` output.
 
-## Conformance (the anti-drift guarantee)
+## How each side binds (by role)
 
-- **Panel:** `apps/panel/src/server/contract/conformance.ts` — `Expect<Equal<…>>`
-  type assertions; a mismatch fails `pnpm typecheck`.
-- **Daemon:** `apps/daemon/internal/contract/conformance_test.go` — JSON round-trip
-  assertions; a mismatch fails `go test`.
+- **Panel (client) consumes the generated types directly.** The `daemon-client`
+  wire types are aliases of `components["schemas"][…]`, so there's nothing to
+  drift — a spec change either still compiles or fails at the consumer in `tsc`.
+- **Daemon (owner) keeps hand-written structs + asserts conformance.**
+  `apps/daemon/internal/contract/conformance_test.go` JSON-round-trips each domain
+  struct through the generated type; a mismatch fails `go test`.
 
 ## Codegen
 

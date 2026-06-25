@@ -25,8 +25,7 @@
 				"src/server/activity/index.ts",
 				"src/server/storage/index.ts",
 				"src/server/user/index.ts",
-				"src/lib/auth-client.ts",
-				"src/server/contract/conformance.ts"
+				"src/lib/auth-client.ts"
 			],
 			"project": ["src/**/*.{ts,tsx}", "!src/routeTree.gen.ts"]
 		}
