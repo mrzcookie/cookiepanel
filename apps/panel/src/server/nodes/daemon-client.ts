@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import { Agent, request } from "node:https";
-import type { TLSSocket } from "node:tls";
+import type { Socket } from "node:net";
+import {
+	type ConnectionOptions,
+	type TLSSocket,
+	connect as tlsConnect,
+} from "node:tls";
 import type { components } from "@cookiepanel/contract";
 import { eq } from "drizzle-orm";
 import type { NodeHostInfo, NodeLiveStats } from "@/lib/domain/nodes";
@@ -93,43 +98,68 @@ async function loadDialer(
 	};
 }
 
+/** SHA-256 of the leaf cert's DER, lower-case hex — the pin format the daemon
+ * reports. Empty string when no peer cert is available. */
+function leafFingerprint(socket: TLSSocket): string {
+	const cert = socket.getPeerCertificate();
+	return cert?.raw
+		? createHash("sha256").update(cert.raw).digest("hex").toLowerCase()
+		: "";
+}
+
+/**
+ * A custom `createConnection` that establishes the TLS socket itself and only
+ * hands it to the HTTP client (via the callback) **after** the leaf fingerprint
+ * matches the pin. Because the agent doesn't deliver the socket until the callback
+ * fires, the HTTP layer never writes a single byte — including the `Authorization:
+ * Bearer <nodeKey>` header — to a server whose cert doesn't match. Returning
+ * nothing (not the socket) is what defers delivery; returning the socket
+ * synchronously would reintroduce the race where the bearer can flush before the
+ * pin check runs.
+ */
+function pinnedConnection(expected: string) {
+	return (
+		options: ConnectionOptions,
+		callback: (err: Error | null, socket?: Socket) => void
+	): void => {
+		const socket = tlsConnect({ ...options, rejectUnauthorized: false }, () => {
+			const actual = leafFingerprint(socket);
+			if (actual !== expected) {
+				const err = new DaemonError(
+					`tls: cert fingerprint mismatch (expected ${expected.slice(0, 12)}…, got ${actual.slice(0, 12) || "none"}…)`
+				);
+				socket.destroy(err);
+				callback(err);
+				return;
+			}
+			callback(null, socket);
+		});
+		socket.once("error", (err) => callback(err));
+	};
+}
+
 /**
  * An https.Agent for dialing a node.
  *
  * - ACME sentinel: a publicly-trusted cert, so verify against the system trust
  *   store + hostname (a public cert rotates on renewal — nothing stable to pin).
- * - self-signed (default): accept any cert at the TLS layer
- *   (`rejectUnauthorized:false` — the leaf is self-signed, so chain validation
- *   would reject it), and enforce the pin **manually** on the established socket
- *   in `daemonFetch`. Note: `checkServerIdentity` can't do this — with
- *   `rejectUnauthorized:false` Node records its error as `authorizationError` but
- *   does **not** abort the connection, so it provides no real enforcement.
+ * - self-signed (default): accept any cert at the TLS layer (the leaf is
+ *   self-signed, so chain validation would reject it) and enforce the pin in
+ *   `createConnection` **before** the socket reaches the HTTP client, so the node
+ *   key never leaks to a mismatched cert. `keepAlive:false` so every request
+ *   re-runs the pin check (no pooled socket skips it).
  */
 function pinningAgent(expected: string): Agent {
 	if (expected === ACME_FINGERPRINT) {
 		return new Agent({ rejectUnauthorized: true });
 	}
-	return new Agent({ rejectUnauthorized: false });
-}
-
-/** Aborts the request if the daemon's leaf cert doesn't match the pinned hash. */
-function enforcePin(req: ReturnType<typeof request>, expected: string): void {
-	req.on("socket", (socket) => {
-		const tlsSocket = socket as TLSSocket;
-		tlsSocket.on("secureConnect", () => {
-			const cert = tlsSocket.getPeerCertificate();
-			const actual = cert?.raw
-				? createHash("sha256").update(cert.raw).digest("hex")
-				: "";
-			if (actual.toLowerCase() !== expected.toLowerCase()) {
-				req.destroy(
-					new DaemonError(
-						`tls: cert fingerprint mismatch (expected ${expected.slice(0, 12)}…, got ${actual.slice(0, 12) || "none"}…)`
-					)
-				);
-			}
-		});
-	});
+	const agent = new Agent({ rejectUnauthorized: false, keepAlive: false });
+	(
+		agent as unknown as {
+			createConnection: ReturnType<typeof pinnedConnection>;
+		}
+	).createConnection = pinnedConnection(expected.toLowerCase());
+	return agent;
 }
 
 type DaemonFetchOptions = {
@@ -199,9 +229,6 @@ function daemonFetch(
 				});
 			}
 		);
-		if (ref.certFingerprint !== ACME_FINGERPRINT) {
-			enforcePin(req, ref.certFingerprint);
-		}
 		req.on("timeout", () => {
 			req.destroy(new DaemonError("daemon request timed out"));
 		});
@@ -279,9 +306,6 @@ function daemonStream(
 				resolve(res);
 			}
 		);
-		if (ref.certFingerprint !== ACME_FINGERPRINT) {
-			enforcePin(req, ref.certFingerprint);
-		}
 		req.on("timeout", () => {
 			req.destroy(new DaemonError("daemon request timed out"));
 		});
