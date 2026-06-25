@@ -92,7 +92,13 @@ jobs:
       # install pipeline, SFTP, volumes). Plain (no -race): under the race detector
       # the runner's container scheduling shifts enough to flake these integration
       # tests — and -race found no actual race here, so it buys nothing on them.
-      - run: go test -count=1 ./...
+      #
+      # gotestsum --rerun-fails re-runs ONLY a failed test (up to 2x): the borg
+      # backup round-trip is occasionally flaky on the shared runner's overlay2
+      # (an exit-0 restore that lost a file — passes deterministically on real
+      # hardware), so a transient hiccup retries instead of failing the build,
+      # while a genuinely broken test still fails every rerun.
+      - run: go run gotest.tools/gotestsum@latest --rerun-fails=2 --packages=./... -- -count=1
       # -race where it's meaningful AND reliable: the Docker-free, concurrency-
       # bearing packages (the IPC server, the cron scheduler, …). The daemon runs
       # as root and is heavily concurrent, so these are worth guarding for races.
