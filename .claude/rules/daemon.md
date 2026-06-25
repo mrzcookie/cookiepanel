@@ -96,5 +96,7 @@ Because the daemon is root, validation is consistent and up front:
   pipeline + config-file templating), the console WebSocket, networks/firewall,
   the sandboxed file manager (browse/edit/upload/download/archive), the embedded
   SFTP server, the cron scheduler, borg backups, host maintenance (reboot/prune/
-  daemon restart + self-update), physical-drive management, and the box-local IPC
-  control socket.
+  daemon restart + self-update), physical-drive management, the box-local IPC
+  control socket, and the DB-add-on browsers (Redis today, via go-redis — the
+  panel passes the admin password, the daemon resolves the container's published
+  port itself and connects locally; Mongo + MySQL follow the same pattern).
