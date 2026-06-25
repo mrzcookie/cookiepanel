@@ -1,9 +1,15 @@
-// Package tls provisions and serves the daemon's panel-facing API certificate.
-// Today that's a persisted self-signed keypair whose SHA-256 leaf fingerprint the
-// panel pins (the daemon reports it on every heartbeat). The cert is regenerated
-// only when missing or corrupt, so the fingerprint stays stable across restarts
-// and the panel never has to re-pin. (ACME/Let's Encrypt for a public FQDN plugs
-// in here later, reporting an "acme" sentinel so the panel uses the trust store.)
+// Package tls provisions and serves the daemon's panel-facing API certificate, in
+// one of two modes:
+//
+//   - self-signed (default): a persisted keypair whose SHA-256 leaf fingerprint
+//     the panel pins (reported on every heartbeat). The cert is regenerated only
+//     when missing or corrupt, so the fingerprint stays stable across restarts and
+//     the panel never has to re-pin.
+//   - ACME (Let's Encrypt): a publicly-trusted cert for the box's FQDN, obtained +
+//     auto-renewed via autocert. There's nothing stable to pin, so the daemon
+//     reports an "acme" sentinel and the panel verifies against the system trust
+//     store. A publicly-trusted cert is also what lets the browser console connect
+//     straight to the daemon (browsers can't pin a self-signed leaf).
 package tls
 
 import (
@@ -19,10 +25,13 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/acme/autocert"
 )
 
 const (
@@ -30,24 +39,77 @@ const (
 	keyFile      = "key.pem"
 	certValidity = 10 * 365 * 24 * time.Hour
 
-	// ModeSelfSigned is the only TLS strategy today.
+	// ModeSelfSigned is the default TLS strategy (panel pins the leaf).
 	ModeSelfSigned = "self-signed"
+	// ModeACME serves a publicly-trusted Let's Encrypt cert for the FQDN.
+	ModeACME = "acme"
+	// ACMEFingerprint is the sentinel the daemon reports in the fingerprint slot
+	// in ACME mode, telling the panel to use the system trust store, not a pin.
+	// Must match the panel's daemon-client ACME sentinel.
+	ACMEFingerprint = ModeACME
 )
 
-// Material is the daemon's serving TLS strategy: a persisted self-signed keypair
-// whose leaf fingerprint the panel pins. ServerTLSConfig is what the API listener
-// serves; Fingerprint is what the daemon advertises to the panel on heartbeat.
+// Material is the daemon's serving TLS strategy. ServerTLSConfig is what the API
+// listener serves; Fingerprint is what the daemon advertises to the panel on
+// heartbeat (the self-signed leaf's hash, or the "acme" sentinel).
 type Material struct {
-	// Fingerprint is the SHA-256 of the self-signed leaf's DER (lower-case hex).
+	// Fingerprint is the SHA-256 of the self-signed leaf's DER (lower-case hex),
+	// or ACMEFingerprint when Mode is ModeACME.
 	Fingerprint string
-	// Mode is ModeSelfSigned.
+	// Mode is ModeSelfSigned or ModeACME.
 	Mode string
 
 	tlsConfig *cryptotls.Config
+	challenge http.Handler // ACME HTTP-01 responder; nil for self-signed
 }
 
 // ServerTLSConfig returns the *tls.Config the API listener should serve.
 func (m *Material) ServerTLSConfig() *cryptotls.Config { return m.tlsConfig }
+
+// ChallengeHandler is the ACME HTTP-01 responder to serve on :80, or nil in
+// self-signed mode (no challenge to answer).
+func (m *Material) ChallengeHandler() http.Handler { return m.challenge }
+
+// AutocertConfig configures ACME issuance for a single FQDN.
+type AutocertConfig struct {
+	// CacheDir persists issued certs + the ACME account key across restarts
+	// (created 0700). Without it every restart re-issues and hits rate limits.
+	CacheDir string
+	// FQDN is the one hostname the cert is issued for (the host allow-list).
+	FQDN string
+	// Email is the optional ACME account contact (renewal/expiry notices).
+	Email string
+}
+
+// EnsureAutocert returns Material backed by Let's Encrypt for the FQDN. Issuance
+// is lazy: autocert fetches (and later renews) the cert on the first TLS
+// handshake for the host, answering the HTTP-01 challenge via ChallengeHandler on
+// :80 (or TLS-ALPN-01 on the API listener). Reports the "acme" sentinel.
+func EnsureAutocert(c AutocertConfig) (*Material, error) {
+	if c.FQDN == "" {
+		return nil, fmt.Errorf("tls: fqdn is required for acme")
+	}
+	if c.CacheDir == "" {
+		return nil, fmt.Errorf("tls: cache dir is required for acme")
+	}
+	if err := os.MkdirAll(c.CacheDir, 0o700); err != nil {
+		return nil, fmt.Errorf("create acme cache dir: %w", err)
+	}
+	m := &autocert.Manager{
+		Prompt:     autocert.AcceptTOS,
+		HostPolicy: autocert.HostWhitelist(c.FQDN),
+		Cache:      autocert.DirCache(c.CacheDir),
+		Email:      c.Email,
+	}
+	cfg := m.TLSConfig() // sets GetCertificate + NextProtos (incl. acme-tls/1)
+	cfg.MinVersion = cryptotls.VersionTLS12
+	return &Material{
+		Fingerprint: ACMEFingerprint,
+		Mode:        ModeACME,
+		tlsConfig:   cfg,
+		challenge:   m.HTTPHandler(nil),
+	}, nil
+}
 
 // EnsureSelfSigned returns the persisted self-signed cert under dir, generating
 // it on first call. Idempotent: a restart loads the existing PEM pair, so the

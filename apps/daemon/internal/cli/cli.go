@@ -15,6 +15,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -123,9 +124,9 @@ func newConfigureCmd() *cobra.Command {
 }
 
 func newRunCmd() *cobra.Command {
-	var dataDir, stateDir, socketPath string
+	var dataDir, stateDir, socketPath, acmeEmail string
 	var apiPort int
-	var once bool
+	var once, acme bool
 	var interval time.Duration
 	cmd := &cobra.Command{
 		Use:   "run",
@@ -179,7 +180,17 @@ func newRunCmd() *cobra.Command {
 				if creds.FQDN == "" {
 					return fmt.Errorf("credentials missing fqdn; re-run `cookied configure --fqdn <name>`")
 				}
-				tlsMat, err := cookietls.EnsureSelfSigned(filepath.Join(stateDir, "tls"), creds.FQDN)
+				tlsDir := filepath.Join(stateDir, "tls")
+				var tlsMat *cookietls.Material
+				if acme {
+					tlsMat, err = cookietls.EnsureAutocert(cookietls.AutocertConfig{
+						CacheDir: filepath.Join(tlsDir, "acme"),
+						FQDN:     creds.FQDN,
+						Email:    acmeEmail,
+					})
+				} else {
+					tlsMat, err = cookietls.EnsureSelfSigned(tlsDir, creds.FQDN)
+				}
 				if err != nil {
 					return fmt.Errorf("provision tls: %w", err)
 				}
@@ -245,6 +256,29 @@ func newRunCmd() *cobra.Command {
 					_ = apiSrv.Shutdown(sCtx)
 				}()
 
+				// ACME HTTP-01 needs a plaintext responder on :80 — Let's Encrypt
+				// dials port 80 for the challenge regardless of the API port. Open
+				// the firewall for it and serve the autocert challenge handler there.
+				if h := tlsMat.ChallengeHandler(); h != nil {
+					_ = fw.Open(context.Background(), firewall.Rule{Port: 80, Protocol: "tcp"})
+					challengeSrv := &http.Server{
+						Addr:              ":80",
+						Handler:           h,
+						ReadHeaderTimeout: 10 * time.Second,
+					}
+					go func() {
+						if err := challengeSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+							slog.Error("acme challenge server failed", "err", err)
+						}
+					}()
+					slog.Info("acme http-01 challenge responder listening", "addr", ":80")
+					defer func() {
+						sCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+						defer cancel()
+						_ = challengeSrv.Shutdown(sCtx)
+					}()
+				}
+
 				if sftpMgr != nil {
 					if err := sftpMgr.Serve(fmt.Sprintf(":%d", sftp.DefaultPort)); err != nil {
 						slog.Warn("sftp serve failed", "err", err)
@@ -287,6 +321,8 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&socketPath, "socket", ipc.DefaultSocket, "path for the box-local control socket")
 	cmd.Flags().IntVar(&apiPort, "api-port", defaultAPIPort, "TCP port the panel-facing HTTPS API will bind (advertised in the heartbeat)")
 	cmd.Flags().BoolVar(&once, "once", false, "send a single heartbeat and exit (testing)")
+	cmd.Flags().BoolVar(&acme, "acme", false, "obtain a Let's Encrypt cert for the FQDN (needs :80 reachable) instead of self-signed")
+	cmd.Flags().StringVar(&acmeEmail, "acme-email", "", "ACME account contact email (optional, for renewal notices)")
 	cmd.Flags().DurationVar(&interval, "interval", 30*time.Second, "heartbeat interval")
 	return cmd
 }
