@@ -140,6 +140,11 @@ export const upsertSchedule = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const { nodeId } = await requireServerNode(data.serverId);
+		// Editing an existing schedule: it must already belong to this server, so a
+		// member can't reassign another server's schedule by passing its id.
+		if (data.id) {
+			await requireScheduleOwned(nodeId, data.serverId, data.id);
+		}
 		const daemon: DaemonSchedule = {
 			id: data.id ?? randomUUID(),
 			serverId: data.serverId,
@@ -151,10 +156,30 @@ export const upsertSchedule = createServerFn({ method: "POST" })
 		return toSchedule(await upsertNodeSchedule(nodeId, daemon));
 	});
 
+/**
+ * Verify a schedule id actually belongs to serverId before acting on it. The
+ * daemon keys schedules by id alone and several servers can share a node, so
+ * without this an org member could delete/run a *different* server's schedule by
+ * id (an intra-org cross-server gap — backups guard the equivalent daemon-side).
+ * Throws a generic not-found so ids can't be probed.
+ */
+async function requireScheduleOwned(
+	nodeId: string,
+	serverId: string,
+	id: string
+): Promise<void> {
+	const all = await getNodeSchedules(nodeId);
+	const owned = all.find((s) => s.id === id);
+	if (!owned || owned.serverId !== serverId) {
+		throw new Error("Not found");
+	}
+}
+
 export const deleteSchedule = createServerFn({ method: "POST" })
 	.validator(z.object({ serverId: z.uuid(), id: z.string().max(64) }))
 	.handler(async ({ data }) => {
 		const { nodeId } = await requireServerNode(data.serverId);
+		await requireScheduleOwned(nodeId, data.serverId, data.id);
 		await deleteNodeSchedule(nodeId, data.id);
 		return { id: data.id };
 	});
@@ -163,6 +188,7 @@ export const runScheduleNow = createServerFn({ method: "POST" })
 	.validator(z.object({ serverId: z.uuid(), id: z.string().max(64) }))
 	.handler(async ({ data }) => {
 		const { nodeId } = await requireServerNode(data.serverId);
+		await requireScheduleOwned(nodeId, data.serverId, data.id);
 		await runNodeSchedule(nodeId, data.id);
 		return { ok: true as const };
 	});

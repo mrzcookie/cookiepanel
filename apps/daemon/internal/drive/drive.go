@@ -350,8 +350,13 @@ func validMountpoint(mp string) error {
 	if !filepath.IsAbs(mp) || filepath.Clean(mp) != mp || mp == "/" {
 		return fmt.Errorf("%w: bad mountpoint %q", ErrInvalid, mp)
 	}
-	if systemMounts[mp] {
-		return fmt.Errorf("%w: cannot mount onto a system path", ErrInvalid)
+	// Reject a mountpoint that IS or sits UNDER a system root — mounting a blank
+	// filesystem at e.g. /etc/cron.d or /usr/local would shadow it. Data disks
+	// belong at /data, /mnt/*, /srv/* — never beneath the OS tree.
+	for root := range systemMounts {
+		if mp == root || strings.HasPrefix(mp, root+"/") {
+			return fmt.Errorf("%w: cannot mount onto or under the system path %s", ErrInvalid, root)
+		}
 	}
 	return nil
 }

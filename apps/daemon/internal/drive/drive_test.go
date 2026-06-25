@@ -93,7 +93,11 @@ func TestValidMountpoint(t *testing.T) {
 			t.Errorf("validMountpoint(%q) = %v, want nil", mp, err)
 		}
 	}
-	bad := []string{"", "/", "relative", "/boot", "/usr", "/data/", "/data/../etc", "//data"}
+	bad := []string{
+		"", "/", "relative", "/boot", "/usr", "/data/", "/data/../etc", "//data",
+		// Under a system root (would shadow it with a blank filesystem).
+		"/etc/cron.d", "/usr/local", "/var/lib/x", "/boot/efi/grub",
+	}
 	for _, mp := range bad {
 		if err := validMountpoint(mp); err == nil {
 			t.Errorf("validMountpoint(%q) = nil, want error", mp)
