@@ -10,7 +10,8 @@
 // immediately and runs install→create→start in the background, tracking the
 // transient state in-memory (Get/List report it until the container exists).
 // Managed config files are merged into the data volume after install and before
-// the container starts. Disk-quota enforcement lands in a later slice.
+// the container starts. The data volume is best-effort capped at the server's
+// disk limit (XFS project quota; a no-op where the FS doesn't support it).
 package server
 
 import (
@@ -21,6 +22,7 @@ import (
 	"regexp"
 	"sync"
 
+	"github.com/cookiepanel/cookied/internal/diskquota"
 	"github.com/cookiepanel/cookied/internal/docker"
 	"github.com/cookiepanel/cookied/internal/filesystem"
 )
@@ -125,8 +127,11 @@ type CreateRequest struct {
 	Env            map[string]string `json:"env,omitempty"`
 	NanoCPUs       int64             `json:"nanoCpus,omitempty"`
 	MemoryMB       int               `json:"memoryMb,omitempty"`
-	StopSignal     string            `json:"stopSignal,omitempty"`
-	PortBinding    *PortBinding      `json:"portBinding,omitempty"`
+	// DiskMB is a best-effort hard cap on the data volume (XFS project quota; a
+	// no-op where the FS doesn't support it). Zero = uncapped.
+	DiskMB      int          `json:"diskMb,omitempty"`
+	StopSignal  string       `json:"stopSignal,omitempty"`
+	PortBinding *PortBinding `json:"portBinding,omitempty"`
 	// Install, when set, is an egg install step run once (in its own throwaway
 	// container, data volume at /mnt/server) before the long-lived container.
 	Install *InstallSpec `json:"install,omitempty"`
@@ -203,6 +208,9 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (*Server, error
 	if err := m.docker.CreateVolume(ctx, volName, req.ServerID); err != nil {
 		return nil, err
 	}
+	// Cap the volume up front (before the install writes into it) so the install
+	// itself respects the disk allocation. Best-effort — never fails the create.
+	m.applyQuota(ctx, volName, req.DiskMB)
 	spec := m.buildSpec(req, volName)
 
 	// No install → provision synchronously and return the live snapshot.
@@ -262,6 +270,29 @@ func (m *Manager) buildSpec(req CreateRequest, volName string) docker.CreateSpec
 		}
 	}
 	return spec
+}
+
+// applyQuota best-effort caps the server's data volume at diskMB via an XFS
+// project quota on its host directory. A no-op for an unset limit, an unresolvable
+// mountpoint, or a filesystem that doesn't support project quotas — it logs and
+// returns, never failing the create.
+func (m *Manager) applyQuota(ctx context.Context, volName string, diskMB int) {
+	if diskMB <= 0 {
+		return
+	}
+	dir, err := m.docker.VolumeMountpoint(ctx, volName)
+	if err != nil {
+		slog.Warn("disk quota: resolve volume mountpoint", "volume", volName, "err", err)
+		return
+	}
+	enforced, err := diskquota.Apply(ctx, dir, int64(diskMB)*1024*1024)
+	if err != nil {
+		slog.Warn("disk quota apply failed (continuing)", "volume", volName, "err", err)
+		return
+	}
+	if enforced {
+		slog.Info("disk quota applied", "volume", volName, "diskMb", diskMB)
+	}
 }
 
 // provision pulls the runtime image, runs the install step (if any) into the data

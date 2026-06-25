@@ -239,6 +239,7 @@ function daemonSpec(
 		env,
 		nanoCpus: record.cpuLimitMillicores * 1_000_000,
 		memoryMb: Math.round(record.memLimitBytes / (1024 * 1024)),
+		diskMb: Math.round(record.diskLimitBytes / (1024 * 1024)),
 		stopSignal: record.stopSignal ?? undefined,
 		install,
 		configFiles: resolveConfigFiles(configFiles, resolveEnv),

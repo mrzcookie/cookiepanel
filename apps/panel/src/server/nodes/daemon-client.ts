@@ -506,6 +506,9 @@ export type DaemonServerSpec = {
 	env?: Record<string, string>;
 	nanoCpus?: number;
 	memoryMb?: number;
+	// Best-effort hard cap on the data volume (XFS project quota on the box; a
+	// no-op where the filesystem doesn't support it).
+	diskMb?: number;
 	stopSignal?: string;
 	portBinding?: {
 		hostIp: string;
