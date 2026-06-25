@@ -35,6 +35,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+	CONFIG_PARSERS,
+	type ConfigParser,
 	type DoneMatcher,
 	FEATURE_METADATA,
 	INSTALL_ENTRYPOINTS,
@@ -44,9 +46,12 @@ import {
 	type TemplateCategory,
 } from "@/lib/domain/templates";
 import {
+	type EditorConfigFile,
 	type EditorImage,
 	type EditorState,
 	type EditorVariable,
+	emptyConfigEntry,
+	emptyConfigFile,
 	stateToInput,
 } from "@/lib/domain/templates-editor";
 import { invalidateTemplates, templateActions } from "@/lib/templates-queries";
@@ -59,6 +64,7 @@ const TABS = [
 	{ key: "variables", label: "Variables" },
 	{ key: "startup", label: "Startup" },
 	{ key: "install", label: "Install" },
+	{ key: "config", label: "Config" },
 	{ key: "addons", label: "Add-ons" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
@@ -179,6 +185,7 @@ export function TemplateEditor({
 						<InstallTab patch={patch} state={state} />
 					</div>
 				) : null}
+				{tab === "config" ? <ConfigTab patch={patch} state={state} /> : null}
 				{tab === "addons" ? <AddonsTab patch={patch} state={state} /> : null}
 			</div>
 
@@ -664,6 +671,181 @@ function InstallTab({ state, patch }: TabProps) {
 		</div>
 	);
 }
+
+function ConfigTab({ state, patch }: TabProps) {
+	function addFile() {
+		patch({ configFiles: [...state.configFiles, emptyConfigFile()] });
+	}
+	function updateFile(id: string, next: Partial<EditorConfigFile>) {
+		patch({
+			configFiles: state.configFiles.map((file) =>
+				file.id === id ? { ...file, ...next } : file
+			),
+		});
+	}
+	function removeFile(id: string) {
+		patch({ configFiles: state.configFiles.filter((file) => file.id !== id) });
+	}
+
+	return (
+		<div className="max-w-3xl space-y-4">
+			<div className="flex items-center justify-between gap-2">
+				<p className="text-muted-foreground text-sm">
+					Settings the panel writes into a server's files when it deploys.
+					Values can use {"{{VARIABLE}}"} tokens.
+				</p>
+				<Button onClick={addFile} size="sm" type="button" variant="outline">
+					<Plus className="size-4" /> Add file
+				</Button>
+			</div>
+			{state.configFiles.length === 0 ? (
+				<div className="rounded-lg border border-dashed bg-card px-4 py-10 text-center text-muted-foreground text-sm">
+					No config files yet.
+				</div>
+			) : (
+				<div className="space-y-4">
+					{state.configFiles.map((file) => (
+						<ConfigFileCard
+							file={file}
+							key={file.id}
+							onChange={(next) => updateFile(file.id, next)}
+							onRemove={() => removeFile(file.id)}
+						/>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function ConfigFileCard({
+	file,
+	onChange,
+	onRemove,
+}: {
+	file: EditorConfigFile;
+	onChange: (next: Partial<EditorConfigFile>) => void;
+	onRemove: () => void;
+}) {
+	function addEntry() {
+		onChange({ entries: [...file.entries, emptyConfigEntry()] });
+	}
+	function updateEntry(
+		id: string,
+		next: Partial<{ key: string; value: string }>
+	) {
+		onChange({
+			entries: file.entries.map((entry) =>
+				entry.id === id ? { ...entry, ...next } : entry
+			),
+		});
+	}
+	function removeEntry(id: string) {
+		onChange({ entries: file.entries.filter((entry) => entry.id !== id) });
+	}
+
+	return (
+		<div className="space-y-4 rounded-lg border bg-card p-4">
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+				<div className="grid flex-1 gap-2">
+					<Label htmlFor={`cfg-path-${file.id}`}>File path</Label>
+					<Input
+						className="font-mono text-xs"
+						id={`cfg-path-${file.id}`}
+						onChange={(event) => onChange({ file: event.target.value })}
+						placeholder="server.properties"
+						value={file.file}
+					/>
+				</div>
+				<div className="grid gap-2">
+					<Label htmlFor={`cfg-parser-${file.id}`}>Format</Label>
+					<Select
+						onValueChange={(value) =>
+							onChange({ parser: value as ConfigParser })
+						}
+						value={file.parser}
+					>
+						<SelectTrigger className="w-36" id={`cfg-parser-${file.id}`}>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{CONFIG_PARSERS.map((parser) => (
+								<SelectItem key={parser} value={parser}>
+									{CONFIG_PARSER_LABELS[parser]}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</div>
+				<Button
+					aria-label="Remove config file"
+					onClick={onRemove}
+					size="icon"
+					type="button"
+					variant="ghost"
+				>
+					<Trash2 className="size-4" />
+				</Button>
+			</div>
+
+			<div className="space-y-2">
+				<div className="flex items-center justify-between gap-2">
+					<Label className="text-muted-foreground text-xs">Replacements</Label>
+					<Button onClick={addEntry} size="sm" type="button" variant="ghost">
+						<Plus className="size-4" /> Add
+					</Button>
+				</div>
+				{file.entries.length === 0 ? (
+					<p className="text-muted-foreground text-xs">
+						No replacements — add a key and the value to set it to.
+					</p>
+				) : (
+					file.entries.map((entry) => (
+						<div className="flex items-center gap-2" key={entry.id}>
+							<Input
+								aria-label="Key"
+								className="font-mono text-xs"
+								onChange={(event) =>
+									updateEntry(entry.id, { key: event.target.value })
+								}
+								placeholder="key"
+								value={entry.key}
+							/>
+							<span className="text-muted-foreground text-xs">=</span>
+							<Input
+								aria-label="Value"
+								className="font-mono text-xs"
+								onChange={(event) =>
+									updateEntry(entry.id, { value: event.target.value })
+								}
+								placeholder="value or {{VARIABLE}}"
+								value={entry.value}
+							/>
+							<Button
+								aria-label="Remove replacement"
+								onClick={() => removeEntry(entry.id)}
+								size="icon"
+								type="button"
+								variant="ghost"
+							>
+								<X className="size-4" />
+							</Button>
+						</div>
+					))
+				)}
+			</div>
+		</div>
+	);
+}
+
+// Friendly labels for the parser formats (the daemon keys off the raw value).
+const CONFIG_PARSER_LABELS: Record<ConfigParser, string> = {
+	properties: "Properties",
+	ini: "INI",
+	json: "JSON",
+	yaml: "YAML",
+	file: "Plain text",
+};
 
 function AddonsTab({ state, patch }: TabProps) {
 	const activeKeys = new Set(state.features.map((feature) => feature.key));

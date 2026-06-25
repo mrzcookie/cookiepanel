@@ -1,4 +1,5 @@
 import type {
+	ConfigParser,
 	DoneMatcher,
 	InstallEntrypoint,
 	StopType,
@@ -39,6 +40,19 @@ export type EditorVariable = {
 	access: VariableAccess;
 };
 
+/** One key→value pair of a config file's `replace` map, with a stable form id so
+ * key edits don't churn (the `replace` Record has no per-entry identity). */
+export type EditorConfigEntry = { id: string; key: string; value: string };
+
+/** A managed config file in editor form: the `replace` map expanded into an
+ * ordered, id-keyed entry list (mirrors how doneMarkers carry an id). */
+export type EditorConfigFile = {
+	id: string;
+	file: string;
+	parser: ConfigParser;
+	entries: EditorConfigEntry[];
+};
+
 export type EditorState = {
 	name: string;
 	summary: string;
@@ -55,8 +69,8 @@ export type EditorState = {
 	installContainerImage: string;
 	installEntrypoint: InstallEntrypoint;
 	features: TemplateFeature[];
-	/** Carried through the editor opaquely (authored via import, not the form). */
-	configFiles: TemplateConfigFile[];
+	/** Managed config files, authored on the Config tab (or seeded from import). */
+	configFiles: EditorConfigFile[];
 };
 
 export function emptyEditorState(): EditorState {
@@ -81,9 +95,10 @@ export function emptyEditorState(): EditorState {
 }
 
 /**
- * Hydrate the editor from an existing template. Mints a fresh id per done-marker
- * (DoneMatcher has no stable id) so the editor can key/edit/remove rows — so this
- * transform is intentionally non-deterministic, the one impurity in domain/.
+ * Hydrate the editor from an existing template. Mints fresh ids for rows that
+ * have no stable identity of their own (done-markers, config files + their
+ * replace entries) so the editor can key/edit/remove them — so this transform is
+ * intentionally non-deterministic, the one impurity in domain/.
  */
 export function templateToState(template: Template): EditorState {
 	return {
@@ -120,8 +135,64 @@ export function templateToState(template: Template): EditorState {
 		installContainerImage: template.installContainerImage,
 		installEntrypoint: template.installEntrypoint,
 		features: template.features,
-		configFiles: template.configFiles,
+		configFiles: template.configFiles.map(configFileToEditor),
 	};
+}
+
+/** Expand a stored config file's `replace` map into id-keyed editor entries. */
+function configFileToEditor(file: TemplateConfigFile): EditorConfigFile {
+	return {
+		id: crypto.randomUUID(),
+		file: file.file,
+		parser: file.parser,
+		entries: Object.entries(file.replace).map(([key, value]) => ({
+			id: crypto.randomUUID(),
+			key,
+			value,
+		})),
+	};
+}
+
+/** A blank config-file row for the editor. */
+export function emptyConfigFile(): EditorConfigFile {
+	return {
+		id: crypto.randomUUID(),
+		file: "",
+		parser: "properties",
+		entries: [emptyConfigEntry()],
+	};
+}
+
+export function emptyConfigEntry(): EditorConfigEntry {
+	return { id: crypto.randomUUID(), key: "", value: "" };
+}
+
+/**
+ * Collapse the editor's config files back to the stored shape: trim the path,
+ * drop files with no path, and fold the entry list into a `replace` map keeping
+ * only entries with a non-empty (trimmed) key — last write wins on a dup key. A
+ * file whose entries are all empty is dropped (nothing to merge).
+ */
+function editorToConfigFiles(files: EditorConfigFile[]): TemplateConfigFile[] {
+	const out: TemplateConfigFile[] = [];
+	for (const file of files) {
+		const path = file.file.trim();
+		if (!path) {
+			continue;
+		}
+		const replace: Record<string, string> = {};
+		for (const entry of file.entries) {
+			const key = entry.key.trim();
+			if (key) {
+				replace[key] = entry.value;
+			}
+		}
+		if (Object.keys(replace).length === 0) {
+			continue;
+		}
+		out.push({ file: path, parser: file.parser, replace });
+	}
+	return out;
 }
 
 /** Build the store payload: trim, drop incomplete runtimes, null out secrets. */
@@ -140,7 +211,7 @@ export function stateToInput(state: EditorState): TemplateInput {
 		installContainerImage: state.installContainerImage.trim(),
 		installEntrypoint: state.installEntrypoint,
 		features: state.features,
-		configFiles: state.configFiles,
+		configFiles: editorToConfigFiles(state.configFiles),
 		images: state.images
 			.filter((image) => image.label.trim() && image.image.trim())
 			.map((image) => ({
