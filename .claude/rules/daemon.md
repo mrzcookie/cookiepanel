@@ -97,7 +97,7 @@ Because the daemon is root, validation is consistent and up front:
   the sandboxed file manager (browse/edit/upload/download/archive), the embedded
   SFTP server, the cron scheduler, borg backups, host maintenance (reboot/prune/
   daemon restart + self-update), physical-drive management, the box-local IPC
-  control socket, and the DB-add-on browsers (Redis via go-redis + Mongo via
-  mongo-driver today — the panel passes the admin password, the daemon resolves
-  the container's published port itself and connects locally; MySQL follows the
-  same pattern).
+  control socket, and the DB-add-on browsers (Redis via go-redis, Mongo via
+  mongo-driver, and SQL via pgx + go-sql-driver for PostgreSQL/MySQL/MariaDB —
+  the panel passes the admin password, the daemon resolves the container's
+  published port itself and connects locally).
