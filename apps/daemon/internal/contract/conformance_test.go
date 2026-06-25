@@ -23,6 +23,7 @@ import (
 	"github.com/cookiepanel/cookied/internal/redisbrowser"
 	"github.com/cookiepanel/cookied/internal/server"
 	"github.com/cookiepanel/cookied/internal/sftp"
+	"github.com/cookiepanel/cookied/internal/sqlbrowser"
 	"github.com/cookiepanel/cookied/internal/store"
 	"github.com/cookiepanel/cookied/internal/system"
 )
@@ -184,5 +185,20 @@ func TestConformance(t *testing.T) {
 	})
 	assertConforms[contract.MongoDocumentPage](t, "MongoDocumentPage", mongobrowser.DocumentPage{
 		Total: 1, Documents: []mongobrowser.Document{{ID: "o1", JSON: `{"_id":"o1"}`}},
+	})
+
+	// ── sql browser ────────────────────────────────────────────────────────────
+	colDefault := "now()"
+	assertConforms[contract.SqlDatabase](t, "SqlDatabase", sqlbrowser.Database{
+		Name: "shop", Charset: "utf8mb4", Tables: 3, SizeBytes: 8192,
+	})
+	assertConforms[contract.SqlTable](t, "SqlTable", sqlbrowser.Table{
+		Name: "orders", Rows: 12, SizeBytes: 4096, Columns: 2,
+	})
+	assertConforms[contract.SqlColumn](t, "SqlColumn", sqlbrowser.Column{
+		Name: "created_at", Type: "timestamp", Nullable: true, Key: "index", Default: &colDefault,
+	})
+	assertConforms[contract.SqlUser](t, "SqlUser", sqlbrowser.User{
+		Name: "app_rw", Host: "%", Superuser: true, Grants: []string{"shop"},
 	})
 }

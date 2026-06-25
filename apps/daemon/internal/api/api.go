@@ -38,6 +38,7 @@ import (
 	"github.com/cookiepanel/cookied/internal/scheduler"
 	"github.com/cookiepanel/cookied/internal/server"
 	"github.com/cookiepanel/cookied/internal/sftp"
+	"github.com/cookiepanel/cookied/internal/sqlbrowser"
 	"github.com/cookiepanel/cookied/internal/store"
 	"github.com/cookiepanel/cookied/internal/system"
 	cookietls "github.com/cookiepanel/cookied/internal/tls"
@@ -219,6 +220,19 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/servers/{id}/mongo/create-collection", s.handleMongoCreateCollection)
 	mux.HandleFunc("POST /api/v1/servers/{id}/mongo/drop-collection", s.handleMongoDropCollection)
 	mux.HandleFunc("POST /api/v1/servers/{id}/mongo/drop-database", s.handleMongoDropDatabase)
+	mux.HandleFunc("POST /api/v1/servers/{id}/sql/databases", s.handleSQLDatabases)
+	mux.HandleFunc("POST /api/v1/servers/{id}/sql/create-database", s.handleSQLCreateDatabase)
+	mux.HandleFunc("POST /api/v1/servers/{id}/sql/drop-database", s.handleSQLDropDatabase)
+	mux.HandleFunc("POST /api/v1/servers/{id}/sql/tables", s.handleSQLTables)
+	mux.HandleFunc("POST /api/v1/servers/{id}/sql/create-table", s.handleSQLCreateTable)
+	mux.HandleFunc("POST /api/v1/servers/{id}/sql/drop-table", s.handleSQLDropTable)
+	mux.HandleFunc("POST /api/v1/servers/{id}/sql/truncate-table", s.handleSQLTruncateTable)
+	mux.HandleFunc("POST /api/v1/servers/{id}/sql/columns", s.handleSQLColumns)
+	mux.HandleFunc("POST /api/v1/servers/{id}/sql/add-column", s.handleSQLAddColumn)
+	mux.HandleFunc("POST /api/v1/servers/{id}/sql/drop-column", s.handleSQLDropColumn)
+	mux.HandleFunc("POST /api/v1/servers/{id}/sql/users", s.handleSQLUsers)
+	mux.HandleFunc("POST /api/v1/servers/{id}/sql/create-user", s.handleSQLCreateUser)
+	mux.HandleFunc("POST /api/v1/servers/{id}/sql/drop-user", s.handleSQLDropUser)
 	mux.HandleFunc("GET /api/v1/servers/{id}/files/trash", s.handleTrashList)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/restore", s.handleTrashRestore)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/delete", s.handleTrashDelete)
@@ -1231,6 +1245,171 @@ func (s *Server) writeMongoErr(w http.ResponseWriter, err error) {
 	case errors.Is(err, mongobrowser.ErrNotFound):
 		writeJSONError(w, http.StatusNotFound, err)
 	case errors.Is(err, mongobrowser.ErrInvalid):
+		writeJSONError(w, http.StatusBadRequest, err)
+	default:
+		writeJSONError(w, http.StatusBadGateway, err)
+	}
+}
+
+// ─── sql browser ─────────────────────────────────────────────────────────────
+//
+// Same posture as the redis/mongo browsers: the panel passes the engine
+// discriminator + admin user + password in the body; the daemon maps the engine
+// to its container port (Postgres 5432, MySQL/MariaDB 3306), resolves the
+// published host port itself, and connects to 127.0.0.1:<hostPort>.
+
+func (s *Server) sqlConn(ctx context.Context, serverID string, b sqlBody) (sqlbrowser.Conn, error) {
+	engine, err := sqlbrowser.ParseEngine(b.Engine)
+	if err != nil {
+		return sqlbrowser.Conn{}, err
+	}
+	containerPort := uint16(3306)
+	if engine == sqlbrowser.Postgres {
+		containerPort = 5432
+	}
+	port, err := s.dockerClient.PublishedTCPPort(ctx, serverID, containerPort)
+	if err != nil {
+		return sqlbrowser.Conn{}, err
+	}
+	return sqlbrowser.Conn{
+		Engine:   engine,
+		Addr:     fmt.Sprintf("127.0.0.1:%d", port),
+		Username: b.Username,
+		Password: b.Password,
+	}, nil
+}
+
+type sqlBody struct {
+	Engine   string `json:"engine"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	DB       string `json:"db,omitempty"`
+	Table    string `json:"table,omitempty"`
+	Column   string `json:"column,omitempty"`
+	Charset  string `json:"charset,omitempty"`
+	Type     string `json:"type,omitempty"`
+	Nullable bool   `json:"nullable,omitempty"`
+	Key      string `json:"key,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Host     string `json:"host,omitempty"`
+	NewPass  string `json:"newPassword,omitempty"`
+	Access   string `json:"access,omitempty"`
+}
+
+func (s *Server) withSQL(w http.ResponseWriter, r *http.Request, fn func(context.Context, sqlbrowser.Conn, sqlBody) (any, int, error)) {
+	var body sqlBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	conn, err := s.sqlConn(r.Context(), r.PathValue("id"), body)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+	result, status, err := fn(r.Context(), conn, body)
+	if err != nil {
+		s.writeSQLErr(w, err)
+		return
+	}
+	if status == http.StatusNoContent {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	writeJSON(w, status, result)
+}
+
+func (s *Server) handleSQLDatabases(w http.ResponseWriter, r *http.Request) {
+	s.withSQL(w, r, func(ctx context.Context, conn sqlbrowser.Conn, _ sqlBody) (any, int, error) {
+		list, err := sqlbrowser.ListDatabases(ctx, conn)
+		return list, http.StatusOK, err
+	})
+}
+
+func (s *Server) handleSQLCreateDatabase(w http.ResponseWriter, r *http.Request) {
+	s.withSQL(w, r, func(ctx context.Context, conn sqlbrowser.Conn, b sqlBody) (any, int, error) {
+		return nil, http.StatusNoContent, sqlbrowser.CreateDatabase(ctx, conn, b.DB, b.Charset)
+	})
+}
+
+func (s *Server) handleSQLDropDatabase(w http.ResponseWriter, r *http.Request) {
+	s.withSQL(w, r, func(ctx context.Context, conn sqlbrowser.Conn, b sqlBody) (any, int, error) {
+		return nil, http.StatusNoContent, sqlbrowser.DropDatabase(ctx, conn, b.DB)
+	})
+}
+
+func (s *Server) handleSQLTables(w http.ResponseWriter, r *http.Request) {
+	s.withSQL(w, r, func(ctx context.Context, conn sqlbrowser.Conn, b sqlBody) (any, int, error) {
+		list, err := sqlbrowser.ListTables(ctx, conn, b.DB)
+		return list, http.StatusOK, err
+	})
+}
+
+func (s *Server) handleSQLCreateTable(w http.ResponseWriter, r *http.Request) {
+	s.withSQL(w, r, func(ctx context.Context, conn sqlbrowser.Conn, b sqlBody) (any, int, error) {
+		return nil, http.StatusNoContent, sqlbrowser.CreateTable(ctx, conn, b.DB, b.Table)
+	})
+}
+
+func (s *Server) handleSQLDropTable(w http.ResponseWriter, r *http.Request) {
+	s.withSQL(w, r, func(ctx context.Context, conn sqlbrowser.Conn, b sqlBody) (any, int, error) {
+		return nil, http.StatusNoContent, sqlbrowser.DropTable(ctx, conn, b.DB, b.Table)
+	})
+}
+
+func (s *Server) handleSQLTruncateTable(w http.ResponseWriter, r *http.Request) {
+	s.withSQL(w, r, func(ctx context.Context, conn sqlbrowser.Conn, b sqlBody) (any, int, error) {
+		return nil, http.StatusNoContent, sqlbrowser.TruncateTable(ctx, conn, b.DB, b.Table)
+	})
+}
+
+func (s *Server) handleSQLColumns(w http.ResponseWriter, r *http.Request) {
+	s.withSQL(w, r, func(ctx context.Context, conn sqlbrowser.Conn, b sqlBody) (any, int, error) {
+		list, err := sqlbrowser.ListColumns(ctx, conn, b.DB, b.Table)
+		return list, http.StatusOK, err
+	})
+}
+
+func (s *Server) handleSQLAddColumn(w http.ResponseWriter, r *http.Request) {
+	s.withSQL(w, r, func(ctx context.Context, conn sqlbrowser.Conn, b sqlBody) (any, int, error) {
+		return nil, http.StatusNoContent, sqlbrowser.AddColumn(ctx, conn, b.DB, b.Table, sqlbrowser.ColumnSpec{
+			Name: b.Name, Type: b.Type, Nullable: b.Nullable, Key: b.Key,
+		})
+	})
+}
+
+func (s *Server) handleSQLDropColumn(w http.ResponseWriter, r *http.Request) {
+	s.withSQL(w, r, func(ctx context.Context, conn sqlbrowser.Conn, b sqlBody) (any, int, error) {
+		return nil, http.StatusNoContent, sqlbrowser.DropColumn(ctx, conn, b.DB, b.Table, b.Column)
+	})
+}
+
+func (s *Server) handleSQLUsers(w http.ResponseWriter, r *http.Request) {
+	s.withSQL(w, r, func(ctx context.Context, conn sqlbrowser.Conn, _ sqlBody) (any, int, error) {
+		list, err := sqlbrowser.ListUsers(ctx, conn)
+		return list, http.StatusOK, err
+	})
+}
+
+func (s *Server) handleSQLCreateUser(w http.ResponseWriter, r *http.Request) {
+	s.withSQL(w, r, func(ctx context.Context, conn sqlbrowser.Conn, b sqlBody) (any, int, error) {
+		return nil, http.StatusNoContent, sqlbrowser.CreateUser(ctx, conn, sqlbrowser.UserSpec{
+			Name: b.Name, Host: b.Host, Password: b.NewPass, Access: b.Access,
+		})
+	})
+}
+
+func (s *Server) handleSQLDropUser(w http.ResponseWriter, r *http.Request) {
+	s.withSQL(w, r, func(ctx context.Context, conn sqlbrowser.Conn, b sqlBody) (any, int, error) {
+		return nil, http.StatusNoContent, sqlbrowser.DropUser(ctx, conn, b.Name, b.Host)
+	})
+}
+
+func (s *Server) writeSQLErr(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, sqlbrowser.ErrNotFound):
+		writeJSONError(w, http.StatusNotFound, err)
+	case errors.Is(err, sqlbrowser.ErrInvalid):
 		writeJSONError(w, http.StatusBadRequest, err)
 	default:
 		writeJSONError(w, http.StatusBadGateway, err)

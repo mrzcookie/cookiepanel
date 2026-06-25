@@ -1174,6 +1174,240 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/servers/{id}/sql/databases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sqlDatabases"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/sql/create-database": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sqlCreateDatabase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/sql/drop-database": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sqlDropDatabase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/sql/tables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sqlTables"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/sql/create-table": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sqlCreateTable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/sql/drop-table": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sqlDropTable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/sql/truncate-table": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sqlTruncateTable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/sql/columns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sqlColumns"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/sql/add-column": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sqlAddColumn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/sql/drop-column": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sqlDropColumn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/sql/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sqlUsers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/sql/create-user": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sqlCreateUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/sql/drop-user": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sqlDropUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1656,6 +1890,105 @@ export interface components {
             documents: components["schemas"]["MongoDocument"][];
             /** Format: int64 */
             total: number;
+        };
+        SqlAuth: {
+            /** @enum {string} */
+            engine: "postgres" | "mysql";
+            username: string;
+            password: string;
+        };
+        SqlDbRequest: {
+            /** @enum {string} */
+            engine: "postgres" | "mysql";
+            username: string;
+            password: string;
+            db: string;
+        };
+        SqlCreateDbRequest: {
+            /** @enum {string} */
+            engine: "postgres" | "mysql";
+            username: string;
+            password: string;
+            db: string;
+            charset?: string;
+        };
+        SqlTableRequest: {
+            /** @enum {string} */
+            engine: "postgres" | "mysql";
+            username: string;
+            password: string;
+            db: string;
+            table: string;
+        };
+        SqlAddColumnRequest: {
+            /** @enum {string} */
+            engine: "postgres" | "mysql";
+            username: string;
+            password: string;
+            db: string;
+            table: string;
+            name: string;
+            type: string;
+            nullable?: boolean;
+            /** @enum {string} */
+            key?: "" | "index" | "unique";
+        };
+        SqlDropColumnRequest: {
+            /** @enum {string} */
+            engine: "postgres" | "mysql";
+            username: string;
+            password: string;
+            db: string;
+            table: string;
+            column: string;
+        };
+        SqlCreateUserRequest: {
+            /** @enum {string} */
+            engine: "postgres" | "mysql";
+            username: string;
+            password: string;
+            name: string;
+            host?: string;
+            newPassword?: string;
+            access?: string;
+        };
+        SqlDropUserRequest: {
+            /** @enum {string} */
+            engine: "postgres" | "mysql";
+            username: string;
+            password: string;
+            name: string;
+            host?: string;
+        };
+        SqlDatabase: {
+            name: string;
+            charset: string;
+            /** Format: int64 */
+            tables: number;
+            /** Format: int64 */
+            sizeBytes: number;
+        };
+        SqlTable: {
+            name: string;
+            /** Format: int64 */
+            rows: number;
+            /** Format: int64 */
+            sizeBytes: number;
+            /** Format: int64 */
+            columns: number;
+        };
+        SqlColumn: {
+            name: string;
+            type: string;
+            nullable: boolean;
+            key: string;
+            default: string | null;
+        };
+        SqlUser: {
+            name: string;
+            host: string;
+            superuser: boolean;
+            grants: string[];
         };
     };
     responses: {
@@ -3417,6 +3750,344 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["MongoDbRequest"];
+            };
+        };
+        responses: {
+            /** @description Dropped */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    sqlDatabases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqlAuth"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SqlDatabase"][];
+                };
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    sqlCreateDatabase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqlCreateDbRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["NotFound"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    sqlDropDatabase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqlDbRequest"];
+            };
+        };
+        responses: {
+            /** @description Dropped */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["NotFound"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    sqlTables: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqlDbRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SqlTable"][];
+                };
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    sqlCreateTable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqlTableRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["NotFound"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    sqlDropTable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqlTableRequest"];
+            };
+        };
+        responses: {
+            /** @description Dropped */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    sqlTruncateTable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqlTableRequest"];
+            };
+        };
+        responses: {
+            /** @description Truncated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    sqlColumns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqlTableRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SqlColumn"][];
+                };
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    sqlAddColumn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqlAddColumnRequest"];
+            };
+        };
+        responses: {
+            /** @description Added */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["NotFound"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    sqlDropColumn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqlDropColumnRequest"];
+            };
+        };
+        responses: {
+            /** @description Dropped */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    sqlUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqlAuth"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SqlUser"][];
+                };
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    sqlCreateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqlCreateUserRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["NotFound"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    sqlDropUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqlDropUserRequest"];
             };
         };
         responses: {

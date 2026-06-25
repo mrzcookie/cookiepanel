@@ -35,6 +35,61 @@ const (
 	Zset   RedisSetRequestType = "zset"
 )
 
+// Defines values for SqlAddColumnRequestEngine.
+const (
+	SqlAddColumnRequestEngineMysql    SqlAddColumnRequestEngine = "mysql"
+	SqlAddColumnRequestEnginePostgres SqlAddColumnRequestEngine = "postgres"
+)
+
+// Defines values for SqlAddColumnRequestKey.
+const (
+	Empty  SqlAddColumnRequestKey = ""
+	Index  SqlAddColumnRequestKey = "index"
+	Unique SqlAddColumnRequestKey = "unique"
+)
+
+// Defines values for SqlAuthEngine.
+const (
+	SqlAuthEngineMysql    SqlAuthEngine = "mysql"
+	SqlAuthEnginePostgres SqlAuthEngine = "postgres"
+)
+
+// Defines values for SqlCreateDbRequestEngine.
+const (
+	SqlCreateDbRequestEngineMysql    SqlCreateDbRequestEngine = "mysql"
+	SqlCreateDbRequestEnginePostgres SqlCreateDbRequestEngine = "postgres"
+)
+
+// Defines values for SqlCreateUserRequestEngine.
+const (
+	SqlCreateUserRequestEngineMysql    SqlCreateUserRequestEngine = "mysql"
+	SqlCreateUserRequestEnginePostgres SqlCreateUserRequestEngine = "postgres"
+)
+
+// Defines values for SqlDbRequestEngine.
+const (
+	SqlDbRequestEngineMysql    SqlDbRequestEngine = "mysql"
+	SqlDbRequestEnginePostgres SqlDbRequestEngine = "postgres"
+)
+
+// Defines values for SqlDropColumnRequestEngine.
+const (
+	SqlDropColumnRequestEngineMysql    SqlDropColumnRequestEngine = "mysql"
+	SqlDropColumnRequestEnginePostgres SqlDropColumnRequestEngine = "postgres"
+)
+
+// Defines values for SqlDropUserRequestEngine.
+const (
+	SqlDropUserRequestEngineMysql    SqlDropUserRequestEngine = "mysql"
+	SqlDropUserRequestEnginePostgres SqlDropUserRequestEngine = "postgres"
+)
+
+// Defines values for SqlTableRequestEngine.
+const (
+	SqlTableRequestEngineMysql    SqlTableRequestEngine = "mysql"
+	SqlTableRequestEnginePostgres SqlTableRequestEngine = "postgres"
+)
+
 // Defines values for TrashEntryType.
 const (
 	TrashEntryTypeDir     TrashEntryType = "dir"
@@ -536,6 +591,142 @@ type SftpStatusResponse struct {
 	Username  *string    `json:"username,omitempty"`
 }
 
+// SqlAddColumnRequest defines model for SqlAddColumnRequest.
+type SqlAddColumnRequest struct {
+	Db       string                    `json:"db"`
+	Engine   SqlAddColumnRequestEngine `json:"engine"`
+	Key      *SqlAddColumnRequestKey   `json:"key,omitempty"`
+	Name     string                    `json:"name"`
+	Nullable *bool                     `json:"nullable,omitempty"`
+	Password string                    `json:"password"`
+	Table    string                    `json:"table"`
+	Type     string                    `json:"type"`
+	Username string                    `json:"username"`
+}
+
+// SqlAddColumnRequestEngine defines model for SqlAddColumnRequest.Engine.
+type SqlAddColumnRequestEngine string
+
+// SqlAddColumnRequestKey defines model for SqlAddColumnRequest.Key.
+type SqlAddColumnRequestKey string
+
+// SqlAuth defines model for SqlAuth.
+type SqlAuth struct {
+	Engine   SqlAuthEngine `json:"engine"`
+	Password string        `json:"password"`
+	Username string        `json:"username"`
+}
+
+// SqlAuthEngine defines model for SqlAuth.Engine.
+type SqlAuthEngine string
+
+// SqlColumn defines model for SqlColumn.
+type SqlColumn struct {
+	Default  *string `json:"default"`
+	Key      string  `json:"key"`
+	Name     string  `json:"name"`
+	Nullable bool    `json:"nullable"`
+	Type     string  `json:"type"`
+}
+
+// SqlCreateDbRequest defines model for SqlCreateDbRequest.
+type SqlCreateDbRequest struct {
+	Charset  *string                  `json:"charset,omitempty"`
+	Db       string                   `json:"db"`
+	Engine   SqlCreateDbRequestEngine `json:"engine"`
+	Password string                   `json:"password"`
+	Username string                   `json:"username"`
+}
+
+// SqlCreateDbRequestEngine defines model for SqlCreateDbRequest.Engine.
+type SqlCreateDbRequestEngine string
+
+// SqlCreateUserRequest defines model for SqlCreateUserRequest.
+type SqlCreateUserRequest struct {
+	Access      *string                    `json:"access,omitempty"`
+	Engine      SqlCreateUserRequestEngine `json:"engine"`
+	Host        *string                    `json:"host,omitempty"`
+	Name        string                     `json:"name"`
+	NewPassword *string                    `json:"newPassword,omitempty"`
+	Password    string                     `json:"password"`
+	Username    string                     `json:"username"`
+}
+
+// SqlCreateUserRequestEngine defines model for SqlCreateUserRequest.Engine.
+type SqlCreateUserRequestEngine string
+
+// SqlDatabase defines model for SqlDatabase.
+type SqlDatabase struct {
+	Charset   string `json:"charset"`
+	Name      string `json:"name"`
+	SizeBytes int64  `json:"sizeBytes"`
+	Tables    int64  `json:"tables"`
+}
+
+// SqlDbRequest defines model for SqlDbRequest.
+type SqlDbRequest struct {
+	Db       string             `json:"db"`
+	Engine   SqlDbRequestEngine `json:"engine"`
+	Password string             `json:"password"`
+	Username string             `json:"username"`
+}
+
+// SqlDbRequestEngine defines model for SqlDbRequest.Engine.
+type SqlDbRequestEngine string
+
+// SqlDropColumnRequest defines model for SqlDropColumnRequest.
+type SqlDropColumnRequest struct {
+	Column   string                     `json:"column"`
+	Db       string                     `json:"db"`
+	Engine   SqlDropColumnRequestEngine `json:"engine"`
+	Password string                     `json:"password"`
+	Table    string                     `json:"table"`
+	Username string                     `json:"username"`
+}
+
+// SqlDropColumnRequestEngine defines model for SqlDropColumnRequest.Engine.
+type SqlDropColumnRequestEngine string
+
+// SqlDropUserRequest defines model for SqlDropUserRequest.
+type SqlDropUserRequest struct {
+	Engine   SqlDropUserRequestEngine `json:"engine"`
+	Host     *string                  `json:"host,omitempty"`
+	Name     string                   `json:"name"`
+	Password string                   `json:"password"`
+	Username string                   `json:"username"`
+}
+
+// SqlDropUserRequestEngine defines model for SqlDropUserRequest.Engine.
+type SqlDropUserRequestEngine string
+
+// SqlTable defines model for SqlTable.
+type SqlTable struct {
+	Columns   int64  `json:"columns"`
+	Name      string `json:"name"`
+	Rows      int64  `json:"rows"`
+	SizeBytes int64  `json:"sizeBytes"`
+}
+
+// SqlTableRequest defines model for SqlTableRequest.
+type SqlTableRequest struct {
+	Db       string                `json:"db"`
+	Engine   SqlTableRequestEngine `json:"engine"`
+	Password string                `json:"password"`
+	Table    string                `json:"table"`
+	Username string                `json:"username"`
+}
+
+// SqlTableRequestEngine defines model for SqlTableRequest.Engine.
+type SqlTableRequestEngine string
+
+// SqlUser defines model for SqlUser.
+type SqlUser struct {
+	Grants    []string `json:"grants"`
+	Host      string   `json:"host"`
+	Name      string   `json:"name"`
+	Superuser bool     `json:"superuser"`
+}
+
 // Stats defines model for Stats.
 type Stats struct {
 	CpuPct         float64 `json:"cpuPct"`
@@ -779,6 +970,45 @@ type RedisSetJSONRequestBody = RedisSetBody
 
 // RedisTtlJSONRequestBody defines body for RedisTtl for application/json ContentType.
 type RedisTtlJSONRequestBody = RedisTtlRequest
+
+// SqlAddColumnJSONRequestBody defines body for SqlAddColumn for application/json ContentType.
+type SqlAddColumnJSONRequestBody = SqlAddColumnRequest
+
+// SqlColumnsJSONRequestBody defines body for SqlColumns for application/json ContentType.
+type SqlColumnsJSONRequestBody = SqlTableRequest
+
+// SqlCreateDatabaseJSONRequestBody defines body for SqlCreateDatabase for application/json ContentType.
+type SqlCreateDatabaseJSONRequestBody = SqlCreateDbRequest
+
+// SqlCreateTableJSONRequestBody defines body for SqlCreateTable for application/json ContentType.
+type SqlCreateTableJSONRequestBody = SqlTableRequest
+
+// SqlCreateUserJSONRequestBody defines body for SqlCreateUser for application/json ContentType.
+type SqlCreateUserJSONRequestBody = SqlCreateUserRequest
+
+// SqlDatabasesJSONRequestBody defines body for SqlDatabases for application/json ContentType.
+type SqlDatabasesJSONRequestBody = SqlAuth
+
+// SqlDropColumnJSONRequestBody defines body for SqlDropColumn for application/json ContentType.
+type SqlDropColumnJSONRequestBody = SqlDropColumnRequest
+
+// SqlDropDatabaseJSONRequestBody defines body for SqlDropDatabase for application/json ContentType.
+type SqlDropDatabaseJSONRequestBody = SqlDbRequest
+
+// SqlDropTableJSONRequestBody defines body for SqlDropTable for application/json ContentType.
+type SqlDropTableJSONRequestBody = SqlTableRequest
+
+// SqlDropUserJSONRequestBody defines body for SqlDropUser for application/json ContentType.
+type SqlDropUserJSONRequestBody = SqlDropUserRequest
+
+// SqlTablesJSONRequestBody defines body for SqlTables for application/json ContentType.
+type SqlTablesJSONRequestBody = SqlDbRequest
+
+// SqlTruncateTableJSONRequestBody defines body for SqlTruncateTable for application/json ContentType.
+type SqlTruncateTableJSONRequestBody = SqlTableRequest
+
+// SqlUsersJSONRequestBody defines body for SqlUsers for application/json ContentType.
+type SqlUsersJSONRequestBody = SqlAuth
 
 // UpdateDaemonJSONRequestBody defines body for UpdateDaemon for application/json ContentType.
 type UpdateDaemonJSONRequestBody = UpdateDaemonRequest

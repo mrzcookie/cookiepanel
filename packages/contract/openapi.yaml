@@ -28,6 +28,7 @@ tags:
   - name: backups
   - name: redis
   - name: mongo
+  - name: sql
 
 paths:
   /system:
@@ -686,6 +687,155 @@ paths:
         "204": { description: Dropped }
         "502": { $ref: "#/components/responses/BadGateway" }
 
+  /servers/{id}/sql/databases:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [sql]
+      operationId: sqlDatabases
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SqlAuth" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/SqlDatabase" } } } } }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/sql/create-database:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [sql]
+      operationId: sqlCreateDatabase
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SqlCreateDbRequest" } } }
+      responses:
+        "204": { description: Created }
+        "400": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/sql/drop-database:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [sql]
+      operationId: sqlDropDatabase
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SqlDbRequest" } } }
+      responses:
+        "204": { description: Dropped }
+        "400": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/sql/tables:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [sql]
+      operationId: sqlTables
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SqlDbRequest" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/SqlTable" } } } } }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/sql/create-table:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [sql]
+      operationId: sqlCreateTable
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SqlTableRequest" } } }
+      responses:
+        "204": { description: Created }
+        "400": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/sql/drop-table:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [sql]
+      operationId: sqlDropTable
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SqlTableRequest" } } }
+      responses:
+        "204": { description: Dropped }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/sql/truncate-table:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [sql]
+      operationId: sqlTruncateTable
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SqlTableRequest" } } }
+      responses:
+        "204": { description: Truncated }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/sql/columns:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [sql]
+      operationId: sqlColumns
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SqlTableRequest" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/SqlColumn" } } } } }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/sql/add-column:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [sql]
+      operationId: sqlAddColumn
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SqlAddColumnRequest" } } }
+      responses:
+        "204": { description: Added }
+        "400": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/sql/drop-column:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [sql]
+      operationId: sqlDropColumn
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SqlDropColumnRequest" } } }
+      responses:
+        "204": { description: Dropped }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/sql/users:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [sql]
+      operationId: sqlUsers
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SqlAuth" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/SqlUser" } } } } }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/sql/create-user:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [sql]
+      operationId: sqlCreateUser
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SqlCreateUserRequest" } } }
+      responses:
+        "204": { description: Created }
+        "400": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/sql/drop-user:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [sql]
+      operationId: sqlDropUser
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SqlDropUserRequest" } } }
+      responses:
+        "204": { description: Dropped }
+        "502": { $ref: "#/components/responses/BadGateway" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1282,3 +1432,114 @@ components:
       properties:
         documents: { type: array, items: { $ref: "#/components/schemas/MongoDocument" } }
         total: { type: integer, format: int64 }
+
+    # ── SQL browser (PostgreSQL + MySQL/MariaDB) ───────────────────────────────
+    SqlAuth:
+      type: object
+      required: [engine, username, password]
+      properties:
+        engine: { type: string, enum: [postgres, mysql] }
+        username: { type: string }
+        password: { type: string }
+    SqlDbRequest:
+      type: object
+      required: [engine, username, password, db]
+      properties:
+        engine: { type: string, enum: [postgres, mysql] }
+        username: { type: string }
+        password: { type: string }
+        db: { type: string }
+    SqlCreateDbRequest:
+      type: object
+      required: [engine, username, password, db]
+      properties:
+        engine: { type: string, enum: [postgres, mysql] }
+        username: { type: string }
+        password: { type: string }
+        db: { type: string }
+        charset: { type: string }
+    SqlTableRequest:
+      type: object
+      required: [engine, username, password, db, table]
+      properties:
+        engine: { type: string, enum: [postgres, mysql] }
+        username: { type: string }
+        password: { type: string }
+        db: { type: string }
+        table: { type: string }
+    SqlAddColumnRequest:
+      type: object
+      required: [engine, username, password, db, table, name, type]
+      properties:
+        engine: { type: string, enum: [postgres, mysql] }
+        username: { type: string }
+        password: { type: string }
+        db: { type: string }
+        table: { type: string }
+        name: { type: string }
+        type: { type: string }
+        nullable: { type: boolean }
+        key: { type: string, enum: ["", index, unique] }
+    SqlDropColumnRequest:
+      type: object
+      required: [engine, username, password, db, table, column]
+      properties:
+        engine: { type: string, enum: [postgres, mysql] }
+        username: { type: string }
+        password: { type: string }
+        db: { type: string }
+        table: { type: string }
+        column: { type: string }
+    SqlCreateUserRequest:
+      type: object
+      required: [engine, username, password, name]
+      properties:
+        engine: { type: string, enum: [postgres, mysql] }
+        username: { type: string }
+        password: { type: string }
+        name: { type: string }
+        host: { type: string }
+        newPassword: { type: string }
+        access: { type: string }
+    SqlDropUserRequest:
+      type: object
+      required: [engine, username, password, name]
+      properties:
+        engine: { type: string, enum: [postgres, mysql] }
+        username: { type: string }
+        password: { type: string }
+        name: { type: string }
+        host: { type: string }
+    SqlDatabase:
+      type: object
+      required: [name, charset, tables, sizeBytes]
+      properties:
+        name: { type: string }
+        charset: { type: string }
+        tables: { type: integer, format: int64 }
+        sizeBytes: { type: integer, format: int64 }
+    SqlTable:
+      type: object
+      required: [name, rows, sizeBytes, columns]
+      properties:
+        name: { type: string }
+        rows: { type: integer, format: int64 }
+        sizeBytes: { type: integer, format: int64 }
+        columns: { type: integer, format: int64 }
+    SqlColumn:
+      type: object
+      required: [name, type, nullable, key, default]
+      properties:
+        name: { type: string }
+        type: { type: string }
+        nullable: { type: boolean }
+        key: { type: string }
+        default: { type: string, nullable: true }
+    SqlUser:
+      type: object
+      required: [name, host, superuser, grants]
+      properties:
+        name: { type: string }
+        host: { type: string }
+        superuser: { type: boolean }
+        grants: { type: array, items: { type: string } }
