@@ -119,10 +119,14 @@ func (m *Manager) root(ctx context.Context, serverID string) (string, error) {
 // absolute symlink target would otherwise resolve against the host. SecureJoin
 // (the primitive runc/Docker use) resolves every component within root.
 //
-// Residual: SecureJoin returns a *path*, so a TOCTOU window remains — an attacker
-// who swaps a component for a symlink between this call and the os.* call could
-// still escape. The full fix is the openat2 RESOLVE_IN_ROOT API (Linux-only);
-// tracked as follow-up hardening. This closes the trivial plant-and-read attack.
+// SecureJoin returns a *path*, so a TOCTOU window remains — an attacker who swaps
+// a component for a symlink between this call and the os.* call could still
+// escape. The content **read** paths (Read, Open) and Mkdir close that window on
+// Linux by going through openInRoot/mkdirAllInRoot (openat2 RESOLVE_IN_ROOT — the
+// kernel resolves atomically; see saferoot_linux.go). resolve is still used for
+// the containment guards (trash/root checks, error display) and for the write +
+// rename paths, where openat2's atomic-create/rename primitives aren't wrapped
+// yet — those keep the planted-symlink containment, with the residual race.
 func resolve(root, rel string) (string, error) {
 	return securejoin.SecureJoin(root, strings.TrimSpace(rel))
 }
@@ -244,18 +248,25 @@ func (m *Manager) Read(ctx context.Context, serverID, rel string) ([]byte, error
 	if err != nil {
 		return nil, err
 	}
+	// The trash guard is containment-only (don't expose the recycle bin through
+	// the browser), so a re-resolvable path is fine here; the *content* open below
+	// is the race-safe one.
 	if withinTrash(root, abs) {
 		return nil, ErrNotFound
 	}
-	info, err := os.Lstat(abs)
+	f, err := openInRoot(root, rel)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, ErrNotFound
 		}
 		return nil, err
 	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return nil, fmt.Errorf("symlinks are not readable through the file manager")
+	defer f.Close()
+	// fstat the opened handle (not Lstat of a path) so the size/dir checks can't be
+	// raced against a symlink swap after resolution.
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
 	}
 	if info.IsDir() {
 		return nil, fmt.Errorf("is a directory: %s", relPath(root, abs))
@@ -263,13 +274,8 @@ func (m *Manager) Read(ctx context.Context, serverID, rel string) ([]byte, error
 	if info.Size() > MaxReadBytes {
 		return nil, ErrTooLarge
 	}
-	f, err := os.Open(abs)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
 	// LimitReader as a belt-and-suspenders guard in case the file grew between
-	// the size check and Open.
+	// the size check and the read.
 	return io.ReadAll(io.LimitReader(f, MaxReadBytes+1))
 }
 
@@ -335,7 +341,7 @@ func (m *Manager) Mkdir(ctx context.Context, serverID, rel string) error {
 	if withinTrash(root, abs) {
 		return ErrTraversal
 	}
-	return os.MkdirAll(abs, 0o755)
+	return mkdirAllInRoot(root, rel, 0o755)
 }
 
 // Rename moves the entry at from to to. Both must resolve inside the server
@@ -380,22 +386,21 @@ func (m *Manager) Open(ctx context.Context, serverID, rel string) (*os.File, os.
 	if withinTrash(root, abs) {
 		return nil, nil, ErrNotFound
 	}
-	info, err := os.Lstat(abs)
+	f, err := openInRoot(root, rel)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil, ErrNotFound
 		}
 		return nil, nil, err
 	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return nil, nil, fmt.Errorf("symlinks are not downloadable through the file manager")
+	info, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return nil, nil, err
 	}
 	if info.IsDir() {
+		_ = f.Close()
 		return nil, nil, fmt.Errorf("is a directory: %s", relPath(root, abs))
-	}
-	f, err := os.Open(abs)
-	if err != nil {
-		return nil, nil, err
 	}
 	return f, info, nil
 }
