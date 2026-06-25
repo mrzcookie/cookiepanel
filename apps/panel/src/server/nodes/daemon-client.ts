@@ -1103,6 +1103,138 @@ export async function redisFlush(
 	});
 }
 
+// ─── mongo browser ─────────────────────────────────────────────────────────
+// The panel passes the admin user + password in the body; the daemon resolves the
+// container's published 27017 itself. Types are the generated contract schemas.
+
+export type MongoDatabase = Schemas["MongoDatabase"];
+export type MongoCollection = Schemas["MongoCollection"];
+export type MongoDocumentPage = Schemas["MongoDocumentPage"];
+
+const mongoBase = (serverId: string) => `/api/v1/servers/${serverId}/mongo`;
+
+type MongoAuth = { username: string; password: string };
+
+export async function mongoDatabases(
+	nodeId: string,
+	serverId: string,
+	auth: MongoAuth
+): Promise<MongoDatabase[]> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${mongoBase(serverId)}/databases`,
+		body: auth,
+	})) as MongoDatabase[];
+}
+
+export async function mongoCollections(
+	nodeId: string,
+	serverId: string,
+	auth: MongoAuth,
+	db: string
+): Promise<MongoCollection[]> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${mongoBase(serverId)}/collections`,
+		body: { ...auth, db },
+	})) as MongoCollection[];
+}
+
+export async function mongoDocuments(
+	nodeId: string,
+	serverId: string,
+	auth: MongoAuth,
+	db: string,
+	collection: string,
+	skip: number,
+	limit: number
+): Promise<MongoDocumentPage> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${mongoBase(serverId)}/documents`,
+		body: { ...auth, db, collection, skip, limit },
+	})) as MongoDocumentPage;
+}
+
+export async function mongoInsert(
+	nodeId: string,
+	serverId: string,
+	auth: MongoAuth,
+	db: string,
+	collection: string,
+	doc: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${mongoBase(serverId)}/insert`,
+		body: { ...auth, db, collection, doc },
+	});
+}
+
+export async function mongoDelete(
+	nodeId: string,
+	serverId: string,
+	auth: MongoAuth,
+	db: string,
+	collection: string,
+	id: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${mongoBase(serverId)}/delete`,
+		body: { ...auth, db, collection, id },
+	});
+}
+
+export async function mongoCreateCollection(
+	nodeId: string,
+	serverId: string,
+	auth: MongoAuth,
+	db: string,
+	collection: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${mongoBase(serverId)}/create-collection`,
+		body: { ...auth, db, collection },
+	});
+}
+
+export async function mongoDropCollection(
+	nodeId: string,
+	serverId: string,
+	auth: MongoAuth,
+	db: string,
+	collection: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${mongoBase(serverId)}/drop-collection`,
+		body: { ...auth, db, collection },
+	});
+}
+
+export async function mongoDropDatabase(
+	nodeId: string,
+	serverId: string,
+	auth: MongoAuth,
+	db: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${mongoBase(serverId)}/drop-database`,
+		body: { ...auth, db },
+	});
+}
+
 /** Streams `body` to the daemon as the new contents of `path` (atomic on the box). */
 export async function uploadNodeFile(
 	nodeId: string,

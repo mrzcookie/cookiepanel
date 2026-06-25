@@ -1,5 +1,6 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, FileJson, FolderTree, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
 	Breadcrumb,
@@ -31,52 +32,53 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import {
-	databaseSize,
-	isValidMongoName,
-	type MongoCollection,
-	type MongoData,
-	type MongoDatabase,
-} from "@/lib/domain/mongo-browser";
+import { isValidMongoName } from "@/lib/domain/mongo-browser";
 import type { ServerRow } from "@/lib/domain/servers";
-import { formatBytes, formatCount, pluralize } from "@/lib/format";
+import { formatBytes, formatCount } from "@/lib/format";
 import {
-	createCollection,
-	createDatabase,
-	deleteDocument,
-	dropCollection,
-	dropDatabase,
-	insertDocument,
-	useMongoData,
-} from "@/lib/stores/mongo-browser-store";
+	createMongoCollection,
+	deleteMongoDocument,
+	dropMongoCollection,
+	dropMongoDatabase,
+	insertMongoDocument,
+	invalidateMongo,
+	useMongoCollections,
+	useMongoDatabases,
+	useMongoDocuments,
+} from "@/lib/mongo-browser-queries";
 
-function objectId(): string {
-	return crypto.randomUUID().replace(/-/g, "").slice(0, 24);
+const PAGE_SIZE = 25;
+
+// Mongo's own databases — browsable, but the daemon refuses to mutate them (so a
+// click can't drop `admin` and brick auth); hide their drop action to match.
+const SYSTEM_DBS = new Set(["admin", "local", "config"]);
+
+function errorMessage(error: unknown, fallback: string) {
+	return error instanceof Error ? error.message : fallback;
 }
 
-// The MongoDB Document Browser: databases drill down to collections and their
-// documents (JSON). Create and drop databases / collections, and insert or
-// delete documents, against the stub store.
+function prettyJson(json: string): string {
+	try {
+		return JSON.stringify(JSON.parse(json), null, 2);
+	} catch {
+		return json;
+	}
+}
+
+// The MongoDB Browser: databases drill down to collections and their documents,
+// all lazily fetched from the live instance. Create databases/collections, insert
+// and delete documents, with paginated document views.
 export function MongoBrowser({ server }: { server: ServerRow }) {
-	const data = useMongoData(server.id);
 	const [database, setDatabase] = useState<string | null>(null);
 	const [collection, setCollection] = useState<string | null>(null);
-
-	const db = database
-		? data.databases.find((item) => item.name === database)
-		: undefined;
-	const coll =
-		db && collection
-			? db.collections.find((item) => item.name === collection)
-			: undefined;
 
 	return (
 		<div className="space-y-4">
 			<ConnectionHeader label="Browser" server={server} />
-			{db && coll ? (
+			{database && collection ? (
 				<DocumentList
-					collection={coll}
-					databaseName={db.name}
+					collection={collection}
+					database={database}
 					onBack={() => setCollection(null)}
 					onRoot={() => {
 						setDatabase(null);
@@ -84,16 +86,15 @@ export function MongoBrowser({ server }: { server: ServerRow }) {
 					}}
 					serverId={server.id}
 				/>
-			) : db ? (
+			) : database ? (
 				<CollectionList
-					database={db}
+					database={database}
 					onBack={() => setDatabase(null)}
 					onOpen={setCollection}
 					serverId={server.id}
 				/>
 			) : (
 				<DatabaseList
-					data={data}
 					onOpen={(name) => {
 						setDatabase(name);
 						setCollection(null);
@@ -106,16 +107,18 @@ export function MongoBrowser({ server }: { server: ServerRow }) {
 }
 
 function DatabaseList({
-	data,
 	onOpen,
 	serverId,
 }: {
-	data: MongoData;
 	onOpen: (name: string) => void;
 	serverId: string;
 }) {
+	const queryClient = useQueryClient();
+	const read = useMongoDatabases(serverId);
 	const [createOpen, setCreateOpen] = useState(false);
 	const [drop, setDrop] = useState<string | null>(null);
+
+	const databases = read?.ok ? read.data : [];
 
 	return (
 		<Section
@@ -125,10 +128,22 @@ function DatabaseList({
 					New database
 				</Button>
 			}
-			subtitle={pluralize(data.databases.length, "database")}
+			subtitle={read?.ok ? `${databases.length} databases` : undefined}
 			title="Databases"
 		>
-			{data.databases.length === 0 ? (
+			{read && !read.ok ? (
+				<div className="p-4">
+					<EmptyState
+						description={read.error}
+						icon={FolderTree}
+						title="Couldn't reach Mongo"
+					/>
+				</div>
+			) : !read ? (
+				<div className="p-8 text-center text-muted-foreground text-sm">
+					Loading…
+				</div>
+			) : databases.length === 0 ? (
 				<div className="p-4">
 					<EmptyState
 						description="Create a database to start storing collections."
@@ -141,13 +156,12 @@ function DatabaseList({
 					<TableHeader>
 						<TableRow>
 							<TableHead>Database</TableHead>
-							<TableHead className="text-right">Collections</TableHead>
 							<TableHead className="text-right">Size</TableHead>
 							<TableHead className="w-px text-right">Manage</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{data.databases.map((database) => (
+						{databases.map((database) => (
 							<TableRow key={database.name}>
 								<TableCell>
 									<button
@@ -160,10 +174,7 @@ function DatabaseList({
 									</button>
 								</TableCell>
 								<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
-									{database.collections.length}
-								</TableCell>
-								<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
-									{formatBytes(databaseSize(database))}
+									{formatBytes(database.sizeBytes)}
 								</TableCell>
 								<TableCell className="text-right">
 									<RowActions>
@@ -172,12 +183,14 @@ function DatabaseList({
 											label={`Open ${database.name}`}
 											onClick={() => onOpen(database.name)}
 										/>
-										<IconAction
-											danger
-											icon={Trash2}
-											label={`Drop ${database.name}`}
-											onClick={() => setDrop(database.name)}
-										/>
+										{SYSTEM_DBS.has(database.name) ? null : (
+											<IconAction
+												danger
+												icon={Trash2}
+												label={`Drop ${database.name}`}
+												onClick={() => setDrop(database.name)}
+											/>
+										)}
 									</RowActions>
 								</TableCell>
 							</TableRow>
@@ -186,25 +199,24 @@ function DatabaseList({
 				</Table>
 			)}
 
-			<NameDialog
-				existing={data.databases.map((database) => database.name)}
-				label="database"
-				onCreate={(name) => {
-					createDatabase(serverId, name);
-					toast.success(`Created database “${name}”.`);
-				}}
+			<NewDatabaseDialog
 				onOpenChange={setCreateOpen}
 				open={createOpen}
-				placeholder="analytics"
-				title="New database"
+				serverId={serverId}
 			/>
 			<ConfirmDrop
 				confirmLabel="Drop database"
 				description={`Drop the database “${drop}” and all its collections. This can't be undone.`}
-				onConfirm={() => {
-					if (drop) {
-						dropDatabase(serverId, drop);
+				onConfirm={async () => {
+					if (!drop) {
+						return;
+					}
+					try {
+						await dropMongoDatabase(serverId, drop);
+						await invalidateMongo(queryClient, serverId);
 						toast.success(`Dropped database “${drop}”.`);
+					} catch (e) {
+						toast.error(errorMessage(e, "Couldn't drop the database."));
 					}
 				}}
 				onOpenChange={(next) => setDrop(next ? drop : null)}
@@ -221,13 +233,17 @@ function CollectionList({
 	onOpen,
 	serverId,
 }: {
-	database: MongoDatabase;
+	database: string;
 	onBack: () => void;
 	onOpen: (name: string) => void;
 	serverId: string;
 }) {
+	const queryClient = useQueryClient();
+	const read = useMongoCollections(serverId, database);
 	const [createOpen, setCreateOpen] = useState(false);
 	const [drop, setDrop] = useState<string | null>(null);
+
+	const collections = read?.ok ? read.data : [];
 
 	return (
 		<Section
@@ -237,15 +253,27 @@ function CollectionList({
 					New collection
 				</Button>
 			}
-			subtitle={pluralize(database.collections.length, "collection")}
+			subtitle={read?.ok ? `${collections.length} collections` : undefined}
 			title={
 				<Breadcrumb
-					current={database.name}
+					current={database}
 					trail={[{ label: "Databases", onClick: onBack }]}
 				/>
 			}
 		>
-			{database.collections.length === 0 ? (
+			{read && !read.ok ? (
+				<div className="p-4">
+					<EmptyState
+						description={read.error}
+						icon={FileJson}
+						title="Couldn't reach Mongo"
+					/>
+				</div>
+			) : !read ? (
+				<div className="p-8 text-center text-muted-foreground text-sm">
+					Loading…
+				</div>
+			) : collections.length === 0 ? (
 				<div className="p-4">
 					<EmptyState
 						description="Create a collection to start storing documents."
@@ -265,7 +293,7 @@ function CollectionList({
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{database.collections.map((collection) => (
+						{collections.map((collection) => (
 							<TableRow key={collection.name}>
 								<TableCell>
 									<button
@@ -308,24 +336,34 @@ function CollectionList({
 			)}
 
 			<NameDialog
-				existing={database.collections.map((collection) => collection.name)}
-				label="collection"
-				onCreate={(name) => {
-					createCollection(serverId, database.name, name);
-					toast.success(`Created collection “${name}”.`);
+				existing={collections.map((c) => c.name)}
+				onCreate={async (collectionName) => {
+					try {
+						await createMongoCollection(serverId, database, collectionName);
+						await invalidateMongo(queryClient, serverId);
+						toast.success(`Created collection “${collectionName}”.`);
+					} catch (e) {
+						toast.error(errorMessage(e, "Couldn't create the collection."));
+					}
 				}}
 				onOpenChange={setCreateOpen}
 				open={createOpen}
 				placeholder="invoices"
-				title={`New collection in ${database.name}`}
+				title={`New collection in ${database}`}
 			/>
 			<ConfirmDrop
 				confirmLabel="Drop collection"
 				description={`Drop the collection “${drop}” and all its documents. This can't be undone.`}
-				onConfirm={() => {
-					if (drop) {
-						dropCollection(serverId, database.name, drop);
+				onConfirm={async () => {
+					if (!drop) {
+						return;
+					}
+					try {
+						await dropMongoCollection(serverId, database, drop);
+						await invalidateMongo(queryClient, serverId);
 						toast.success(`Dropped collection “${drop}”.`);
+					} catch (e) {
+						toast.error(errorMessage(e, "Couldn't drop the collection."));
 					}
 				}}
 				onOpenChange={(next) => setDrop(next ? drop : null)}
@@ -338,19 +376,39 @@ function CollectionList({
 
 function DocumentList({
 	collection,
-	databaseName,
+	database,
 	onBack,
 	onRoot,
 	serverId,
 }: {
-	collection: MongoCollection;
-	databaseName: string;
+	collection: string;
+	database: string;
 	onBack: () => void;
 	onRoot: () => void;
 	serverId: string;
 }) {
+	const queryClient = useQueryClient();
+	const [page, setPage] = useState(0);
+	const read = useMongoDocuments(
+		serverId,
+		database,
+		collection,
+		page * PAGE_SIZE,
+		PAGE_SIZE
+	);
 	const [insertOpen, setInsertOpen] = useState(false);
 	const [drop, setDrop] = useState<string | null>(null);
+
+	// A drop/insert can shrink the collection; keep the page in range.
+	const total = read?.ok ? read.data.total : 0;
+	useEffect(() => {
+		if (page > 0 && page * PAGE_SIZE >= total && total > 0) {
+			setPage(Math.max(0, Math.ceil(total / PAGE_SIZE) - 1));
+		}
+	}, [page, total]);
+
+	const documents = read?.ok ? read.data.documents : [];
+	const hasNext = (page + 1) * PAGE_SIZE < total;
 
 	return (
 		<Section
@@ -360,19 +418,27 @@ function DocumentList({
 					Insert document
 				</Button>
 			}
-			subtitle={`${formatCount(collection.documents)} documents · ${formatBytes(collection.sizeBytes)}`}
+			subtitle={read?.ok ? `${formatCount(total)} documents` : undefined}
 			title={
 				<Breadcrumb
-					current={collection.name}
+					current={collection}
 					trail={[
 						{ label: "Databases", onClick: onRoot },
-						{ label: databaseName, onClick: onBack },
+						{ label: database, onClick: onBack },
 					]}
 				/>
 			}
 		>
 			<div className="space-y-3 p-4">
-				{collection.sample.length === 0 ? (
+				{read && !read.ok ? (
+					<EmptyState
+						description={read.error}
+						icon={FileJson}
+						title="Couldn't reach Mongo"
+					/>
+				) : !read ? (
+					<p className="text-center text-muted-foreground text-sm">Loading…</p>
+				) : documents.length === 0 ? (
 					<EmptyState
 						description="Insert a document to get started."
 						icon={FileJson}
@@ -380,11 +446,7 @@ function DocumentList({
 					/>
 				) : (
 					<>
-						<p className="text-muted-foreground text-xs">
-							Showing {collection.sample.length} of{" "}
-							{formatCount(collection.documents)} documents.
-						</p>
-						{collection.sample.map((document) => (
+						{documents.map((document) => (
 							<div
 								className="overflow-hidden rounded-lg ring-1 ring-foreground/10"
 								key={document.id}
@@ -401,18 +463,44 @@ function DocumentList({
 									/>
 								</div>
 								<pre className="terminal overflow-x-auto p-3 font-mono text-xs">
-									{document.json}
+									{prettyJson(document.json)}
 								</pre>
 							</div>
 						))}
+						{total > PAGE_SIZE ? (
+							<div className="flex items-center justify-between pt-1">
+								<span className="text-muted-foreground text-xs tabular-nums">
+									{page * PAGE_SIZE + 1}–{page * PAGE_SIZE + documents.length}{" "}
+									of {formatCount(total)}
+								</span>
+								<div className="flex gap-2">
+									<Button
+										disabled={page === 0}
+										onClick={() => setPage((p) => Math.max(0, p - 1))}
+										size="sm"
+										variant="outline"
+									>
+										Previous
+									</Button>
+									<Button
+										disabled={!hasNext}
+										onClick={() => setPage((p) => p + 1)}
+										size="sm"
+										variant="outline"
+									>
+										Next
+									</Button>
+								</div>
+							</div>
+						) : null}
 					</>
 				)}
 			</div>
 
 			<InsertDocumentDialog
-				collectionName={collection.name}
-				databaseName={databaseName}
-				existingIds={collection.sample.map((document) => document.id)}
+				collection={collection}
+				database={database}
+				onInserted={() => invalidateMongo(queryClient, serverId)}
 				onOpenChange={setInsertOpen}
 				open={insertOpen}
 				serverId={serverId}
@@ -420,10 +508,16 @@ function DocumentList({
 			<ConfirmDrop
 				confirmLabel="Delete document"
 				description={`Delete the document “${drop}”. This can't be undone.`}
-				onConfirm={() => {
-					if (drop) {
-						deleteDocument(serverId, databaseName, collection.name, drop);
+				onConfirm={async () => {
+					if (!drop) {
+						return;
+					}
+					try {
+						await deleteMongoDocument(serverId, database, collection, drop);
+						await invalidateMongo(queryClient, serverId);
 						toast.success("Deleted document.");
+					} catch (e) {
+						toast.error(errorMessage(e, "Couldn't delete the document."));
 					}
 				}}
 				onOpenChange={(next) => setDrop(next ? drop : null)}
@@ -434,10 +528,9 @@ function DocumentList({
 	);
 }
 
-// A shared name-only create dialog (databases + collections).
+// A single-name create dialog (collections).
 function NameDialog({
 	existing,
-	label,
 	onCreate,
 	onOpenChange,
 	open,
@@ -445,7 +538,6 @@ function NameDialog({
 	title,
 }: {
 	existing: string[];
-	label: string;
 	onCreate: (name: string) => void;
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
@@ -481,7 +573,7 @@ function NameDialog({
 				>
 					<DialogHeader>
 						<DialogTitle>{title}</DialogTitle>
-						<DialogDescription>Give the {label} a name.</DialogDescription>
+						<DialogDescription>Give the collection a name.</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-2 py-4">
 						<Label htmlFor="mongo-name">Name</Label>
@@ -510,7 +602,108 @@ function NameDialog({
 							</Button>
 						</DialogClose>
 						<Button disabled={!valid} type="submit">
-							Create {label}
+							Create collection
+						</Button>
+					</DialogFooter>
+				</form>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+// Creating a database needs a first collection (Mongo materializes a database when
+// its first collection is created), so this dialog collects both.
+function NewDatabaseDialog({
+	onOpenChange,
+	open,
+	serverId,
+}: {
+	onOpenChange: (open: boolean) => void;
+	open: boolean;
+	serverId: string;
+}) {
+	const queryClient = useQueryClient();
+	const [db, setDb] = useState("");
+	const [coll, setColl] = useState("");
+	const [busy, setBusy] = useState(false);
+
+	function reset() {
+		setDb("");
+		setColl("");
+	}
+
+	const valid = isValidMongoName(db.trim()) && isValidMongoName(coll.trim());
+
+	async function submit() {
+		setBusy(true);
+		try {
+			await createMongoCollection(serverId, db.trim(), coll.trim());
+			await invalidateMongo(queryClient, serverId);
+			toast.success(`Created database “${db.trim()}”.`);
+			onOpenChange(false);
+			reset();
+		} catch (e) {
+			toast.error(errorMessage(e, "Couldn't create the database."));
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<Dialog
+			onOpenChange={(next) => {
+				onOpenChange(next);
+				if (!next) {
+					reset();
+				}
+			}}
+			open={open}
+		>
+			<DialogContent>
+				<form
+					onSubmit={(event) => {
+						event.preventDefault();
+						if (valid) {
+							submit();
+						}
+					}}
+				>
+					<DialogHeader>
+						<DialogTitle>New database</DialogTitle>
+						<DialogDescription>
+							Mongo creates a database with its first collection — name both.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="grid gap-4 py-4">
+						<div className="grid gap-2">
+							<Label htmlFor="mongo-db">Database</Label>
+							<Input
+								className="font-mono text-sm"
+								id="mongo-db"
+								onChange={(e) => setDb(e.target.value)}
+								placeholder="analytics"
+								value={db}
+							/>
+						</div>
+						<div className="grid gap-2">
+							<Label htmlFor="mongo-coll">First collection</Label>
+							<Input
+								className="font-mono text-sm"
+								id="mongo-coll"
+								onChange={(e) => setColl(e.target.value)}
+								placeholder="events"
+								value={coll}
+							/>
+						</div>
+					</div>
+					<DialogFooter>
+						<DialogClose asChild>
+							<Button type="button" variant="outline">
+								Cancel
+							</Button>
+						</DialogClose>
+						<Button disabled={busy || !valid} type="submit">
+							Create database
 						</Button>
 					</DialogFooter>
 				</form>
@@ -520,38 +713,51 @@ function NameDialog({
 }
 
 function InsertDocumentDialog({
-	collectionName,
-	databaseName,
-	existingIds,
+	collection,
+	database,
+	onInserted,
 	onOpenChange,
 	open,
 	serverId,
 }: {
-	collectionName: string;
-	databaseName: string;
-	existingIds: string[];
+	collection: string;
+	database: string;
+	onInserted: () => void;
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
 	serverId: string;
 }) {
 	const [text, setText] = useState("");
+	const [busy, setBusy] = useState(false);
 
 	const trimmed = text.trim();
-	let parsed: Record<string, unknown> | null = null;
 	let parseError = false;
 	if (trimmed !== "") {
 		try {
 			const value = JSON.parse(trimmed);
-			if (value && typeof value === "object" && !Array.isArray(value)) {
-				parsed = value as Record<string, unknown>;
-			} else {
+			if (!(value && typeof value === "object" && !Array.isArray(value))) {
 				parseError = true;
 			}
 		} catch {
 			parseError = true;
 		}
 	}
-	const valid = parsed !== null;
+	const valid = trimmed !== "" && !parseError;
+
+	async function submit() {
+		setBusy(true);
+		try {
+			await insertMongoDocument(serverId, database, collection, trimmed);
+			toast.success("Inserted document.");
+			onInserted();
+			onOpenChange(false);
+			setText("");
+		} catch (e) {
+			toast.error(errorMessage(e, "Couldn't insert the document."));
+		} finally {
+			setBusy(false);
+		}
+	}
 
 	return (
 		<Dialog
@@ -567,29 +773,13 @@ function InsertDocumentDialog({
 				<form
 					onSubmit={(event) => {
 						event.preventDefault();
-						if (!parsed) {
-							return;
+						if (valid) {
+							submit();
 						}
-						const { _id, ...body } = parsed;
-						// Honor a supplied _id only when it's a usable, unique string;
-						// otherwise mint one (a real driver rejects a duplicate _id).
-						const id =
-							typeof _id === "string" &&
-							_id !== "" &&
-							!existingIds.includes(_id)
-								? _id
-								: objectId();
-						insertDocument(serverId, databaseName, collectionName, {
-							id,
-							json: JSON.stringify({ _id: id, ...body }, null, 2),
-						});
-						toast.success("Inserted document.");
-						onOpenChange(false);
-						setText("");
 					}}
 				>
 					<DialogHeader>
-						<DialogTitle>Insert into {collectionName}</DialogTitle>
+						<DialogTitle>Insert into {collection}</DialogTitle>
 						<DialogDescription>
 							Paste a JSON document. An _id is generated if you leave it out.
 						</DialogDescription>
@@ -620,7 +810,7 @@ function InsertDocumentDialog({
 								Cancel
 							</Button>
 						</DialogClose>
-						<Button disabled={!valid} type="submit">
+						<Button disabled={busy || !valid} type="submit">
 							Insert document
 						</Button>
 					</DialogFooter>
