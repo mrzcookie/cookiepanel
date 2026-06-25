@@ -886,6 +886,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/servers/{id}/redis/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["redisOverview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/redis/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["redisKeys"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/redis/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["redisKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/redis/set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["redisSet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/redis/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["redisDelete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/redis/rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["redisRename"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/redis/ttl": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["redisTtl"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/redis/flush": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["redisFlush"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1190,6 +1334,120 @@ export interface components {
         LockBackupRequest: {
             locked: boolean;
         };
+        RedisAuth: {
+            password: string;
+            db: number;
+        };
+        RedisKeysRequest: {
+            password: string;
+            db: number;
+            pattern?: string;
+            cursor?: string;
+            /** Format: int64 */
+            count?: number;
+        };
+        RedisKeyRequest: {
+            password: string;
+            db: number;
+            key: string;
+        };
+        RedisRenameRequest: {
+            password: string;
+            db: number;
+            key: string;
+            newKey: string;
+        };
+        RedisTtlRequest: {
+            password: string;
+            db: number;
+            key: string;
+            /** Format: int64 */
+            ttlSeconds: number;
+        };
+        RedisSetBody: {
+            password: string;
+            db: number;
+            set: components["schemas"]["RedisSetRequest"];
+        };
+        RedisField: {
+            field: string;
+            value: string;
+        };
+        RedisScoreMember: {
+            member: string;
+            /** Format: double */
+            score: number;
+        };
+        RedisStreamEntry: {
+            id: string;
+            fields: components["schemas"]["RedisField"][];
+        };
+        RedisSetRequest: {
+            key: string;
+            /** @enum {string} */
+            type: "string" | "hash" | "list" | "set" | "zset";
+            /** Format: int64 */
+            ttlSeconds: number;
+            string?: string;
+            fields?: components["schemas"]["RedisField"][];
+            items?: string[];
+            members?: components["schemas"]["RedisScoreMember"][];
+        };
+        RedisDBKeyspace: {
+            db: number;
+            /** Format: int64 */
+            keys: number;
+            /** Format: int64 */
+            expires: number;
+        };
+        RedisOverview: {
+            version: string;
+            mode: string;
+            /** Format: int64 */
+            uptimeSeconds: number;
+            /** Format: int64 */
+            connectedClients: number;
+            /** Format: int64 */
+            usedMemoryBytes: number;
+            /** Format: int64 */
+            peakMemoryBytes: number;
+            /** Format: int64 */
+            maxMemoryBytes: number;
+            /** Format: int64 */
+            keyspaceHits: number;
+            /** Format: int64 */
+            keyspaceMisses: number;
+            /** Format: int64 */
+            totalCommands: number;
+            databases: components["schemas"]["RedisDBKeyspace"][];
+        };
+        RedisKeySummary: {
+            key: string;
+            type: string;
+            /** Format: int64 */
+            ttlSeconds: number;
+            /** Format: int64 */
+            sizeBytes: number;
+            /** Format: int64 */
+            length: number;
+        };
+        RedisKeyList: {
+            keys: components["schemas"]["RedisKeySummary"][];
+            cursor: string;
+        };
+        RedisKeyDetail: {
+            key: string;
+            type: string;
+            /** Format: int64 */
+            ttlSeconds: number;
+            /** Format: int64 */
+            sizeBytes: number;
+            string?: string;
+            fields?: components["schemas"]["RedisField"][];
+            items?: string[];
+            members?: components["schemas"]["RedisScoreMember"][];
+            entries?: components["schemas"]["RedisStreamEntry"][];
+        };
     };
     responses: {
         /** @description Not found */
@@ -1221,6 +1479,15 @@ export interface components {
         };
         /** @description Not supported on this host */
         NotImplemented: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Could not reach / authenticate to the instance */
+        BadGateway: {
             headers: {
                 [name: string]: unknown;
             };
@@ -2537,6 +2804,213 @@ export interface operations {
                 content?: never;
             };
             409: components["responses"]["Conflict"];
+        };
+    };
+    redisOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedisAuth"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedisOverview"];
+                };
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    redisKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedisKeysRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedisKeyList"];
+                };
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    redisKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedisKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedisKeyDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    redisSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedisSetBody"];
+            };
+        };
+        responses: {
+            /** @description Set */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    redisDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedisKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    redisRename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedisRenameRequest"];
+            };
+        };
+        responses: {
+            /** @description Renamed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    redisTtl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedisTtlRequest"];
+            };
+        };
+        responses: {
+            /** @description Set */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    redisFlush: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedisAuth"];
+            };
+        };
+        responses: {
+            /** @description Flushed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            502: components["responses"]["BadGateway"];
         };
     };
 }

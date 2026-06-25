@@ -33,6 +33,7 @@ import (
 	"github.com/cookiepanel/cookied/internal/filesystem"
 	"github.com/cookiepanel/cookied/internal/firewall"
 	"github.com/cookiepanel/cookied/internal/network"
+	"github.com/cookiepanel/cookied/internal/redisbrowser"
 	"github.com/cookiepanel/cookied/internal/scheduler"
 	"github.com/cookiepanel/cookied/internal/server"
 	"github.com/cookiepanel/cookied/internal/sftp"
@@ -201,6 +202,14 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/servers/{id}/backups/restore", s.handleRestoreBackup)
 	mux.HandleFunc("POST /api/v1/servers/{id}/backups/{archive}/lock", s.handleLockBackup)
 	mux.HandleFunc("DELETE /api/v1/servers/{id}/backups/{archive}", s.handleDeleteBackup)
+	mux.HandleFunc("POST /api/v1/servers/{id}/redis/overview", s.handleRedisOverview)
+	mux.HandleFunc("POST /api/v1/servers/{id}/redis/keys", s.handleRedisKeys)
+	mux.HandleFunc("POST /api/v1/servers/{id}/redis/key", s.handleRedisKey)
+	mux.HandleFunc("POST /api/v1/servers/{id}/redis/set", s.handleRedisSet)
+	mux.HandleFunc("POST /api/v1/servers/{id}/redis/delete", s.handleRedisDelete)
+	mux.HandleFunc("POST /api/v1/servers/{id}/redis/rename", s.handleRedisRename)
+	mux.HandleFunc("POST /api/v1/servers/{id}/redis/ttl", s.handleRedisTTL)
+	mux.HandleFunc("POST /api/v1/servers/{id}/redis/flush", s.handleRedisFlush)
 	mux.HandleFunc("GET /api/v1/servers/{id}/files/trash", s.handleTrashList)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/restore", s.handleTrashRestore)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/delete", s.handleTrashDelete)
@@ -977,6 +986,132 @@ func (s *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// ─── redis browser ───────────────────────────────────────────────────────────
+//
+// The "Browser" add-on for a Redis server. The panel passes the admin password in
+// the request body (over the pinned channel); the daemon resolves the container's
+// published 6379 port itself and connects to 127.0.0.1:<hostPort> — it never
+// trusts a caller-supplied address. The password is used to connect and dropped.
+
+// redisConn resolves how to reach the server's Redis and builds a connection.
+func (s *Server) redisConn(ctx context.Context, serverID, password string, db int) (redisbrowser.Conn, error) {
+	port, err := s.dockerClient.PublishedTCPPort(ctx, serverID, 6379)
+	if err != nil {
+		return redisbrowser.Conn{}, err
+	}
+	return redisbrowser.Conn{
+		Addr:     fmt.Sprintf("127.0.0.1:%d", port),
+		Password: password,
+		DB:       db,
+	}, nil
+}
+
+// redisBody is the common envelope: every redis request carries the password + db,
+// plus op-specific fields.
+type redisBody struct {
+	Password   string                   `json:"password"`
+	DB         int                      `json:"db"`
+	Pattern    string                   `json:"pattern,omitempty"`
+	Cursor     string                   `json:"cursor,omitempty"`
+	Count      int64                    `json:"count,omitempty"`
+	Key        string                   `json:"key,omitempty"`
+	NewKey     string                   `json:"newKey,omitempty"`
+	TTLSeconds int64                    `json:"ttlSeconds,omitempty"`
+	Set        *redisbrowser.SetRequest `json:"set,omitempty"`
+}
+
+// withRedis decodes the body, resolves the connection, and runs fn. op-level
+// errors are mapped to status codes by writeRedisErr.
+func (s *Server) withRedis(w http.ResponseWriter, r *http.Request, fn func(context.Context, redisbrowser.Conn, redisBody) (any, int, error)) {
+	var body redisBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	conn, err := s.redisConn(r.Context(), r.PathValue("id"), body.Password, body.DB)
+	if err != nil {
+		// No container / port not published — the browser can't reach this server.
+		writeJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+	result, status, err := fn(r.Context(), conn, body)
+	if err != nil {
+		s.writeRedisErr(w, err)
+		return
+	}
+	if status == http.StatusNoContent {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	writeJSON(w, status, result)
+}
+
+func (s *Server) handleRedisOverview(w http.ResponseWriter, r *http.Request) {
+	s.withRedis(w, r, func(ctx context.Context, conn redisbrowser.Conn, _ redisBody) (any, int, error) {
+		ov, err := redisbrowser.GetOverview(ctx, conn)
+		return ov, http.StatusOK, err
+	})
+}
+
+func (s *Server) handleRedisKeys(w http.ResponseWriter, r *http.Request) {
+	s.withRedis(w, r, func(ctx context.Context, conn redisbrowser.Conn, b redisBody) (any, int, error) {
+		list, err := redisbrowser.ScanKeys(ctx, conn, b.Pattern, b.Cursor, b.Count)
+		return list, http.StatusOK, err
+	})
+}
+
+func (s *Server) handleRedisKey(w http.ResponseWriter, r *http.Request) {
+	s.withRedis(w, r, func(ctx context.Context, conn redisbrowser.Conn, b redisBody) (any, int, error) {
+		d, err := redisbrowser.GetKey(ctx, conn, b.Key)
+		return d, http.StatusOK, err
+	})
+}
+
+func (s *Server) handleRedisSet(w http.ResponseWriter, r *http.Request) {
+	s.withRedis(w, r, func(ctx context.Context, conn redisbrowser.Conn, b redisBody) (any, int, error) {
+		if b.Set == nil {
+			return nil, 0, fmt.Errorf("%w: missing set payload", redisbrowser.ErrInvalid)
+		}
+		return nil, http.StatusNoContent, redisbrowser.SetKey(ctx, conn, *b.Set)
+	})
+}
+
+func (s *Server) handleRedisDelete(w http.ResponseWriter, r *http.Request) {
+	s.withRedis(w, r, func(ctx context.Context, conn redisbrowser.Conn, b redisBody) (any, int, error) {
+		return nil, http.StatusNoContent, redisbrowser.DeleteKey(ctx, conn, b.Key)
+	})
+}
+
+func (s *Server) handleRedisRename(w http.ResponseWriter, r *http.Request) {
+	s.withRedis(w, r, func(ctx context.Context, conn redisbrowser.Conn, b redisBody) (any, int, error) {
+		return nil, http.StatusNoContent, redisbrowser.RenameKey(ctx, conn, b.Key, b.NewKey)
+	})
+}
+
+func (s *Server) handleRedisTTL(w http.ResponseWriter, r *http.Request) {
+	s.withRedis(w, r, func(ctx context.Context, conn redisbrowser.Conn, b redisBody) (any, int, error) {
+		return nil, http.StatusNoContent, redisbrowser.SetTTL(ctx, conn, b.Key, b.TTLSeconds)
+	})
+}
+
+func (s *Server) handleRedisFlush(w http.ResponseWriter, r *http.Request) {
+	s.withRedis(w, r, func(ctx context.Context, conn redisbrowser.Conn, _ redisBody) (any, int, error) {
+		return nil, http.StatusNoContent, redisbrowser.FlushDB(ctx, conn)
+	})
+}
+
+func (s *Server) writeRedisErr(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, redisbrowser.ErrNotFound):
+		writeJSONError(w, http.StatusNotFound, err)
+	case errors.Is(err, redisbrowser.ErrInvalid):
+		writeJSONError(w, http.StatusBadRequest, err)
+	default:
+		// A connection/auth failure to the instance — surface it for the panel toast.
+		writeJSONError(w, http.StatusBadGateway, err)
+	}
 }
 
 // ─── schedules ─────────────────────────────────────────────────────────────

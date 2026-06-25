@@ -26,6 +26,15 @@ const (
 	FileEntryTypeSymlink FileEntryType = "symlink"
 )
 
+// Defines values for RedisSetRequestType.
+const (
+	Hash   RedisSetRequestType = "hash"
+	List   RedisSetRequestType = "list"
+	Set    RedisSetRequestType = "set"
+	String RedisSetRequestType = "string"
+	Zset   RedisSetRequestType = "zset"
+)
+
 // Defines values for TrashEntryType.
 const (
 	TrashEntryTypeDir     TrashEntryType = "dir"
@@ -259,6 +268,133 @@ type PurgeResult struct {
 	Purged int `json:"purged"`
 }
 
+// RedisAuth defines model for RedisAuth.
+type RedisAuth struct {
+	Db       int    `json:"db"`
+	Password string `json:"password"`
+}
+
+// RedisDBKeyspace defines model for RedisDBKeyspace.
+type RedisDBKeyspace struct {
+	Db      int   `json:"db"`
+	Expires int64 `json:"expires"`
+	Keys    int64 `json:"keys"`
+}
+
+// RedisField defines model for RedisField.
+type RedisField struct {
+	Field string `json:"field"`
+	Value string `json:"value"`
+}
+
+// RedisKeyDetail defines model for RedisKeyDetail.
+type RedisKeyDetail struct {
+	Entries    *[]RedisStreamEntry `json:"entries,omitempty"`
+	Fields     *[]RedisField       `json:"fields,omitempty"`
+	Items      *[]string           `json:"items,omitempty"`
+	Key        string              `json:"key"`
+	Members    *[]RedisScoreMember `json:"members,omitempty"`
+	SizeBytes  int64               `json:"sizeBytes"`
+	String     *string             `json:"string,omitempty"`
+	TtlSeconds int64               `json:"ttlSeconds"`
+	Type       string              `json:"type"`
+}
+
+// RedisKeyList defines model for RedisKeyList.
+type RedisKeyList struct {
+	Cursor string            `json:"cursor"`
+	Keys   []RedisKeySummary `json:"keys"`
+}
+
+// RedisKeyRequest defines model for RedisKeyRequest.
+type RedisKeyRequest struct {
+	Db       int    `json:"db"`
+	Key      string `json:"key"`
+	Password string `json:"password"`
+}
+
+// RedisKeySummary defines model for RedisKeySummary.
+type RedisKeySummary struct {
+	Key        string `json:"key"`
+	Length     int64  `json:"length"`
+	SizeBytes  int64  `json:"sizeBytes"`
+	TtlSeconds int64  `json:"ttlSeconds"`
+	Type       string `json:"type"`
+}
+
+// RedisKeysRequest defines model for RedisKeysRequest.
+type RedisKeysRequest struct {
+	Count    *int64  `json:"count,omitempty"`
+	Cursor   *string `json:"cursor,omitempty"`
+	Db       int     `json:"db"`
+	Password string  `json:"password"`
+	Pattern  *string `json:"pattern,omitempty"`
+}
+
+// RedisOverview defines model for RedisOverview.
+type RedisOverview struct {
+	ConnectedClients int64             `json:"connectedClients"`
+	Databases        []RedisDBKeyspace `json:"databases"`
+	KeyspaceHits     int64             `json:"keyspaceHits"`
+	KeyspaceMisses   int64             `json:"keyspaceMisses"`
+	MaxMemoryBytes   int64             `json:"maxMemoryBytes"`
+	Mode             string            `json:"mode"`
+	PeakMemoryBytes  int64             `json:"peakMemoryBytes"`
+	TotalCommands    int64             `json:"totalCommands"`
+	UptimeSeconds    int64             `json:"uptimeSeconds"`
+	UsedMemoryBytes  int64             `json:"usedMemoryBytes"`
+	Version          string            `json:"version"`
+}
+
+// RedisRenameRequest defines model for RedisRenameRequest.
+type RedisRenameRequest struct {
+	Db       int    `json:"db"`
+	Key      string `json:"key"`
+	NewKey   string `json:"newKey"`
+	Password string `json:"password"`
+}
+
+// RedisScoreMember defines model for RedisScoreMember.
+type RedisScoreMember struct {
+	Member string  `json:"member"`
+	Score  float64 `json:"score"`
+}
+
+// RedisSetBody defines model for RedisSetBody.
+type RedisSetBody struct {
+	Db       int             `json:"db"`
+	Password string          `json:"password"`
+	Set      RedisSetRequest `json:"set"`
+}
+
+// RedisSetRequest defines model for RedisSetRequest.
+type RedisSetRequest struct {
+	Fields     *[]RedisField       `json:"fields,omitempty"`
+	Items      *[]string           `json:"items,omitempty"`
+	Key        string              `json:"key"`
+	Members    *[]RedisScoreMember `json:"members,omitempty"`
+	String     *string             `json:"string,omitempty"`
+	TtlSeconds int64               `json:"ttlSeconds"`
+	Type       RedisSetRequestType `json:"type"`
+}
+
+// RedisSetRequestType defines model for RedisSetRequest.Type.
+type RedisSetRequestType string
+
+// RedisStreamEntry defines model for RedisStreamEntry.
+type RedisStreamEntry struct {
+	Fields []RedisField `json:"fields"`
+	Id     string       `json:"id"`
+}
+
+// RedisTtlRequest defines model for RedisTtlRequest.
+type RedisTtlRequest struct {
+	Db         int    `json:"db"`
+	Key        string `json:"key"`
+	Password   string `json:"password"`
+	TtlSeconds int64  `json:"ttlSeconds"`
+}
+
 // RenameRequest defines model for RenameRequest.
 type RenameRequest struct {
 	From string `json:"from"`
@@ -409,6 +545,9 @@ type ScheduleId = string
 // ServerId defines model for ServerId.
 type ServerId = string
 
+// BadGateway defines model for BadGateway.
+type BadGateway = Error
+
 // Conflict defines model for Conflict.
 type Conflict = Error
 
@@ -515,6 +654,30 @@ type StartUrlDownloadJSONRequestBody = UrlDownloadRequest
 
 // WriteFileJSONRequestBody defines body for WriteFile for application/json ContentType.
 type WriteFileJSONRequestBody = WriteFileRequest
+
+// RedisDeleteJSONRequestBody defines body for RedisDelete for application/json ContentType.
+type RedisDeleteJSONRequestBody = RedisKeyRequest
+
+// RedisFlushJSONRequestBody defines body for RedisFlush for application/json ContentType.
+type RedisFlushJSONRequestBody = RedisAuth
+
+// RedisKeyJSONRequestBody defines body for RedisKey for application/json ContentType.
+type RedisKeyJSONRequestBody = RedisKeyRequest
+
+// RedisKeysJSONRequestBody defines body for RedisKeys for application/json ContentType.
+type RedisKeysJSONRequestBody = RedisKeysRequest
+
+// RedisOverviewJSONRequestBody defines body for RedisOverview for application/json ContentType.
+type RedisOverviewJSONRequestBody = RedisAuth
+
+// RedisRenameJSONRequestBody defines body for RedisRename for application/json ContentType.
+type RedisRenameJSONRequestBody = RedisRenameRequest
+
+// RedisSetJSONRequestBody defines body for RedisSet for application/json ContentType.
+type RedisSetJSONRequestBody = RedisSetBody
+
+// RedisTtlJSONRequestBody defines body for RedisTtl for application/json ContentType.
+type RedisTtlJSONRequestBody = RedisTtlRequest
 
 // UpdateDaemonJSONRequestBody defines body for UpdateDaemon for application/json ContentType.
 type UpdateDaemonJSONRequestBody = UpdateDaemonRequest

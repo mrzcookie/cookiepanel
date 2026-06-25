@@ -26,6 +26,7 @@ tags:
   - name: sftp
   - name: schedules
   - name: backups
+  - name: redis
 
 paths:
   /system:
@@ -499,6 +500,99 @@ paths:
         "204": { description: Deleted }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  # ── Redis "Browser" add-on ──────────────────────────────────────────────────
+  # Every request carries the admin password + logical db in the body (over the
+  # pinned channel); the daemon resolves the container's published 6379 itself.
+  /servers/{id}/redis/overview:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [redis]
+      operationId: redisOverview
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RedisAuth" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RedisOverview" } } } }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/redis/keys:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [redis]
+      operationId: redisKeys
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RedisKeysRequest" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RedisKeyList" } } } }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/redis/key:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [redis]
+      operationId: redisKey
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RedisKeyRequest" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RedisKeyDetail" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/redis/set:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [redis]
+      operationId: redisSet
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RedisSetBody" } } }
+      responses:
+        "204": { description: Set }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/redis/delete:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [redis]
+      operationId: redisDelete
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RedisKeyRequest" } } }
+      responses:
+        "204": { description: Deleted }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/redis/rename:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [redis]
+      operationId: redisRename
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RedisRenameRequest" } } }
+      responses:
+        "204": { description: Renamed }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/redis/ttl:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [redis]
+      operationId: redisTtl
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RedisTtlRequest" } } }
+      responses:
+        "204": { description: Set }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/redis/flush:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [redis]
+      operationId: redisFlush
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RedisAuth" } } }
+      responses:
+        "204": { description: Flushed }
+        "502": { $ref: "#/components/responses/BadGateway" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -526,6 +620,9 @@ components:
       content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
     NotImplemented:
       description: Not supported on this host
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    BadGateway:
+      description: Could not reach / authenticate to the instance
       content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
   schemas:
@@ -887,3 +984,129 @@ components:
       required: [locked]
       properties:
         locked: { type: boolean }
+
+    # ── Redis browser ─────────────────────────────────────────────────────────
+    RedisAuth:
+      type: object
+      required: [password, db]
+      properties:
+        password: { type: string }
+        db: { type: integer }
+    RedisKeysRequest:
+      type: object
+      required: [password, db]
+      properties:
+        password: { type: string }
+        db: { type: integer }
+        pattern: { type: string }
+        cursor: { type: string }
+        count: { type: integer, format: int64 }
+    RedisKeyRequest:
+      type: object
+      required: [password, db, key]
+      properties:
+        password: { type: string }
+        db: { type: integer }
+        key: { type: string }
+    RedisRenameRequest:
+      type: object
+      required: [password, db, key, newKey]
+      properties:
+        password: { type: string }
+        db: { type: integer }
+        key: { type: string }
+        newKey: { type: string }
+    RedisTtlRequest:
+      type: object
+      required: [password, db, key, ttlSeconds]
+      properties:
+        password: { type: string }
+        db: { type: integer }
+        key: { type: string }
+        ttlSeconds: { type: integer, format: int64 }
+    RedisSetBody:
+      type: object
+      required: [password, db, set]
+      properties:
+        password: { type: string }
+        db: { type: integer }
+        set: { $ref: "#/components/schemas/RedisSetRequest" }
+    RedisField:
+      type: object
+      required: [field, value]
+      properties:
+        field: { type: string }
+        value: { type: string }
+    RedisScoreMember:
+      type: object
+      required: [member, score]
+      properties:
+        member: { type: string }
+        score: { type: number, format: double }
+    RedisStreamEntry:
+      type: object
+      required: [id, fields]
+      properties:
+        id: { type: string }
+        fields: { type: array, items: { $ref: "#/components/schemas/RedisField" } }
+    RedisSetRequest:
+      type: object
+      required: [key, type, ttlSeconds]
+      properties:
+        key: { type: string }
+        type: { type: string, enum: [string, hash, list, set, zset] }
+        ttlSeconds: { type: integer, format: int64 }
+        string: { type: string }
+        fields: { type: array, items: { $ref: "#/components/schemas/RedisField" } }
+        items: { type: array, items: { type: string } }
+        members: { type: array, items: { $ref: "#/components/schemas/RedisScoreMember" } }
+    RedisDBKeyspace:
+      type: object
+      required: [db, keys, expires]
+      properties:
+        db: { type: integer }
+        keys: { type: integer, format: int64 }
+        expires: { type: integer, format: int64 }
+    RedisOverview:
+      type: object
+      required: [version, mode, uptimeSeconds, connectedClients, usedMemoryBytes, peakMemoryBytes, maxMemoryBytes, keyspaceHits, keyspaceMisses, totalCommands, databases]
+      properties:
+        version: { type: string }
+        mode: { type: string }
+        uptimeSeconds: { type: integer, format: int64 }
+        connectedClients: { type: integer, format: int64 }
+        usedMemoryBytes: { type: integer, format: int64 }
+        peakMemoryBytes: { type: integer, format: int64 }
+        maxMemoryBytes: { type: integer, format: int64 }
+        keyspaceHits: { type: integer, format: int64 }
+        keyspaceMisses: { type: integer, format: int64 }
+        totalCommands: { type: integer, format: int64 }
+        databases: { type: array, items: { $ref: "#/components/schemas/RedisDBKeyspace" } }
+    RedisKeySummary:
+      type: object
+      required: [key, type, ttlSeconds, sizeBytes, length]
+      properties:
+        key: { type: string }
+        type: { type: string }
+        ttlSeconds: { type: integer, format: int64 }
+        sizeBytes: { type: integer, format: int64 }
+        length: { type: integer, format: int64 }
+    RedisKeyList:
+      type: object
+      required: [keys, cursor]
+      properties:
+        keys: { type: array, items: { $ref: "#/components/schemas/RedisKeySummary" } }
+        cursor: { type: string }
+    RedisKeyDetail:
+      type: object
+      required: [key, type, ttlSeconds, sizeBytes]
+      properties:
+        key: { type: string }
+        type: { type: string }
+        ttlSeconds: { type: integer, format: int64 }
+        sizeBytes: { type: integer, format: int64 }
+        string: { type: string }
+        fields: { type: array, items: { $ref: "#/components/schemas/RedisField" } }
+        items: { type: array, items: { type: string } }
+        members: { type: array, items: { $ref: "#/components/schemas/RedisScoreMember" } }
+        entries: { type: array, items: { $ref: "#/components/schemas/RedisStreamEntry" } }

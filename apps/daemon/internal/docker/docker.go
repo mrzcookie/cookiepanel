@@ -409,6 +409,32 @@ func (c *Client) InspectByServerID(ctx context.Context, id string) (*Container, 
 	return &cont, nil
 }
 
+// PublishedTCPPort returns the host port the managed server's container publishes
+// for the given in-container TCP port (e.g. 6379 for redis), so the daemon can
+// reach the service at 127.0.0.1:<hostPort>. Resolved from the container itself
+// (not a caller-supplied value). Returns 0 with a clear error if the server has no
+// container or the port isn't published.
+func (c *Client) PublishedTCPPort(ctx context.Context, serverID string, containerPort uint16) (int, error) {
+	if c == nil || c.api == nil {
+		return 0, errors.New("docker client not initialized")
+	}
+	f := make(moby.Filters).Add("label", ManagedLabel+"=true")
+	f.Add("label", ServerIDLabel+"="+serverID)
+	res, err := c.api.ContainerList(ctx, moby.ContainerListOptions{All: true, Filters: f})
+	if err != nil {
+		return 0, fmt.Errorf("list container for %s: %w", serverID, err)
+	}
+	if len(res.Items) == 0 {
+		return 0, fmt.Errorf("server %s has no container", serverID)
+	}
+	for _, p := range res.Items[0].Ports {
+		if p.Type == "tcp" && p.PrivatePort == containerPort && p.PublicPort != 0 {
+			return int(p.PublicPort), nil
+		}
+	}
+	return 0, fmt.Errorf("server %s does not publish tcp/%d", serverID, containerPort)
+}
+
 func summaryToContainer(s container.Summary) Container {
 	name := ""
 	if len(s.Names) > 0 {

@@ -19,6 +19,7 @@ import (
 	"github.com/cookiepanel/cookied/internal/filesystem"
 	"github.com/cookiepanel/cookied/internal/firewall"
 	"github.com/cookiepanel/cookied/internal/network"
+	"github.com/cookiepanel/cookied/internal/redisbrowser"
 	"github.com/cookiepanel/cookied/internal/server"
 	"github.com/cookiepanel/cookied/internal/sftp"
 	"github.com/cookiepanel/cookied/internal/store"
@@ -148,5 +149,28 @@ func TestConformance(t *testing.T) {
 	assertConforms[contract.Backup](t, "Backup", backup.Backup{
 		Archive: "a1", ServerID: "s1", Name: "before", SizeBytes: 1024,
 		Status: "completed", Error: "e", Locked: true, CreatedAt: ts,
+	})
+
+	// ── redis browser ─────────────────────────────────────────────────────────
+	assertConforms[contract.RedisOverview](t, "RedisOverview", redisbrowser.Overview{
+		Version: "7.4.0", Mode: "standalone", UptimeSeconds: 42, ConnectedClients: 3,
+		UsedMemoryBytes: 1, PeakMemoryBytes: 2, MaxMemoryBytes: 3,
+		KeyspaceHits: 100, KeyspaceMisses: 5, TotalCommands: 9,
+		Databases: []redisbrowser.DBKeyspace{{DB: 0, Keys: 12, Expires: 3}},
+	})
+	assertConforms[contract.RedisKeyList](t, "RedisKeyList", redisbrowser.KeyList{
+		Cursor: "0",
+		Keys:   []redisbrowser.KeySummary{{Key: "k", Type: "string", TTLSeconds: -1, SizeBytes: 64, Length: 5}},
+	})
+	assertConforms[contract.RedisKeyDetail](t, "RedisKeyDetail", redisbrowser.KeyDetail{
+		Key: "h", Type: "hash", TTLSeconds: 60, SizeBytes: 128,
+		Fields: []redisbrowser.Field{{Field: "a", Value: "1"}},
+	})
+	assertConforms[contract.RedisKeyDetail](t, "RedisKeyDetail/zset", redisbrowser.KeyDetail{
+		Key: "z", Type: "zset", TTLSeconds: -1,
+		Members: []redisbrowser.ScoreMember{{Member: "m", Score: 1.5}},
+	})
+	assertConforms[contract.RedisSetRequest](t, "RedisSetRequest", redisbrowser.SetRequest{
+		Key: "k", Type: "string", TTLSeconds: -1, String: "v",
 	})
 }
