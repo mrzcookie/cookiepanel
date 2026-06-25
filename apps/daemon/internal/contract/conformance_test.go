@@ -18,6 +18,7 @@ import (
 	"github.com/cookiepanel/cookied/internal/drive"
 	"github.com/cookiepanel/cookied/internal/filesystem"
 	"github.com/cookiepanel/cookied/internal/firewall"
+	"github.com/cookiepanel/cookied/internal/mongobrowser"
 	"github.com/cookiepanel/cookied/internal/network"
 	"github.com/cookiepanel/cookied/internal/redisbrowser"
 	"github.com/cookiepanel/cookied/internal/server"
@@ -172,5 +173,16 @@ func TestConformance(t *testing.T) {
 	})
 	assertConforms[contract.RedisSetRequest](t, "RedisSetRequest", redisbrowser.SetRequest{
 		Key: "k", Type: "string", TTLSeconds: -1, String: "v",
+	})
+
+	// ── mongo browser ──────────────────────────────────────────────────────────
+	assertConforms[contract.MongoDatabase](t, "MongoDatabase", mongobrowser.Database{
+		Name: "shop", SizeBytes: 4096,
+	})
+	assertConforms[contract.MongoCollection](t, "MongoCollection", mongobrowser.Collection{
+		Name: "orders", Documents: 12, SizeBytes: 2048, Indexes: 1,
+	})
+	assertConforms[contract.MongoDocumentPage](t, "MongoDocumentPage", mongobrowser.DocumentPage{
+		Total: 1, Documents: []mongobrowser.Document{{ID: "o1", JSON: `{"_id":"o1"}`}},
 	})
 }

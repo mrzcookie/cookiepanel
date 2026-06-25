@@ -1030,6 +1030,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/servers/{id}/mongo/databases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mongoDatabases"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/mongo/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mongoCollections"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/mongo/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mongoDocuments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/mongo/insert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mongoInsert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/mongo/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mongoDelete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/mongo/create-collection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mongoCreateCollection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/mongo/drop-collection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mongoDropCollection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/servers/{id}/mongo/drop-database": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mongoDropDatabase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1450,6 +1594,68 @@ export interface components {
             items?: string[];
             members?: components["schemas"]["RedisScoreMember"][];
             entries?: components["schemas"]["RedisStreamEntry"][];
+        };
+        MongoAuth: {
+            username: string;
+            password: string;
+        };
+        MongoDbRequest: {
+            username: string;
+            password: string;
+            db: string;
+        };
+        MongoCollectionRequest: {
+            username: string;
+            password: string;
+            db: string;
+            collection: string;
+        };
+        MongoFindRequest: {
+            username: string;
+            password: string;
+            db: string;
+            collection: string;
+            /** Format: int64 */
+            skip?: number;
+            /** Format: int64 */
+            limit?: number;
+        };
+        MongoInsertRequest: {
+            username: string;
+            password: string;
+            db: string;
+            collection: string;
+            doc: string;
+        };
+        MongoDeleteRequest: {
+            username: string;
+            password: string;
+            db: string;
+            collection: string;
+            id: string;
+        };
+        MongoDatabase: {
+            name: string;
+            /** Format: int64 */
+            sizeBytes: number;
+        };
+        MongoCollection: {
+            name: string;
+            /** Format: int64 */
+            documents: number;
+            /** Format: int64 */
+            sizeBytes: number;
+            /** Format: int64 */
+            indexes: number;
+        };
+        MongoDocument: {
+            id: string;
+            json: string;
+        };
+        MongoDocumentPage: {
+            documents: components["schemas"]["MongoDocument"][];
+            /** Format: int64 */
+            total: number;
         };
     };
     responses: {
@@ -3007,6 +3213,214 @@ export interface operations {
         };
         responses: {
             /** @description Flushed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    mongoDatabases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MongoAuth"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MongoDatabase"][];
+                };
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    mongoCollections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MongoDbRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MongoCollection"][];
+                };
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    mongoDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MongoFindRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MongoDocumentPage"];
+                };
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    mongoInsert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MongoInsertRequest"];
+            };
+        };
+        responses: {
+            /** @description Inserted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["NotFound"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    mongoDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MongoDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    mongoCreateCollection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MongoCollectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    mongoDropCollection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MongoCollectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Dropped */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    mongoDropDatabase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MongoDbRequest"];
+            };
+        };
+        responses: {
+            /** @description Dropped */
             204: {
                 headers: {
                     [name: string]: unknown;

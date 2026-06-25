@@ -228,6 +228,81 @@ type LockBackupRequest struct {
 	Locked bool `json:"locked"`
 }
 
+// MongoAuth defines model for MongoAuth.
+type MongoAuth struct {
+	Password string `json:"password"`
+	Username string `json:"username"`
+}
+
+// MongoCollection defines model for MongoCollection.
+type MongoCollection struct {
+	Documents int64  `json:"documents"`
+	Indexes   int64  `json:"indexes"`
+	Name      string `json:"name"`
+	SizeBytes int64  `json:"sizeBytes"`
+}
+
+// MongoCollectionRequest defines model for MongoCollectionRequest.
+type MongoCollectionRequest struct {
+	Collection string `json:"collection"`
+	Db         string `json:"db"`
+	Password   string `json:"password"`
+	Username   string `json:"username"`
+}
+
+// MongoDatabase defines model for MongoDatabase.
+type MongoDatabase struct {
+	Name      string `json:"name"`
+	SizeBytes int64  `json:"sizeBytes"`
+}
+
+// MongoDbRequest defines model for MongoDbRequest.
+type MongoDbRequest struct {
+	Db       string `json:"db"`
+	Password string `json:"password"`
+	Username string `json:"username"`
+}
+
+// MongoDeleteRequest defines model for MongoDeleteRequest.
+type MongoDeleteRequest struct {
+	Collection string `json:"collection"`
+	Db         string `json:"db"`
+	Id         string `json:"id"`
+	Password   string `json:"password"`
+	Username   string `json:"username"`
+}
+
+// MongoDocument defines model for MongoDocument.
+type MongoDocument struct {
+	Id   string `json:"id"`
+	Json string `json:"json"`
+}
+
+// MongoDocumentPage defines model for MongoDocumentPage.
+type MongoDocumentPage struct {
+	Documents []MongoDocument `json:"documents"`
+	Total     int64           `json:"total"`
+}
+
+// MongoFindRequest defines model for MongoFindRequest.
+type MongoFindRequest struct {
+	Collection string `json:"collection"`
+	Db         string `json:"db"`
+	Limit      *int64 `json:"limit,omitempty"`
+	Password   string `json:"password"`
+	Skip       *int64 `json:"skip,omitempty"`
+	Username   string `json:"username"`
+}
+
+// MongoInsertRequest defines model for MongoInsertRequest.
+type MongoInsertRequest struct {
+	Collection string `json:"collection"`
+	Db         string `json:"db"`
+	Doc        string `json:"doc"`
+	Password   string `json:"password"`
+	Username   string `json:"username"`
+}
+
 // MountDriveRequest defines model for MountDriveRequest.
 type MountDriveRequest struct {
 	Device     string `json:"device"`
@@ -656,6 +731,30 @@ type StartUrlDownloadJSONRequestBody = UrlDownloadRequest
 
 // WriteFileJSONRequestBody defines body for WriteFile for application/json ContentType.
 type WriteFileJSONRequestBody = WriteFileRequest
+
+// MongoCollectionsJSONRequestBody defines body for MongoCollections for application/json ContentType.
+type MongoCollectionsJSONRequestBody = MongoDbRequest
+
+// MongoCreateCollectionJSONRequestBody defines body for MongoCreateCollection for application/json ContentType.
+type MongoCreateCollectionJSONRequestBody = MongoCollectionRequest
+
+// MongoDatabasesJSONRequestBody defines body for MongoDatabases for application/json ContentType.
+type MongoDatabasesJSONRequestBody = MongoAuth
+
+// MongoDeleteJSONRequestBody defines body for MongoDelete for application/json ContentType.
+type MongoDeleteJSONRequestBody = MongoDeleteRequest
+
+// MongoDocumentsJSONRequestBody defines body for MongoDocuments for application/json ContentType.
+type MongoDocumentsJSONRequestBody = MongoFindRequest
+
+// MongoDropCollectionJSONRequestBody defines body for MongoDropCollection for application/json ContentType.
+type MongoDropCollectionJSONRequestBody = MongoCollectionRequest
+
+// MongoDropDatabaseJSONRequestBody defines body for MongoDropDatabase for application/json ContentType.
+type MongoDropDatabaseJSONRequestBody = MongoDbRequest
+
+// MongoInsertJSONRequestBody defines body for MongoInsert for application/json ContentType.
+type MongoInsertJSONRequestBody = MongoInsertRequest
 
 // RedisDeleteJSONRequestBody defines body for RedisDelete for application/json ContentType.
 type RedisDeleteJSONRequestBody = RedisKeyRequest

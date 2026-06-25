@@ -27,6 +27,7 @@ tags:
   - name: schedules
   - name: backups
   - name: redis
+  - name: mongo
 
 paths:
   /system:
@@ -593,6 +594,98 @@ paths:
         "204": { description: Flushed }
         "502": { $ref: "#/components/responses/BadGateway" }
 
+  # ── MongoDB "Browser" add-on ────────────────────────────────────────────────
+  /servers/{id}/mongo/databases:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [mongo]
+      operationId: mongoDatabases
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/MongoAuth" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/MongoDatabase" } } } } }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/mongo/collections:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [mongo]
+      operationId: mongoCollections
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/MongoDbRequest" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/MongoCollection" } } } } }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/mongo/documents:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [mongo]
+      operationId: mongoDocuments
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/MongoFindRequest" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/MongoDocumentPage" } } } }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/mongo/insert:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [mongo]
+      operationId: mongoInsert
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/MongoInsertRequest" } } }
+      responses:
+        "204": { description: Inserted }
+        "400": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/mongo/delete:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [mongo]
+      operationId: mongoDelete
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/MongoDeleteRequest" } } }
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/mongo/create-collection:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [mongo]
+      operationId: mongoCreateCollection
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/MongoCollectionRequest" } } }
+      responses:
+        "204": { description: Created }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/mongo/drop-collection:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [mongo]
+      operationId: mongoDropCollection
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/MongoCollectionRequest" } } }
+      responses:
+        "204": { description: Dropped }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /servers/{id}/mongo/drop-database:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [mongo]
+      operationId: mongoDropDatabase
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/MongoDbRequest" } } }
+      responses:
+        "204": { description: Dropped }
+        "502": { $ref: "#/components/responses/BadGateway" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1112,3 +1205,80 @@ components:
         items: { type: array, items: { type: string } }
         members: { type: array, items: { $ref: "#/components/schemas/RedisScoreMember" } }
         entries: { type: array, items: { $ref: "#/components/schemas/RedisStreamEntry" } }
+
+    # ── Mongo browser ─────────────────────────────────────────────────────────
+    MongoAuth:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string }
+        password: { type: string }
+    MongoDbRequest:
+      type: object
+      required: [username, password, db]
+      properties:
+        username: { type: string }
+        password: { type: string }
+        db: { type: string }
+    MongoCollectionRequest:
+      type: object
+      required: [username, password, db, collection]
+      properties:
+        username: { type: string }
+        password: { type: string }
+        db: { type: string }
+        collection: { type: string }
+    MongoFindRequest:
+      type: object
+      required: [username, password, db, collection]
+      properties:
+        username: { type: string }
+        password: { type: string }
+        db: { type: string }
+        collection: { type: string }
+        skip: { type: integer, format: int64 }
+        limit: { type: integer, format: int64 }
+    MongoInsertRequest:
+      type: object
+      required: [username, password, db, collection, doc]
+      properties:
+        username: { type: string }
+        password: { type: string }
+        db: { type: string }
+        collection: { type: string }
+        doc: { type: string }
+    MongoDeleteRequest:
+      type: object
+      required: [username, password, db, collection, id]
+      properties:
+        username: { type: string }
+        password: { type: string }
+        db: { type: string }
+        collection: { type: string }
+        id: { type: string }
+    MongoDatabase:
+      type: object
+      required: [name, sizeBytes]
+      properties:
+        name: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+    MongoCollection:
+      type: object
+      required: [name, documents, sizeBytes, indexes]
+      properties:
+        name: { type: string }
+        documents: { type: integer, format: int64 }
+        sizeBytes: { type: integer, format: int64 }
+        indexes: { type: integer, format: int64 }
+    MongoDocument:
+      type: object
+      required: [id, json]
+      properties:
+        id: { type: string }
+        json: { type: string }
+    MongoDocumentPage:
+      type: object
+      required: [documents, total]
+      properties:
+        documents: { type: array, items: { $ref: "#/components/schemas/MongoDocument" } }
+        total: { type: integer, format: int64 }

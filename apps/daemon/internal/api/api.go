@@ -32,6 +32,7 @@ import (
 	"github.com/cookiepanel/cookied/internal/drive"
 	"github.com/cookiepanel/cookied/internal/filesystem"
 	"github.com/cookiepanel/cookied/internal/firewall"
+	"github.com/cookiepanel/cookied/internal/mongobrowser"
 	"github.com/cookiepanel/cookied/internal/network"
 	"github.com/cookiepanel/cookied/internal/redisbrowser"
 	"github.com/cookiepanel/cookied/internal/scheduler"
@@ -210,6 +211,14 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/servers/{id}/redis/rename", s.handleRedisRename)
 	mux.HandleFunc("POST /api/v1/servers/{id}/redis/ttl", s.handleRedisTTL)
 	mux.HandleFunc("POST /api/v1/servers/{id}/redis/flush", s.handleRedisFlush)
+	mux.HandleFunc("POST /api/v1/servers/{id}/mongo/databases", s.handleMongoDatabases)
+	mux.HandleFunc("POST /api/v1/servers/{id}/mongo/collections", s.handleMongoCollections)
+	mux.HandleFunc("POST /api/v1/servers/{id}/mongo/documents", s.handleMongoDocuments)
+	mux.HandleFunc("POST /api/v1/servers/{id}/mongo/insert", s.handleMongoInsert)
+	mux.HandleFunc("POST /api/v1/servers/{id}/mongo/delete", s.handleMongoDelete)
+	mux.HandleFunc("POST /api/v1/servers/{id}/mongo/create-collection", s.handleMongoCreateCollection)
+	mux.HandleFunc("POST /api/v1/servers/{id}/mongo/drop-collection", s.handleMongoDropCollection)
+	mux.HandleFunc("POST /api/v1/servers/{id}/mongo/drop-database", s.handleMongoDropDatabase)
 	mux.HandleFunc("GET /api/v1/servers/{id}/files/trash", s.handleTrashList)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/restore", s.handleTrashRestore)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/delete", s.handleTrashDelete)
@@ -1110,6 +1119,120 @@ func (s *Server) writeRedisErr(w http.ResponseWriter, err error) {
 		writeJSONError(w, http.StatusBadRequest, err)
 	default:
 		// A connection/auth failure to the instance — surface it for the panel toast.
+		writeJSONError(w, http.StatusBadGateway, err)
+	}
+}
+
+// ─── mongo browser ───────────────────────────────────────────────────────────
+//
+// Same posture as the redis browser: the panel passes the admin user + password
+// in the body, the daemon resolves the container's published 27017 itself and
+// connects to 127.0.0.1:<hostPort>.
+
+func (s *Server) mongoConn(ctx context.Context, serverID, user, password string) (mongobrowser.Conn, error) {
+	port, err := s.dockerClient.PublishedTCPPort(ctx, serverID, 27017)
+	if err != nil {
+		return mongobrowser.Conn{}, err
+	}
+	return mongobrowser.Conn{
+		Addr:     fmt.Sprintf("127.0.0.1:%d", port),
+		Username: user,
+		Password: password,
+	}, nil
+}
+
+type mongoBody struct {
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	DB         string `json:"db,omitempty"`
+	Collection string `json:"collection,omitempty"`
+	Skip       int64  `json:"skip,omitempty"`
+	Limit      int64  `json:"limit,omitempty"`
+	ID         string `json:"id,omitempty"`
+	Doc        string `json:"doc,omitempty"`
+}
+
+func (s *Server) withMongo(w http.ResponseWriter, r *http.Request, fn func(context.Context, mongobrowser.Conn, mongoBody) (any, int, error)) {
+	var body mongoBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("decode: %w", err))
+		return
+	}
+	conn, err := s.mongoConn(r.Context(), r.PathValue("id"), body.Username, body.Password)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+	result, status, err := fn(r.Context(), conn, body)
+	if err != nil {
+		s.writeMongoErr(w, err)
+		return
+	}
+	if status == http.StatusNoContent {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	writeJSON(w, status, result)
+}
+
+func (s *Server) handleMongoDatabases(w http.ResponseWriter, r *http.Request) {
+	s.withMongo(w, r, func(ctx context.Context, conn mongobrowser.Conn, _ mongoBody) (any, int, error) {
+		list, err := mongobrowser.ListDatabases(ctx, conn)
+		return list, http.StatusOK, err
+	})
+}
+
+func (s *Server) handleMongoCollections(w http.ResponseWriter, r *http.Request) {
+	s.withMongo(w, r, func(ctx context.Context, conn mongobrowser.Conn, b mongoBody) (any, int, error) {
+		list, err := mongobrowser.ListCollections(ctx, conn, b.DB)
+		return list, http.StatusOK, err
+	})
+}
+
+func (s *Server) handleMongoDocuments(w http.ResponseWriter, r *http.Request) {
+	s.withMongo(w, r, func(ctx context.Context, conn mongobrowser.Conn, b mongoBody) (any, int, error) {
+		page, err := mongobrowser.FindDocuments(ctx, conn, b.DB, b.Collection, b.Skip, b.Limit)
+		return page, http.StatusOK, err
+	})
+}
+
+func (s *Server) handleMongoInsert(w http.ResponseWriter, r *http.Request) {
+	s.withMongo(w, r, func(ctx context.Context, conn mongobrowser.Conn, b mongoBody) (any, int, error) {
+		return nil, http.StatusNoContent, mongobrowser.InsertDocument(ctx, conn, b.DB, b.Collection, b.Doc)
+	})
+}
+
+func (s *Server) handleMongoDelete(w http.ResponseWriter, r *http.Request) {
+	s.withMongo(w, r, func(ctx context.Context, conn mongobrowser.Conn, b mongoBody) (any, int, error) {
+		return nil, http.StatusNoContent, mongobrowser.DeleteDocument(ctx, conn, b.DB, b.Collection, b.ID)
+	})
+}
+
+func (s *Server) handleMongoCreateCollection(w http.ResponseWriter, r *http.Request) {
+	s.withMongo(w, r, func(ctx context.Context, conn mongobrowser.Conn, b mongoBody) (any, int, error) {
+		return nil, http.StatusNoContent, mongobrowser.CreateCollection(ctx, conn, b.DB, b.Collection)
+	})
+}
+
+func (s *Server) handleMongoDropCollection(w http.ResponseWriter, r *http.Request) {
+	s.withMongo(w, r, func(ctx context.Context, conn mongobrowser.Conn, b mongoBody) (any, int, error) {
+		return nil, http.StatusNoContent, mongobrowser.DropCollection(ctx, conn, b.DB, b.Collection)
+	})
+}
+
+func (s *Server) handleMongoDropDatabase(w http.ResponseWriter, r *http.Request) {
+	s.withMongo(w, r, func(ctx context.Context, conn mongobrowser.Conn, b mongoBody) (any, int, error) {
+		return nil, http.StatusNoContent, mongobrowser.DropDatabase(ctx, conn, b.DB)
+	})
+}
+
+func (s *Server) writeMongoErr(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, mongobrowser.ErrNotFound):
+		writeJSONError(w, http.StatusNotFound, err)
+	case errors.Is(err, mongobrowser.ErrInvalid):
+		writeJSONError(w, http.StatusBadRequest, err)
+	default:
 		writeJSONError(w, http.StatusBadGateway, err)
 	}
 }
