@@ -1,0 +1,19 @@
+{
+	"name": "@cookiepanel/contract",
+	"version": "0.0.0",
+	"private": true,
+	"description": "The panel↔daemon HTTPS API contract: one OpenAPI spec, codegen'd to TypeScript (panel) + Go (daemon).",
+	"type": "module",
+	"exports": {
+		".": "./gen/contract.ts"
+	},
+	"types": "./gen/contract.ts",
+	"scripts": {
+		"generate": "pnpm generate:ts && pnpm generate:go",
+		"generate:ts": "openapi-typescript openapi.yaml -o gen/contract.ts",
+		"generate:go": "go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.4.1 -config oapi-codegen.yaml openapi.yaml"
+	},
+	"devDependencies": {
+		"openapi-typescript": "^7.13.0"
+	}
+}

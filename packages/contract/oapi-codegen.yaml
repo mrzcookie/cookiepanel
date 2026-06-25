@@ -1,0 +1,12 @@
+# oapi-codegen config: generate Go models for the daemon from the OpenAPI spec.
+# Types only (the daemon keeps its own hand-written server/handlers; the generated
+# types are the wire contract its types are asserted to conform to). Emitted into
+# the daemon module so it imports `.../internal/contract`.
+package: contract
+output: ../../apps/daemon/internal/contract/contract.gen.go
+generate:
+  models: true
+output-options:
+  # Keep every component schema even when no operation references it directly, so
+  # the conformance assertions can reach all of them.
+  skip-prune: true

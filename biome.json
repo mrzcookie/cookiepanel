@@ -19,6 +19,7 @@
 			"!**/.tanstack",
 			"!**/dist",
 			"!apps/daemon",
+			"!packages/contract/gen",
 			"!**/src/server/db/migrations"
 		],
 		"ignoreUnknown": false

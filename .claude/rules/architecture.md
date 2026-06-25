@@ -88,24 +88,40 @@ per node and then pinned.
 
 ## The shared contract (so the halves never drift)
 
-The panel↔daemon API is defined **once** as an OpenAPI spec in a contract
-package. Code generation produces typed bindings for **both** sides from that
-one spec:
+The panel↔daemon API is defined **once** as an OpenAPI spec in the
+`@cookiepanel/contract` package (`packages/contract/openapi.yaml`). Code
+generation produces typed bindings for **both** sides:
 
-- **TypeScript types** for the panel.
-- **Go types (and client)** for the daemon.
+- **TypeScript types** (`openapi-typescript`) the panel imports as
+  `@cookiepanel/contract`.
+- **Go types** (`oapi-codegen`, models-only) the daemon imports as
+  `internal/contract`.
 
-CI regenerates and fails on any diff, so a change to the API is a change to the
-spec — the two languages can't fall out of sync. The workflow to evolve the API:
-edit the spec, regenerate, commit the spec (generated artifacts are gitignored),
-let CI verify.
+Generated bindings are **committed** (not gitignored) so a fresh checkout builds,
+type-checks, and runs conformance without a generate step. Two layers keep the
+halves honest:
 
-The contract covers the full surface: system/stats, servers/containers, files,
-networks, firewall, schedules, backups, and the console WebSocket.
+1. **Conformance.** Each side keeps its own hand-written wire types (the daemon's
+   domain structs, the panel's `daemon-client` types) and **asserts they conform**
+   to the generated ones — a Go JSON round-trip test
+   (`internal/contract/conformance_test.go`) and TS `Expect<Equal<…>>` assertions
+   (`src/server/contract/conformance.ts`). These run in the normal `go test` /
+   `tsc`, so a struct that drifts from the spec fails the build.
+2. **Drift check.** A CI job regenerates from the spec and fails if the committed
+   bindings are stale (`git diff --exit-code`).
 
-> The earlier `../cookiepanel-old` had this contract package but had only
-> formalized a few routes in the spec (the rest were hand-written on both
-> sides). Re-deriving the full route table into the spec is the intended path.
+So the workflow to evolve the API is: edit `openapi.yaml`, run
+`pnpm --filter @cookiepanel/contract generate`, reconcile the hand-written types
+until conformance passes, and commit the spec **and** the regenerated output.
+
+The contract covers the full panel→daemon surface: system, servers, networks,
+firewall, drives, files, sftp, schedules, backups. The console WebSocket is
+intentionally **not** modelled — it isn't request/response shaped.
+
+> The hand-written types were deliberately **kept** (not replaced by the generated
+> ones) — conformance gives the anti-drift guarantee without a risky full
+> migration. Swapping each side to consume the generated types directly is
+> available as incremental follow-up.
 
 ## Panel-side note
 

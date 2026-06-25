@@ -1,0 +1,889 @@
+openapi: 3.0.3
+info:
+  title: CookiePanel panel↔daemon API
+  version: 1.0.0
+  description: >
+    The HTTPS API the panel calls on each box's `cookied`. This spec is the single
+    source of truth for the wire format: TypeScript types (panel) and Go types
+    (daemon) are generated from it, and each side asserts its hand-written types
+    conform. Auth is `Authorization: Bearer <node_key>` over TLS on every route.
+    The console WebSocket (`GET /api/servers/{id}/ws`, JWT query param) is not
+    modelled here — it isn't request/response shaped.
+
+servers:
+  - url: /api/v1
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: system
+  - name: servers
+  - name: networks
+  - name: firewall
+  - name: drives
+  - name: files
+  - name: sftp
+  - name: schedules
+  - name: backups
+
+paths:
+  /system:
+    get:
+      tags: [system]
+      operationId: getSystem
+      summary: Daemon + docker + host summary
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { $ref: "#/components/schemas/System" } } }
+  /system/host:
+    get:
+      tags: [system]
+      operationId: getSystemHost
+      summary: Slow-changing host info
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { $ref: "#/components/schemas/HostInfo" } } }
+  /system/stats:
+    get:
+      tags: [system]
+      operationId: getSystemStats
+      summary: Live host utilization
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { $ref: "#/components/schemas/Stats" } } }
+  /system/reboot:
+    post:
+      tags: [system]
+      operationId: reboot
+      summary: Reboot the host
+      responses:
+        "202": { description: Rebooting, content: { application/json: { schema: { $ref: "#/components/schemas/StatusResponse" } } } }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /system/prune:
+    post:
+      tags: [system]
+      operationId: prune
+      summary: Free disk (dangling images + build cache)
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { $ref: "#/components/schemas/PruneResult" } } }
+  /system/restart-daemon:
+    post:
+      tags: [system]
+      operationId: restartDaemon
+      summary: Restart the daemon (systemd)
+      responses:
+        "202": { description: Restarting, content: { application/json: { schema: { $ref: "#/components/schemas/StatusResponse" } } } }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /system/update-daemon:
+    post:
+      tags: [system]
+      operationId: updateDaemon
+      summary: Download + verify + swap the daemon binary, then restart
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/UpdateDaemonRequest" } } }
+      responses:
+        "202": { description: Updating, content: { application/json: { schema: { $ref: "#/components/schemas/StatusResponse" } } } }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+
+  /servers:
+    get:
+      tags: [servers]
+      operationId: listServers
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Server" } } } }
+    post:
+      tags: [servers]
+      operationId: createServer
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/CreateServerRequest" } } }
+      responses:
+        "201":
+          description: Created
+          content: { application/json: { schema: { $ref: "#/components/schemas/Server" } } }
+  /servers/{id}:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    get:
+      tags: [servers]
+      operationId: getServer
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Server" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [servers]
+      operationId: deleteServer
+      responses: { "204": { description: Deleted } }
+  /servers/{id}/start:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [servers]
+      operationId: startServer
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Server" } } } }
+  /servers/{id}/stop:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [servers]
+      operationId: stopServer
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Server" } } } }
+  /servers/{id}/restart:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [servers]
+      operationId: restartServer
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Server" } } } }
+  /servers/{id}/command:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [servers]
+      operationId: sendServerCommand
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ServerCommandRequest" } } }
+      responses: { "204": { description: Sent } }
+
+  /networks:
+    get:
+      tags: [networks]
+      operationId: listNetworks
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Network" } } } }
+    post:
+      tags: [networks]
+      operationId: createNetwork
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/CreateNetworkRequest" } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Network" } } } }
+  /networks/{id}:
+    parameters: [{ $ref: "#/components/parameters/NetworkId" }]
+    delete:
+      tags: [networks]
+      operationId: deleteNetwork
+      responses: { "204": { description: Deleted } }
+  /networks/{id}/attach:
+    parameters: [{ $ref: "#/components/parameters/NetworkId" }]
+    post:
+      tags: [networks]
+      operationId: attachNetwork
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/AttachRequest" } } }
+      responses: { "204": { description: Attached } }
+  /networks/{id}/detach:
+    parameters: [{ $ref: "#/components/parameters/NetworkId" }]
+    post:
+      tags: [networks]
+      operationId: detachNetwork
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/AttachRequest" } } }
+      responses: { "204": { description: Detached } }
+
+  /firewall:
+    get:
+      tags: [firewall]
+      operationId: getFirewall
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/FirewallStatus" } } } }
+  /firewall/open:
+    post:
+      tags: [firewall]
+      operationId: openFirewallPort
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/FirewallRule" } } }
+      responses:
+        "204": { description: Opened }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+  /firewall/close:
+    post:
+      tags: [firewall]
+      operationId: closeFirewallPort
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/FirewallRule" } } }
+      responses:
+        "204": { description: Closed }
+        "501": { $ref: "#/components/responses/NotImplemented" }
+
+  /drives:
+    get:
+      tags: [drives]
+      operationId: listDrives
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Drive" } } } }
+  /drives/format:
+    post:
+      tags: [drives]
+      operationId: formatDrive
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/FormatDriveRequest" } } }
+      responses: { "204": { description: Formatted }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "501": { $ref: "#/components/responses/NotImplemented" } }
+  /drives/mount:
+    post:
+      tags: [drives]
+      operationId: mountDrive
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/MountDriveRequest" } } }
+      responses: { "204": { description: Mounted }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "501": { $ref: "#/components/responses/NotImplemented" } }
+  /drives/unmount:
+    post:
+      tags: [drives]
+      operationId: unmountDrive
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/DeviceRequest" } } }
+      responses: { "204": { description: Unmounted }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "501": { $ref: "#/components/responses/NotImplemented" } }
+  /drives/data-target:
+    post:
+      tags: [drives]
+      operationId: setDataTarget
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/DeviceRequest" } } }
+      responses: { "204": { description: Set }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "501": { $ref: "#/components/responses/NotImplemented" } }
+
+  /servers/{id}/files/list:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }, { $ref: "#/components/parameters/PathQuery" }]
+    get:
+      tags: [files]
+      operationId: listFiles
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/FileEntry" } } } }
+  /servers/{id}/files/read:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }, { $ref: "#/components/parameters/PathQuery" }]
+    get:
+      tags: [files]
+      operationId: readFile
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/FileContent" } } } }
+  /servers/{id}/files/write:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [files]
+      operationId: writeFile
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/WriteFileRequest" } } }
+      responses: { "204": { description: Written } }
+  /servers/{id}/files/mkdir:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [files]
+      operationId: mkdir
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/PathRequest" } } }
+      responses: { "204": { description: Created } }
+  /servers/{id}/files/rename:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [files]
+      operationId: renameFile
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RenameRequest" } } }
+      responses: { "204": { description: Renamed } }
+  /servers/{id}/files/delete:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [files]
+      operationId: deleteFile
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/PathRequest" } } }
+      responses: { "204": { description: Trashed } }
+  /servers/{id}/files/download:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }, { $ref: "#/components/parameters/PathQuery" }]
+    get:
+      tags: [files]
+      operationId: downloadFile
+      responses:
+        "200": { description: File bytes, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+  /servers/{id}/files/upload:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }, { $ref: "#/components/parameters/PathQuery" }]
+    post:
+      tags: [files]
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content: { application/octet-stream: { schema: { type: string, format: binary } } }
+      responses: { "204": { description: Uploaded } }
+  /servers/{id}/files/url-download:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [files]
+      operationId: startUrlDownload
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/UrlDownloadRequest" } } }
+      responses:
+        "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/JobAccepted" } } } }
+  /servers/{id}/files/url-download/{jobId}:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }, { $ref: "#/components/parameters/JobId" }]
+    get:
+      tags: [files]
+      operationId: getUrlDownload
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/DownloadJob" } } } }
+  /servers/{id}/files/archive:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [files]
+      operationId: archiveFiles
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ArchiveRequest" } } }
+      responses: { "204": { description: Archived } }
+  /servers/{id}/files/extract:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [files]
+      operationId: extractFile
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ExtractRequest" } } }
+      responses: { "204": { description: Extracted } }
+  /servers/{id}/files/trash:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    get:
+      tags: [files]
+      operationId: listTrash
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/TrashEntry" } } } }
+  /servers/{id}/files/trash/restore:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [files]
+      operationId: restoreTrash
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/TrashIdRequest" } } }
+      responses: { "204": { description: Restored } }
+  /servers/{id}/files/trash/delete:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [files]
+      operationId: deleteTrash
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/TrashIdRequest" } } }
+      responses: { "204": { description: Deleted } }
+  /servers/{id}/files/trash/empty:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [files]
+      operationId: emptyTrash
+      responses: { "204": { description: Emptied } }
+  /servers/{id}/files/trash/purge:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [files]
+      operationId: purgeTrash
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/TrashPurgeRequest" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/PurgeResult" } } } }
+
+  /servers/{id}/sftp:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    get:
+      tags: [sftp]
+      operationId: getSftp
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/SftpStatusResponse" } } } }
+    post:
+      tags: [sftp]
+      operationId: mintSftp
+      responses:
+        "201": { description: Minted, content: { application/json: { schema: { $ref: "#/components/schemas/SftpMintResponse" } } } }
+    delete:
+      tags: [sftp]
+      operationId: revokeSftp
+      responses: { "204": { description: Revoked } }
+
+  /schedules:
+    get:
+      tags: [schedules]
+      operationId: listSchedules
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Schedule" } } } }
+    post:
+      tags: [schedules]
+      operationId: upsertSchedule
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/Schedule" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Schedule" } } } }
+  /schedules/{id}:
+    parameters: [{ $ref: "#/components/parameters/ScheduleId" }]
+    delete:
+      tags: [schedules]
+      operationId: deleteSchedule
+      responses: { "204": { description: Deleted } }
+  /schedules/{id}/run:
+    parameters: [{ $ref: "#/components/parameters/ScheduleId" }]
+    post:
+      tags: [schedules]
+      operationId: runSchedule
+      responses: { "204": { description: Ran } }
+
+  /servers/{id}/backups:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    get:
+      tags: [backups]
+      operationId: listBackups
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Backup" } } } }
+    post:
+      tags: [backups]
+      operationId: createBackup
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/CreateBackupRequest" } } }
+      responses:
+        "202": { description: Creating, content: { application/json: { schema: { $ref: "#/components/schemas/Backup" } } } }
+  /servers/{id}/backups/restore:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }]
+    post:
+      tags: [backups]
+      operationId: restoreBackup
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RestoreBackupRequest" } } }
+      responses: { "204": { description: Restored } }
+  /servers/{id}/backups/{archive}/lock:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }, { $ref: "#/components/parameters/Archive" }]
+    post:
+      tags: [backups]
+      operationId: lockBackup
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/LockBackupRequest" } } }
+      responses: { "204": { description: Set } }
+  /servers/{id}/backups/{archive}:
+    parameters: [{ $ref: "#/components/parameters/ServerId" }, { $ref: "#/components/parameters/Archive" }]
+    delete:
+      tags: [backups]
+      operationId: deleteBackup
+      responses:
+        "204": { description: Deleted }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: The per-node key the panel mints at enrollment.
+
+  parameters:
+    ServerId: { name: id, in: path, required: true, schema: { type: string } }
+    NetworkId: { name: id, in: path, required: true, schema: { type: string } }
+    ScheduleId: { name: id, in: path, required: true, schema: { type: string } }
+    JobId: { name: jobId, in: path, required: true, schema: { type: string } }
+    Archive: { name: archive, in: path, required: true, schema: { type: string } }
+    PathQuery: { name: path, in: query, required: true, schema: { type: string } }
+
+  responses:
+    NotFound:
+      description: Not found
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Forbidden:
+      description: Forbidden
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Conflict:
+      description: Conflict
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    NotImplemented:
+      description: Not supported on this host
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+    StatusResponse:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+    FileContent:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string }
+    JobAccepted:
+      type: object
+      required: [jobId]
+      properties:
+        jobId: { type: string }
+    PurgeResult:
+      type: object
+      required: [purged]
+      properties:
+        purged: { type: integer }
+
+    DockerInfo:
+      type: object
+      required: [available, containers, running, images]
+      properties:
+        available: { type: boolean }
+        serverVersion: { type: string }
+        containers: { type: integer }
+        running: { type: integer }
+        images: { type: integer }
+        error: { type: string }
+    System:
+      type: object
+      required: [nodeId, daemonVersion, daemonStartedAt, uptimeSeconds, system, docker]
+      properties:
+        nodeId: { type: string }
+        daemonVersion: { type: string }
+        daemonStartedAt: { type: string, format: date-time }
+        uptimeSeconds: { type: integer, format: int64 }
+        system: { type: object, additionalProperties: true }
+        docker: { $ref: "#/components/schemas/DockerInfo" }
+    HostInfo:
+      type: object
+      required: [hostname, os, platform, platformVersion, kernel, arch, cpuModel, cpuCount, memTotalBytes, uptimeSeconds]
+      properties:
+        hostname: { type: string }
+        os: { type: string }
+        platform: { type: string }
+        platformVersion: { type: string }
+        kernel: { type: string }
+        arch: { type: string }
+        cpuModel: { type: string }
+        cpuCount: { type: integer }
+        memTotalBytes: { type: integer, format: int64 }
+        uptimeSeconds: { type: integer, format: int64 }
+    Stats:
+      type: object
+      required: [cpuPct, memUsedBytes, memTotalBytes, diskUsedBytes, diskTotalBytes, load1, load5, load15]
+      properties:
+        cpuPct: { type: number, format: double }
+        memUsedBytes: { type: integer, format: int64 }
+        memTotalBytes: { type: integer, format: int64 }
+        diskUsedBytes: { type: integer, format: int64 }
+        diskTotalBytes: { type: integer, format: int64 }
+        load1: { type: number, format: double }
+        load5: { type: number, format: double }
+        load15: { type: number, format: double }
+    PruneResult:
+      type: object
+      required: [imagesDeleted, spaceReclaimedBytes]
+      properties:
+        imagesDeleted: { type: integer }
+        spaceReclaimedBytes: { type: integer, format: int64 }
+    UpdateDaemonRequest:
+      type: object
+      required: [url, sha256]
+      properties:
+        url: { type: string }
+        sha256: { type: string }
+
+    Server:
+      type: object
+      required: [serverId, name, containerId, image, state, status]
+      properties:
+        serverId: { type: string }
+        name: { type: string }
+        containerId: { type: string }
+        image: { type: string }
+        state: { type: string }
+        status: { type: string }
+        error: { type: string }
+    PortBinding:
+      type: object
+      required: [hostIp, hostPort, containerPort]
+      properties:
+        hostIp: { type: string }
+        hostPort: { type: integer }
+        containerPort: { type: integer }
+        protocol: { type: string }
+    InstallSpec:
+      type: object
+      required: [image, script]
+      properties:
+        image: { type: string }
+        entrypoint: { type: string }
+        script: { type: string }
+        env: { type: object, additionalProperties: { type: string } }
+    ConfigFile:
+      type: object
+      required: [file, parser, replace]
+      properties:
+        file: { type: string }
+        parser: { type: string }
+        replace: { type: object, additionalProperties: { type: string } }
+    CreateServerRequest:
+      type: object
+      required: [serverId, name, image]
+      properties:
+        serverId: { type: string }
+        name: { type: string }
+        image: { type: string }
+        startupCommand: { type: string }
+        env: { type: object, additionalProperties: { type: string } }
+        nanoCpus: { type: integer, format: int64 }
+        memoryMb: { type: integer }
+        diskMb: { type: integer }
+        stopSignal: { type: string }
+        portBinding: { $ref: "#/components/schemas/PortBinding" }
+        install: { $ref: "#/components/schemas/InstallSpec" }
+        configFiles: { type: array, items: { $ref: "#/components/schemas/ConfigFile" } }
+    ServerCommandRequest:
+      type: object
+      required: [command]
+      properties:
+        command: { type: string }
+
+    Network:
+      type: object
+      required: [id, networkId, name, driver]
+      properties:
+        id: { type: string }
+        networkId: { type: string }
+        name: { type: string }
+        driver: { type: string }
+        subnet: { type: string }
+        gateway: { type: string }
+    CreateNetworkRequest:
+      type: object
+      required: [networkId, name]
+      properties:
+        networkId: { type: string }
+        name: { type: string }
+        driver: { type: string }
+        subnet: { type: string }
+        gateway: { type: string }
+    AttachRequest:
+      type: object
+      required: [serverId]
+      properties:
+        serverId: { type: string }
+
+    FirewallRule:
+      type: object
+      required: [port, protocol]
+      properties:
+        port: { type: integer }
+        protocol: { type: string }
+    FirewallStatus:
+      type: object
+      required: [backend, active, rules]
+      properties:
+        backend: { type: string }
+        active: { type: boolean }
+        rules: { type: array, items: { $ref: "#/components/schemas/FirewallRule" } }
+
+    Drive:
+      type: object
+      required: [device, model, sizeBytes, usedBytes, filesystem, mountpoint, isDataTarget, system]
+      properties:
+        device: { type: string }
+        model: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        usedBytes: { type: integer, format: int64, nullable: true }
+        filesystem: { type: string }
+        mountpoint: { type: string }
+        isDataTarget: { type: boolean }
+        system: { type: boolean }
+    FormatDriveRequest:
+      type: object
+      required: [device, filesystem, mountpoint]
+      properties:
+        device: { type: string }
+        filesystem: { type: string }
+        mountpoint: { type: string }
+    MountDriveRequest:
+      type: object
+      required: [device, mountpoint]
+      properties:
+        device: { type: string }
+        mountpoint: { type: string }
+    DeviceRequest:
+      type: object
+      required: [device]
+      properties:
+        device: { type: string }
+
+    FileEntry:
+      type: object
+      required: [name, path, type, size, mode, modTime]
+      properties:
+        name: { type: string }
+        path: { type: string }
+        type: { type: string, enum: [file, dir, symlink] }
+        size: { type: integer, format: int64 }
+        mode: { type: string }
+        modTime: { type: string, format: date-time }
+    TrashEntry:
+      type: object
+      required: [id, name, originalPath, type, size, deletedAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        originalPath: { type: string }
+        type: { type: string, enum: [file, dir, symlink] }
+        size: { type: integer, format: int64 }
+        deletedAt: { type: string, format: date-time }
+    DownloadJob:
+      type: object
+      required: [id, serverId, path, url, total, done, state, startedAt, updatedAt]
+      properties:
+        id: { type: string }
+        serverId: { type: string }
+        path: { type: string }
+        url: { type: string }
+        total: { type: integer, format: int64 }
+        done: { type: integer, format: int64 }
+        state: { type: string, enum: [running, done, error, cancelled] }
+        error: { type: string }
+        startedAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    WriteFileRequest:
+      type: object
+      required: [path, content]
+      properties:
+        path: { type: string }
+        content: { type: string }
+    PathRequest:
+      type: object
+      required: [path]
+      properties:
+        path: { type: string }
+    RenameRequest:
+      type: object
+      required: [from, to]
+      properties:
+        from: { type: string }
+        to: { type: string }
+    UrlDownloadRequest:
+      type: object
+      required: [path, url]
+      properties:
+        path: { type: string }
+        url: { type: string }
+    ArchiveRequest:
+      type: object
+      required: [paths, dest, format]
+      properties:
+        paths: { type: array, items: { type: string } }
+        dest: { type: string }
+        format: { type: string }
+    ExtractRequest:
+      type: object
+      required: [path, dest]
+      properties:
+        path: { type: string }
+        dest: { type: string }
+    TrashIdRequest:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+    TrashPurgeRequest:
+      type: object
+      required: [maxAgeSeconds]
+      properties:
+        maxAgeSeconds: { type: integer, format: int64 }
+
+    SftpMintResponse:
+      type: object
+      required: [username, password, expiresAt, port]
+      properties:
+        username: { type: string }
+        password: { type: string }
+        expiresAt: { type: string, format: date-time }
+        port: { type: integer }
+    SftpStatusResponse:
+      type: object
+      required: [active, port]
+      properties:
+        active: { type: boolean }
+        username: { type: string }
+        expiresAt: { type: string, format: date-time }
+        port: { type: integer }
+
+    ScheduleStep:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string }
+        command: { type: string }
+        seconds: { type: integer }
+        power: { type: string }
+    Schedule:
+      type: object
+      required: [id, serverId, name, cron, steps, enabled]
+      properties:
+        id: { type: string }
+        serverId: { type: string }
+        name: { type: string }
+        cron: { type: string }
+        steps: { type: array, items: { $ref: "#/components/schemas/ScheduleStep" } }
+        enabled: { type: boolean }
+        lastRunAt: { type: string, format: date-time }
+        lastError: { type: string }
+        lastStatus: { type: string }
+
+    Backup:
+      type: object
+      required: [archive, serverId, name, sizeBytes, status, locked, createdAt]
+      properties:
+        archive: { type: string }
+        serverId: { type: string }
+        name: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        status: { type: string }
+        error: { type: string }
+        locked: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    CreateBackupRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+    RestoreBackupRequest:
+      type: object
+      required: [archive]
+      properties:
+        archive: { type: string }
+    LockBackupRequest:
+      type: object
+      required: [locked]
+      properties:
+        locked: { type: boolean }

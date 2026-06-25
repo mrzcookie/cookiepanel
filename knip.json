@@ -11,7 +11,7 @@
 		"tw-animate-css",
 		"lefthook"
 	],
-	"ignoreWorkspaces": ["apps/daemon"],
+	"ignoreWorkspaces": ["apps/daemon", "packages/contract"],
 	"workspaces": {
 		"apps/panel": {
 			"entry": [
@@ -25,7 +25,8 @@
 				"src/server/activity/index.ts",
 				"src/server/storage/index.ts",
 				"src/server/user/index.ts",
-				"src/lib/auth-client.ts"
+				"src/lib/auth-client.ts",
+				"src/server/contract/conformance.ts"
 			],
 			"project": ["src/**/*.{ts,tsx}", "!src/routeTree.gen.ts"]
 		}

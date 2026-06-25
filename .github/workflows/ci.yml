@@ -15,6 +15,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  contract:
+    name: Contract — generated bindings in sync with the spec
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/daemon/go.mod
+          cache-dependency-path: apps/daemon/go.sum
+      - run: pnpm install --frozen-lockfile
+      # Regenerate from openapi.yaml; the committed bindings must match. (The
+      # conformance assertions themselves run in the panel typecheck + daemon
+      # `go test` jobs.)
+      - run: pnpm --filter @cookiepanel/contract generate
+      - name: committed bindings match the spec
+        run: |
+          if ! git diff --exit-code -- packages/contract/gen apps/daemon/internal/contract/contract.gen.go; then
+            echo "::error::Generated contract bindings are stale. Run: pnpm --filter @cookiepanel/contract generate"
+            exit 1
+          fi
+
   panel:
     name: Panel — lint, typecheck, build
     runs-on: ubuntu-latest
