@@ -4,14 +4,26 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+# A newer push to the same ref supersedes an in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   panel:
     name: Panel — lint, typecheck, build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # The build evaluates server/env.ts (t3-env, eager validation). CI has no
+      # DB/auth secrets and doesn't need them to type-check or bundle — the env
+      # module's documented escape hatch skips validation for build/CI.
+      SKIP_ENV_VALIDATION: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -26,7 +38,11 @@ jobs:
 
   daemon:
     name: Daemon — fmt, vet, test, build
+    # Linux runner so the real-Docker tests (borg backups, the egg install
+    # pipeline, the SFTP round-trip, volumes) and any Linux-only paths run for
+    # real — they can't on the macOS dev box. Docker is preinstalled here.
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: apps/daemon
@@ -35,7 +51,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: apps/daemon/go.mod
-          cache: false
+          cache-dependency-path: apps/daemon/go.sum
       - name: gofmt
         run: |
           files=$(gofmt -l .)
@@ -45,6 +61,8 @@ jobs:
             exit 1
           fi
       - run: go vet ./...
-      - run: go test ./...
+      # -race: the daemon runs as root and is heavily concurrent (managers, the
+      # job sweeper, the scheduler, SFTP, the console pumps) — catch data races.
+      - run: go test -race -count=1 ./...
       - run: make build
       - run: make cross
