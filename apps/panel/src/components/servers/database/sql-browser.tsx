@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import {
 	ChevronRight,
 	Columns3,
@@ -51,45 +52,52 @@ import {
 } from "@/components/ui/table";
 import type { ServerRow } from "@/lib/domain/servers";
 import {
-	COLUMN_KEY_LABEL,
+	columnKeyLabel,
+	columnTypes,
 	grantsLabel,
 	isValidIdentifier,
 	SQL_CHARSETS,
-	SQL_COLUMN_TYPES,
-	type SqlColumnKey,
-	type SqlData,
-	type SqlDatabase,
-	type SqlTable,
+	type SqlEngine,
 	type SqlUser,
+	sqlEngine,
 } from "@/lib/domain/sql-browser";
-import { formatBytes, formatCount, pluralize } from "@/lib/format";
+import { formatBytes, formatCount } from "@/lib/format";
 import {
-	addColumn,
-	createDatabase,
-	createTable,
-	createUser,
-	dropColumn,
-	dropDatabase,
-	dropTable,
-	dropUser,
-	truncateTable,
-	useSqlData,
-} from "@/lib/stores/sql-browser-store";
+	addSqlColumn,
+	createSqlDatabase,
+	createSqlTable,
+	createSqlUser,
+	dropSqlColumn,
+	dropSqlDatabase,
+	dropSqlTable,
+	dropSqlUser,
+	invalidateSql,
+	truncateSqlTable,
+	useSqlColumns,
+	useSqlDatabases,
+	useSqlTables,
+	useSqlUsers,
+} from "@/lib/sql-browser-queries";
 
 type View = "databases" | "users";
 
-function databaseSize(database: SqlDatabase) {
-	return database.tables.reduce((sum, table) => sum + table.sizeBytes, 0);
+function errorMessage(error: unknown, fallback: string) {
+	return error instanceof Error ? error.message : fallback;
 }
 
-// The SQL Browser: a lightweight phpMyAdmin for a database server. Databases
-// drill down to tables and table structure; Users manage access. All against the
-// stub sql-browser store, scoped to this server.
+// The SQL Browser: a lightweight phpMyAdmin for a database server (PostgreSQL or
+// MySQL/MariaDB). Databases drill down to tables and table structure; Users manage
+// access. Everything is fetched live from the running instance, lazily per level.
 export function SqlBrowser({ server }: { server: ServerRow }) {
-	const data = useSqlData(server.id);
+	const engine = sqlEngine(server.templateName);
 	const [view, setView] = useState<View>("databases");
 	const [database, setDatabase] = useState<string | null>(null);
 	const [table, setTable] = useState<string | null>(null);
+
+	const databases = useSqlDatabases(server.id);
+	const users = useSqlUsers(server.id);
+	const dbCount = databases?.ok ? databases.data.length : undefined;
+	const userCount = users?.ok ? users.data.length : undefined;
 
 	return (
 		<div className="space-y-4">
@@ -103,7 +111,7 @@ export function SqlBrowser({ server }: { server: ServerRow }) {
 				>
 					<Subtab
 						active={view === "databases"}
-						count={data.databases.length}
+						count={dbCount}
 						icon={Database}
 						label="Databases"
 						onClick={() => setView("databases")}
@@ -111,7 +119,7 @@ export function SqlBrowser({ server }: { server: ServerRow }) {
 					/>
 					<Subtab
 						active={view === "users"}
-						count={data.users.length}
+						count={userCount}
 						icon={Users}
 						label="Users"
 						onClick={() => setView("users")}
@@ -126,19 +134,37 @@ export function SqlBrowser({ server }: { server: ServerRow }) {
 				role="tabpanel"
 			>
 				{view === "databases" ? (
-					<DatabasesPanel
-						data={data}
-						database={database}
-						onDatabase={(name) => {
-							setDatabase(name);
-							setTable(null);
-						}}
-						onTable={setTable}
-						serverId={server.id}
-						table={table}
-					/>
+					database && table ? (
+						<TableStructure
+							database={database}
+							engine={engine}
+							onBack={() => setTable(null)}
+							onRoot={() => {
+								setDatabase(null);
+								setTable(null);
+							}}
+							serverId={server.id}
+							table={table}
+						/>
+					) : database ? (
+						<TableList
+							database={database}
+							onBack={() => setDatabase(null)}
+							onOpen={setTable}
+							serverId={server.id}
+						/>
+					) : (
+						<DatabaseList
+							engine={engine}
+							onOpen={(name) => {
+								setDatabase(name);
+								setTable(null);
+							}}
+							serverId={server.id}
+						/>
+					)
 				) : (
-					<UsersPanel data={data} serverId={server.id} />
+					<UsersPanel engine={engine} serverId={server.id} />
 				)}
 			</div>
 		</div>
@@ -154,7 +180,7 @@ function Subtab({
 	value,
 }: {
 	active: boolean;
-	count: number;
+	count: number | undefined;
 	icon: typeof Database;
 	label: string;
 	onClick: () => void;
@@ -172,83 +198,32 @@ function Subtab({
 		>
 			<Icon className="size-4" />
 			{label}
-			<span className="font-mono text-muted-foreground text-xs tabular-nums">
-				{count}
-			</span>
+			{count !== undefined ? (
+				<span className="font-mono text-muted-foreground text-xs tabular-nums">
+					{count}
+				</span>
+			) : null}
 		</button>
 	);
 }
 
 // — Databases —————————————————————————————————————————————————————————————————
 
-function DatabasesPanel({
-	data,
-	database,
-	onDatabase,
-	onTable,
-	serverId,
-	table,
-}: {
-	data: SqlData;
-	database: string | null;
-	onDatabase: (name: string | null) => void;
-	onTable: (name: string | null) => void;
-	serverId: string;
-	table: string | null;
-}) {
-	const selectedDb = database
-		? data.databases.find((item) => item.name === database)
-		: undefined;
-	// A dropped database (or table) can disappear underneath us; fall back up.
-	if (database && !selectedDb) {
-		return <DatabaseList data={data} onOpen={onDatabase} serverId={serverId} />;
-	}
-	if (selectedDb && table) {
-		const selectedTable = selectedDb.tables.find((item) => item.name === table);
-		if (!selectedTable) {
-			return (
-				<TableList
-					database={selectedDb}
-					onBack={() => onDatabase(null)}
-					onOpen={onTable}
-					serverId={serverId}
-				/>
-			);
-		}
-		return (
-			<TableStructure
-				database={selectedDb}
-				onBack={() => onTable(null)}
-				onRoot={() => onDatabase(null)}
-				serverId={serverId}
-				table={selectedTable}
-			/>
-		);
-	}
-	if (selectedDb) {
-		return (
-			<TableList
-				database={selectedDb}
-				onBack={() => onDatabase(null)}
-				onOpen={onTable}
-				serverId={serverId}
-			/>
-		);
-	}
-	return <DatabaseList data={data} onOpen={onDatabase} serverId={serverId} />;
-}
-
 function DatabaseList({
-	data,
+	engine,
 	onOpen,
 	serverId,
 }: {
-	data: SqlData;
+	engine: SqlEngine;
 	onOpen: (name: string) => void;
 	serverId: string;
 }) {
+	const queryClient = useQueryClient();
+	const read = useSqlDatabases(serverId);
 	const [createOpen, setCreateOpen] = useState(false);
 	const [drop, setDrop] = useState<string | null>(null);
+
+	const databases = read?.ok ? read.data : [];
 
 	return (
 		<Section
@@ -258,10 +233,20 @@ function DatabaseList({
 					New database
 				</Button>
 			}
-			subtitle={pluralize(data.databases.length, "database")}
+			subtitle={read?.ok ? `${databases.length} databases` : undefined}
 			title="Databases"
 		>
-			{data.databases.length === 0 ? (
+			{read && !read.ok ? (
+				<div className="p-4">
+					<EmptyState
+						description={read.error}
+						icon={Database}
+						title="Couldn't reach the database"
+					/>
+				</div>
+			) : !read ? (
+				<Loading />
+			) : databases.length === 0 ? (
 				<div className="p-4">
 					<EmptyState
 						description="Create a database to start storing data."
@@ -281,7 +266,7 @@ function DatabaseList({
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{data.databases.map((database) => (
+						{databases.map((database) => (
 							<TableRow key={database.name}>
 								<TableCell>
 									<button
@@ -297,10 +282,10 @@ function DatabaseList({
 									{database.charset}
 								</TableCell>
 								<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
-									{database.tables.length}
+									{database.tables < 0 ? "—" : database.tables}
 								</TableCell>
 								<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
-									{formatBytes(databaseSize(database))}
+									{formatBytes(database.sizeBytes)}
 								</TableCell>
 								<TableCell className="text-right">
 									<RowActions>
@@ -324,7 +309,8 @@ function DatabaseList({
 			)}
 
 			<NewDatabaseDialog
-				existing={data.databases.map((database) => database.name)}
+				engine={engine}
+				existing={databases.map((database) => database.name)}
 				onOpenChange={setCreateOpen}
 				open={createOpen}
 				serverId={serverId}
@@ -332,10 +318,16 @@ function DatabaseList({
 			<ConfirmDrop
 				confirmLabel="Drop database"
 				description={`Drop the database “${drop}” and everything in it. This can't be undone.`}
-				onConfirm={() => {
-					if (drop) {
-						dropDatabase(serverId, drop);
+				onConfirm={async () => {
+					if (!drop) {
+						return;
+					}
+					try {
+						await dropSqlDatabase(serverId, drop);
+						await invalidateSql(queryClient, serverId);
 						toast.success(`Dropped database “${drop}”.`);
+					} catch (e) {
+						toast.error(errorMessage(e, "Couldn't drop the database."));
 					}
 				}}
 				onOpenChange={(next) => setDrop(next ? drop : null)}
@@ -352,14 +344,18 @@ function TableList({
 	onOpen,
 	serverId,
 }: {
-	database: SqlDatabase;
+	database: string;
 	onBack: () => void;
 	onOpen: (name: string) => void;
 	serverId: string;
 }) {
+	const queryClient = useQueryClient();
+	const read = useSqlTables(serverId, database);
 	const [createOpen, setCreateOpen] = useState(false);
 	const [drop, setDrop] = useState<string | null>(null);
 	const [truncate, setTruncate] = useState<string | null>(null);
+
+	const tables = read?.ok ? read.data : [];
 
 	return (
 		<Section
@@ -369,15 +365,25 @@ function TableList({
 					New table
 				</Button>
 			}
-			subtitle={`${database.charset} · ${pluralize(database.tables.length, "table")}`}
+			subtitle={read?.ok ? `${tables.length} tables` : undefined}
 			title={
 				<Breadcrumb
+					current={database}
 					trail={[{ label: "Databases", onClick: onBack }]}
-					current={database.name}
 				/>
 			}
 		>
-			{database.tables.length === 0 ? (
+			{read && !read.ok ? (
+				<div className="p-4">
+					<EmptyState
+						description={read.error}
+						icon={Table2}
+						title="Couldn't reach the database"
+					/>
+				</div>
+			) : !read ? (
+				<Loading />
+			) : tables.length === 0 ? (
 				<div className="p-4">
 					<EmptyState
 						description="Create a table to define this database's structure."
@@ -397,7 +403,7 @@ function TableList({
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{database.tables.map((table) => (
+						{tables.map((table) => (
 							<TableRow key={table.name}>
 								<TableCell>
 									<button
@@ -416,7 +422,7 @@ function TableList({
 									{formatBytes(table.sizeBytes)}
 								</TableCell>
 								<TableCell className="text-right font-mono text-muted-foreground tabular-nums">
-									{table.columns.length}
+									{table.columns}
 								</TableCell>
 								<TableCell className="text-right">
 									<RowActions>
@@ -444,20 +450,37 @@ function TableList({
 				</Table>
 			)}
 
-			<NewTableDialog
-				databaseName={database.name}
-				existing={database.tables.map((table) => table.name)}
+			<NameDialog
+				existing={tables.map((table) => table.name)}
+				onCreate={async (name) => {
+					try {
+						await createSqlTable(serverId, database, name);
+						await invalidateSql(queryClient, serverId);
+						toast.success(`Created table “${name}”.`);
+					} catch (e) {
+						toast.error(errorMessage(e, "Couldn't create the table."));
+					}
+				}}
 				onOpenChange={setCreateOpen}
 				open={createOpen}
-				serverId={serverId}
+				placeholder="invoices"
+				submitLabel="Create table"
+				subtitle="Creates the table with an auto-incrementing id column to start."
+				title={`New table in ${database}`}
 			/>
 			<ConfirmDrop
 				confirmLabel="Truncate"
 				description={`Delete every row in “${truncate}”. The table and its columns stay. This can't be undone.`}
-				onConfirm={() => {
-					if (truncate) {
-						truncateTable(serverId, database.name, truncate);
+				onConfirm={async () => {
+					if (!truncate) {
+						return;
+					}
+					try {
+						await truncateSqlTable(serverId, database, truncate);
+						await invalidateSql(queryClient, serverId);
 						toast.success(`Truncated “${truncate}”.`);
+					} catch (e) {
+						toast.error(errorMessage(e, "Couldn't truncate the table."));
 					}
 				}}
 				onOpenChange={(next) => setTruncate(next ? truncate : null)}
@@ -467,10 +490,16 @@ function TableList({
 			<ConfirmDrop
 				confirmLabel="Drop table"
 				description={`Drop the table “${drop}” and all its data. This can't be undone.`}
-				onConfirm={() => {
-					if (drop) {
-						dropTable(serverId, database.name, drop);
+				onConfirm={async () => {
+					if (!drop) {
+						return;
+					}
+					try {
+						await dropSqlTable(serverId, database, drop);
+						await invalidateSql(queryClient, serverId);
 						toast.success(`Dropped table “${drop}”.`);
+					} catch (e) {
+						toast.error(errorMessage(e, "Couldn't drop the table."));
 					}
 				}}
 				onOpenChange={(next) => setDrop(next ? drop : null)}
@@ -483,19 +512,25 @@ function TableList({
 
 function TableStructure({
 	database,
+	engine,
 	onBack,
 	onRoot,
 	serverId,
 	table,
 }: {
-	database: SqlDatabase;
+	database: string;
+	engine: SqlEngine;
 	onBack: () => void;
 	onRoot: () => void;
 	serverId: string;
-	table: SqlTable;
+	table: string;
 }) {
+	const queryClient = useQueryClient();
+	const read = useSqlColumns(serverId, database, table);
 	const [addOpen, setAddOpen] = useState(false);
 	const [drop, setDrop] = useState<string | null>(null);
+
+	const columns = read?.ok ? read.data : [];
 
 	return (
 		<Section
@@ -505,81 +540,102 @@ function TableStructure({
 					Add column
 				</Button>
 			}
-			subtitle={`${formatCount(table.rows)} rows · ${formatBytes(table.sizeBytes)}`}
+			subtitle={read?.ok ? `${columns.length} columns` : undefined}
 			title={
 				<Breadcrumb
-					current={table.name}
+					current={table}
 					trail={[
 						{ label: "Databases", onClick: onRoot },
-						{ label: database.name, onClick: onBack },
+						{ label: database, onClick: onBack },
 					]}
 				/>
 			}
 		>
-			<Table>
-				<TableHeader>
-					<TableRow>
-						<TableHead>Column</TableHead>
-						<TableHead>Type</TableHead>
-						<TableHead>Null</TableHead>
-						<TableHead>Key</TableHead>
-						<TableHead>Default</TableHead>
-						<TableHead className="w-px text-right">Drop</TableHead>
-					</TableRow>
-				</TableHeader>
-				<TableBody>
-					{table.columns.map((column) => (
-						<TableRow key={column.name}>
-							<TableCell className="font-mono text-sm">{column.name}</TableCell>
-							<TableCell className="font-mono text-muted-foreground text-xs">
-								{column.type}
-							</TableCell>
-							<TableCell className="font-mono text-muted-foreground text-xs">
-								{column.nullable ? "YES" : "NO"}
-							</TableCell>
-							<TableCell>
-								{column.key ? (
-									<span className="inline-flex items-center gap-1 font-mono text-muted-foreground text-xs uppercase">
-										{column.key === "pk" ? (
-											<KeyRound className="size-3" />
-										) : null}
-										{COLUMN_KEY_LABEL[column.key]}
-									</span>
-								) : (
-									<span className="text-muted-foreground text-xs">—</span>
-								)}
-							</TableCell>
-							<TableCell className="font-mono text-muted-foreground text-xs">
-								{column.default ?? "—"}
-							</TableCell>
-							<TableCell className="text-right">
-								<IconAction
-									danger
-									icon={Trash2}
-									label={`Drop column ${column.name}`}
-									onClick={() => setDrop(column.name)}
-								/>
-							</TableCell>
+			{read && !read.ok ? (
+				<div className="p-4">
+					<EmptyState
+						description={read.error}
+						icon={Columns3}
+						title="Couldn't reach the database"
+					/>
+				</div>
+			) : !read ? (
+				<Loading />
+			) : (
+				<Table>
+					<TableHeader>
+						<TableRow>
+							<TableHead>Column</TableHead>
+							<TableHead>Type</TableHead>
+							<TableHead>Null</TableHead>
+							<TableHead>Key</TableHead>
+							<TableHead>Default</TableHead>
+							<TableHead className="w-px text-right">Drop</TableHead>
 						</TableRow>
-					))}
-				</TableBody>
-			</Table>
+					</TableHeader>
+					<TableBody>
+						{columns.map((column) => (
+							<TableRow key={column.name}>
+								<TableCell className="font-mono text-sm">
+									{column.name}
+								</TableCell>
+								<TableCell className="font-mono text-muted-foreground text-xs">
+									{column.type}
+								</TableCell>
+								<TableCell className="font-mono text-muted-foreground text-xs">
+									{column.nullable ? "YES" : "NO"}
+								</TableCell>
+								<TableCell>
+									{column.key ? (
+										<span className="inline-flex items-center gap-1 font-mono text-muted-foreground text-xs uppercase">
+											{column.key === "pk" ? (
+												<KeyRound className="size-3" />
+											) : null}
+											{columnKeyLabel(column.key)}
+										</span>
+									) : (
+										<span className="text-muted-foreground text-xs">—</span>
+									)}
+								</TableCell>
+								<TableCell className="font-mono text-muted-foreground text-xs">
+									{column.default ?? "—"}
+								</TableCell>
+								<TableCell className="text-right">
+									<IconAction
+										danger
+										icon={Trash2}
+										label={`Drop column ${column.name}`}
+										onClick={() => setDrop(column.name)}
+									/>
+								</TableCell>
+							</TableRow>
+						))}
+					</TableBody>
+				</Table>
+			)}
 
 			<AddColumnDialog
-				databaseName={database.name}
-				existing={table.columns.map((column) => column.name)}
+				database={database}
+				engine={engine}
+				existing={columns.map((column) => column.name)}
 				onOpenChange={setAddOpen}
 				open={addOpen}
 				serverId={serverId}
-				tableName={table.name}
+				table={table}
 			/>
 			<ConfirmDrop
 				confirmLabel="Drop column"
-				description={`Drop the column “${drop}” from “${table.name}”. This can't be undone.`}
-				onConfirm={() => {
-					if (drop) {
-						dropColumn(serverId, database.name, table.name, drop);
+				description={`Drop the column “${drop}” from “${table}”. This can't be undone.`}
+				onConfirm={async () => {
+					if (!drop) {
+						return;
+					}
+					try {
+						await dropSqlColumn(serverId, database, table, drop);
+						await invalidateSql(queryClient, serverId);
 						toast.success(`Dropped column “${drop}”.`);
+					} catch (e) {
+						toast.error(errorMessage(e, "Couldn't drop the column."));
 					}
 				}}
 				onOpenChange={(next) => setDrop(next ? drop : null)}
@@ -592,9 +648,19 @@ function TableStructure({
 
 // — Users —————————————————————————————————————————————————————————————————————
 
-function UsersPanel({ data, serverId }: { data: SqlData; serverId: string }) {
+function UsersPanel({
+	engine,
+	serverId,
+}: {
+	engine: SqlEngine;
+	serverId: string;
+}) {
+	const queryClient = useQueryClient();
+	const read = useSqlUsers(serverId);
 	const [createOpen, setCreateOpen] = useState(false);
 	const [drop, setDrop] = useState<SqlUser | null>(null);
+
+	const users = read?.ok ? read.data : [];
 
 	return (
 		<Section
@@ -604,10 +670,20 @@ function UsersPanel({ data, serverId }: { data: SqlData; serverId: string }) {
 					New user
 				</Button>
 			}
-			subtitle={pluralize(data.users.length, "user")}
+			subtitle={read?.ok ? `${users.length} users` : undefined}
 			title="Users"
 		>
-			{data.users.length === 0 ? (
+			{read && !read.ok ? (
+				<div className="p-4">
+					<EmptyState
+						description={read.error}
+						icon={Users}
+						title="Couldn't reach the database"
+					/>
+				</div>
+			) : !read ? (
+				<Loading />
+			) : users.length === 0 ? (
 				<div className="p-4">
 					<EmptyState
 						description="Create a user to grant access to your databases."
@@ -626,7 +702,7 @@ function UsersPanel({ data, serverId }: { data: SqlData; serverId: string }) {
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{data.users.map((user) => (
+						{users.map((user) => (
 							<TableRow key={`${user.name}@${user.host}`}>
 								<TableCell>
 									<span className="flex items-center gap-2 font-medium text-sm">
@@ -637,7 +713,7 @@ function UsersPanel({ data, serverId }: { data: SqlData; serverId: string }) {
 									</span>
 								</TableCell>
 								<TableCell className="font-mono text-muted-foreground text-xs">
-									{user.host}
+									{user.host || "—"}
 								</TableCell>
 								<TableCell className="text-muted-foreground text-sm">
 									{grantsLabel(user)}
@@ -657,19 +733,27 @@ function UsersPanel({ data, serverId }: { data: SqlData; serverId: string }) {
 			)}
 
 			<NewUserDialog
-				databases={data.databases.map((database) => database.name)}
-				existing={data.users.map((user) => `${user.name}@${user.host}`)}
+				engine={engine}
+				existing={users.map((user) => `${user.name}@${user.host}`)}
 				onOpenChange={setCreateOpen}
 				open={createOpen}
 				serverId={serverId}
 			/>
 			<ConfirmDrop
 				confirmLabel="Drop user"
-				description={`Drop the user “${drop?.name}”@“${drop?.host}”. This can't be undone.`}
-				onConfirm={() => {
-					if (drop) {
-						dropUser(serverId, drop.name, drop.host);
+				description={`Drop the user “${drop?.name}”${
+					drop?.host ? `@“${drop.host}”` : ""
+				}. This can't be undone.`}
+				onConfirm={async () => {
+					if (!drop) {
+						return;
+					}
+					try {
+						await dropSqlUser(serverId, drop.name, drop.host);
+						await invalidateSql(queryClient, serverId);
 						toast.success(`Dropped user “${drop.name}”.`);
+					} catch (e) {
+						toast.error(errorMessage(e, "Couldn't drop the user."));
 					}
 				}}
 				onOpenChange={(next) => setDrop(next ? drop : null)}
@@ -682,19 +766,31 @@ function UsersPanel({ data, serverId }: { data: SqlData; serverId: string }) {
 
 // — Dialogs ———————————————————————————————————————————————————————————————————
 
+function Loading() {
+	return (
+		<div className="p-8 text-center text-muted-foreground text-sm">
+			Loading…
+		</div>
+	);
+}
+
 function NewDatabaseDialog({
+	engine,
 	existing,
 	onOpenChange,
 	open,
 	serverId,
 }: {
+	engine: SqlEngine;
 	existing: string[];
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
 	serverId: string;
 }) {
+	const queryClient = useQueryClient();
 	const [name, setName] = useState("");
 	const [charset, setCharset] = useState<string>(SQL_CHARSETS[0]);
+	const [busy, setBusy] = useState(false);
 
 	const trimmed = name.trim();
 	const duplicate = existing.includes(trimmed);
@@ -703,6 +799,25 @@ function NewDatabaseDialog({
 	function reset() {
 		setName("");
 		setCharset(SQL_CHARSETS[0]);
+	}
+
+	async function submit() {
+		setBusy(true);
+		try {
+			await createSqlDatabase(
+				serverId,
+				trimmed,
+				engine === "mysql" ? charset : ""
+			);
+			await invalidateSql(queryClient, serverId);
+			toast.success(`Created database “${trimmed}”.`);
+			onOpenChange(false);
+			reset();
+		} catch (e) {
+			toast.error(errorMessage(e, "Couldn't create the database."));
+		} finally {
+			setBusy(false);
+		}
 	}
 
 	return (
@@ -719,13 +834,9 @@ function NewDatabaseDialog({
 				<form
 					onSubmit={(event) => {
 						event.preventDefault();
-						if (!valid) {
-							return;
+						if (valid) {
+							submit();
 						}
-						createDatabase(serverId, trimmed, charset);
-						toast.success(`Created database “${trimmed}”.`);
-						onOpenChange(false);
-						reset();
 					}}
 				>
 					<DialogHeader>
@@ -747,21 +858,23 @@ function NewDatabaseDialog({
 							/>
 							<IdentityHint duplicate={duplicate} value={trimmed} />
 						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="db-charset">Character set</Label>
-							<Select onValueChange={setCharset} value={charset}>
-								<SelectTrigger className="w-full" id="db-charset">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{SQL_CHARSETS.map((option) => (
-										<SelectItem key={option} value={option}>
-											{option}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
+						{engine === "mysql" ? (
+							<div className="grid gap-2">
+								<Label htmlFor="db-charset">Character set</Label>
+								<Select onValueChange={setCharset} value={charset}>
+									<SelectTrigger className="w-full" id="db-charset">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{SQL_CHARSETS.map((option) => (
+											<SelectItem key={option} value={option}>
+												{option}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+						) : null}
 					</div>
 					<DialogFooter>
 						<DialogClose asChild>
@@ -769,7 +882,7 @@ function NewDatabaseDialog({
 								Cancel
 							</Button>
 						</DialogClose>
-						<Button disabled={!valid} type="submit">
+						<Button disabled={busy || !valid} type="submit">
 							Create database
 						</Button>
 					</DialogFooter>
@@ -779,23 +892,39 @@ function NewDatabaseDialog({
 	);
 }
 
-function NewTableDialog({
-	databaseName,
+// A single-name create dialog (tables).
+function NameDialog({
 	existing,
+	onCreate,
 	onOpenChange,
 	open,
-	serverId,
+	placeholder,
+	submitLabel,
+	subtitle,
+	title,
 }: {
-	databaseName: string;
 	existing: string[];
+	onCreate: (name: string) => Promise<void>;
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
-	serverId: string;
+	placeholder: string;
+	submitLabel: string;
+	subtitle: string;
+	title: string;
 }) {
 	const [name, setName] = useState("");
+	const [busy, setBusy] = useState(false);
 	const trimmed = name.trim();
 	const duplicate = existing.includes(trimmed);
 	const valid = isValidIdentifier(trimmed) && !duplicate;
+
+	async function submit() {
+		setBusy(true);
+		await onCreate(trimmed);
+		setBusy(false);
+		onOpenChange(false);
+		setName("");
+	}
 
 	return (
 		<Dialog
@@ -811,42 +940,23 @@ function NewTableDialog({
 				<form
 					onSubmit={(event) => {
 						event.preventDefault();
-						if (!valid) {
-							return;
+						if (valid) {
+							submit();
 						}
-						createTable(serverId, databaseName, {
-							name: trimmed,
-							rows: 0,
-							sizeBytes: 16 * 1024,
-							columns: [
-								{
-									name: "id",
-									type: "bigint",
-									nullable: false,
-									key: "pk",
-									default: null,
-								},
-							],
-						});
-						toast.success(`Created table “${trimmed}”.`);
-						onOpenChange(false);
-						setName("");
 					}}
 				>
 					<DialogHeader>
-						<DialogTitle>New table in {databaseName}</DialogTitle>
-						<DialogDescription>
-							Creates the table with an auto-incrementing id column to start.
-						</DialogDescription>
+						<DialogTitle>{title}</DialogTitle>
+						<DialogDescription>{subtitle}</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-2 py-4">
-						<Label htmlFor="table-name">Name</Label>
+						<Label htmlFor="sql-name">Name</Label>
 						<Input
 							aria-invalid={Boolean(trimmed) && !valid}
 							className="font-mono text-sm"
-							id="table-name"
+							id="sql-name"
 							onChange={(event) => setName(event.target.value)}
-							placeholder="invoices"
+							placeholder={placeholder}
 							value={name}
 						/>
 						<IdentityHint duplicate={duplicate} value={trimmed} />
@@ -857,8 +967,8 @@ function NewTableDialog({
 								Cancel
 							</Button>
 						</DialogClose>
-						<Button disabled={!valid} type="submit">
-							Create table
+						<Button disabled={busy || !valid} type="submit">
+							{submitLabel}
 						</Button>
 					</DialogFooter>
 				</form>
@@ -867,35 +977,40 @@ function NewTableDialog({
 	);
 }
 
-// Radix Select forbids an empty-string value, so "no key" rides a sentinel at
-// the Select layer; the stored SqlColumnKey is still "" for none.
+// Radix Select forbids an empty-string value, so "no key" rides a sentinel at the
+// Select layer; the value sent to the daemon is still "" for none.
 const KEY_NONE = "none";
 const COLUMN_KEYS: { value: string; label: string }[] = [
 	{ value: KEY_NONE, label: "None" },
 	{ value: "index", label: "Index" },
 	{ value: "unique", label: "Unique" },
-	{ value: "pk", label: "Primary key" },
 ];
 
 function AddColumnDialog({
-	databaseName,
+	database,
+	engine,
 	existing,
 	onOpenChange,
 	open,
 	serverId,
-	tableName,
+	table,
 }: {
-	databaseName: string;
+	database: string;
+	engine: SqlEngine;
 	existing: string[];
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
 	serverId: string;
-	tableName: string;
+	table: string;
 }) {
+	const queryClient = useQueryClient();
+	const types = columnTypes(engine);
+	const defaultType = types[0] ?? "bigint";
 	const [name, setName] = useState("");
-	const [type, setType] = useState<string>(SQL_COLUMN_TYPES[0]);
+	const [type, setType] = useState<string>(defaultType);
 	const [nullable, setNullable] = useState(true);
-	const [key, setKey] = useState<SqlColumnKey>("");
+	const [key, setKey] = useState<"" | "index" | "unique">("");
+	const [busy, setBusy] = useState(false);
 
 	const trimmed = name.trim();
 	const duplicate = existing.includes(trimmed);
@@ -903,9 +1018,29 @@ function AddColumnDialog({
 
 	function reset() {
 		setName("");
-		setType(SQL_COLUMN_TYPES[0]);
+		setType(defaultType);
 		setNullable(true);
 		setKey("");
+	}
+
+	async function submit() {
+		setBusy(true);
+		try {
+			await addSqlColumn(serverId, database, table, {
+				name: trimmed,
+				type,
+				nullable,
+				key,
+			});
+			await invalidateSql(queryClient, serverId);
+			toast.success(`Added column “${trimmed}”.`);
+			onOpenChange(false);
+			reset();
+		} catch (e) {
+			toast.error(errorMessage(e, "Couldn't add the column."));
+		} finally {
+			setBusy(false);
+		}
 	}
 
 	return (
@@ -922,23 +1057,13 @@ function AddColumnDialog({
 				<form
 					onSubmit={(event) => {
 						event.preventDefault();
-						if (!valid) {
-							return;
+						if (valid) {
+							submit();
 						}
-						addColumn(serverId, databaseName, tableName, {
-							name: trimmed,
-							type,
-							nullable: key === "pk" ? false : nullable,
-							key,
-							default: null,
-						});
-						toast.success(`Added column “${trimmed}”.`);
-						onOpenChange(false);
-						reset();
 					}}
 				>
 					<DialogHeader>
-						<DialogTitle>Add column to {tableName}</DialogTitle>
+						<DialogTitle>Add column to {table}</DialogTitle>
 						<DialogDescription>
 							Define the column's name, type, and key.
 						</DialogDescription>
@@ -964,7 +1089,7 @@ function AddColumnDialog({
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
-										{SQL_COLUMN_TYPES.map((option) => (
+										{types.map((option) => (
 											<SelectItem key={option} value={option}>
 												{option}
 											</SelectItem>
@@ -976,7 +1101,9 @@ function AddColumnDialog({
 								<Label htmlFor="col-key">Key</Label>
 								<Select
 									onValueChange={(value) =>
-										setKey(value === KEY_NONE ? "" : (value as SqlColumnKey))
+										setKey(
+											value === KEY_NONE ? "" : (value as "index" | "unique")
+										)
 									}
 									value={key === "" ? KEY_NONE : key}
 								>
@@ -997,12 +1124,11 @@ function AddColumnDialog({
 							<div className="space-y-0.5">
 								<Label htmlFor="col-nullable">Allow null</Label>
 								<p className="text-muted-foreground text-xs">
-									Whether the column can be empty. Off for a primary key.
+									Whether the column can be empty.
 								</p>
 							</div>
 							<Switch
-								checked={key === "pk" ? false : nullable}
-								disabled={key === "pk"}
+								checked={nullable}
 								id="col-nullable"
 								onCheckedChange={setNullable}
 							/>
@@ -1014,7 +1140,7 @@ function AddColumnDialog({
 								Cancel
 							</Button>
 						</DialogClose>
-						<Button disabled={!valid} type="submit">
+						<Button disabled={busy || !valid} type="submit">
 							Add column
 						</Button>
 					</DialogFooter>
@@ -1030,42 +1156,73 @@ const NO_ACCESS = "*none*";
 const ALL_ACCESS = "*all*";
 
 function NewUserDialog({
-	databases,
+	engine,
 	existing,
 	onOpenChange,
 	open,
 	serverId,
 }: {
-	databases: string[];
+	engine: SqlEngine;
 	existing: string[];
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
 	serverId: string;
 }) {
+	const queryClient = useQueryClient();
+	const databasesRead = useSqlDatabases(serverId);
+	const databases = databasesRead?.ok
+		? databasesRead.data.map((database) => database.name)
+		: [];
+
 	const [name, setName] = useState("");
 	const [host, setHost] = useState("%");
 	const [password, setPassword] = useState("");
-	const [access, setAccess] = useState<string>(databases[0] ?? NO_ACCESS);
+	const [access, setAccess] = useState<string>(NO_ACCESS);
+	const [busy, setBusy] = useState(false);
 
 	const trimmed = name.trim();
-	const duplicate = existing.includes(`${trimmed}@${host.trim()}`);
-	const valid = isValidIdentifier(trimmed) && host.trim() !== "" && !duplicate;
+	const hostKey = engine === "mysql" ? host.trim() : "";
+	const duplicate = existing.includes(`${trimmed}@${hostKey}`);
+	const valid =
+		isValidIdentifier(trimmed) &&
+		(engine !== "mysql" || host.trim() !== "") &&
+		!duplicate;
 
 	function reset() {
 		setName("");
 		setHost("%");
 		setPassword("");
-		setAccess(databases[0] ?? NO_ACCESS);
+		setAccess(NO_ACCESS);
 	}
 
-	function grantsFor(): string[] {
+	function accessValue(): string {
 		if (access === ALL_ACCESS) {
-			return ["*"];
+			return "*";
 		}
 		if (access === NO_ACCESS) {
-			return [];
+			return "";
 		}
-		return [access];
+		return access;
+	}
+
+	async function submit() {
+		setBusy(true);
+		try {
+			await createSqlUser(serverId, {
+				name: trimmed,
+				host: engine === "mysql" ? host.trim() : "%",
+				newPassword: password,
+				access: accessValue(),
+			});
+			await invalidateSql(queryClient, serverId);
+			toast.success(`Created user “${trimmed}”.`);
+			onOpenChange(false);
+			reset();
+		} catch (e) {
+			toast.error(errorMessage(e, "Couldn't create the user."));
+		} finally {
+			setBusy(false);
+		}
 	}
 
 	return (
@@ -1082,19 +1239,9 @@ function NewUserDialog({
 				<form
 					onSubmit={(event) => {
 						event.preventDefault();
-						if (!valid) {
-							return;
+						if (valid) {
+							submit();
 						}
-						const grants = grantsFor();
-						createUser(serverId, {
-							name: trimmed,
-							host: host.trim(),
-							superuser: access === ALL_ACCESS,
-							grants,
-						});
-						toast.success(`Created user “${trimmed}”.`);
-						onOpenChange(false);
-						reset();
 					}}
 				>
 					<DialogHeader>
@@ -1116,16 +1263,18 @@ function NewUserDialog({
 									value={name}
 								/>
 							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="user-host">Host</Label>
-								<Input
-									className="font-mono text-sm"
-									id="user-host"
-									onChange={(event) => setHost(event.target.value)}
-									placeholder="%"
-									value={host}
-								/>
-							</div>
+							{engine === "mysql" ? (
+								<div className="grid gap-2">
+									<Label htmlFor="user-host">Host</Label>
+									<Input
+										className="font-mono text-sm"
+										id="user-host"
+										onChange={(event) => setHost(event.target.value)}
+										placeholder="%"
+										value={host}
+									/>
+								</div>
+							) : null}
 						</div>
 						<IdentityHint duplicate={duplicate} value={trimmed} />
 						<div className="grid gap-2">
@@ -1139,7 +1288,7 @@ function NewUserDialog({
 								value={password}
 							/>
 							<p className="text-muted-foreground text-xs">
-								Stored encrypted. We'll never show it again.
+								Sent straight to the database; we never store it.
 							</p>
 						</div>
 						<div className="grid gap-2">
@@ -1168,7 +1317,7 @@ function NewUserDialog({
 								Cancel
 							</Button>
 						</DialogClose>
-						<Button disabled={!valid} type="submit">
+						<Button disabled={busy || !valid} type="submit">
 							Create user
 						</Button>
 					</DialogFooter>

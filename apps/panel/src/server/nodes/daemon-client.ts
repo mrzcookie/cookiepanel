@@ -1235,6 +1235,211 @@ export async function mongoDropDatabase(
 	});
 }
 
+// ─── sql browser ───────────────────────────────────────────────────────────
+// The panel passes the engine discriminator + admin user + password in the body;
+// the daemon maps the engine to its container port and resolves the published one
+// itself. Types are the generated contract schemas.
+
+export type SqlDatabase = Schemas["SqlDatabase"];
+export type SqlTable = Schemas["SqlTable"];
+export type SqlColumn = Schemas["SqlColumn"];
+export type SqlUser = Schemas["SqlUser"];
+export type SqlEngine = "postgres" | "mysql";
+
+const sqlBase = (serverId: string) => `/api/v1/servers/${serverId}/sql`;
+
+type SqlAuth = { engine: SqlEngine; username: string; password: string };
+
+export async function sqlDatabases(
+	nodeId: string,
+	serverId: string,
+	auth: SqlAuth
+): Promise<SqlDatabase[]> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${sqlBase(serverId)}/databases`,
+		body: auth,
+	})) as SqlDatabase[];
+}
+
+export async function sqlCreateDatabase(
+	nodeId: string,
+	serverId: string,
+	auth: SqlAuth,
+	db: string,
+	charset: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${sqlBase(serverId)}/create-database`,
+		body: { ...auth, db, charset },
+	});
+}
+
+export async function sqlDropDatabase(
+	nodeId: string,
+	serverId: string,
+	auth: SqlAuth,
+	db: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${sqlBase(serverId)}/drop-database`,
+		body: { ...auth, db },
+	});
+}
+
+export async function sqlTables(
+	nodeId: string,
+	serverId: string,
+	auth: SqlAuth,
+	db: string
+): Promise<SqlTable[]> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${sqlBase(serverId)}/tables`,
+		body: { ...auth, db },
+	})) as SqlTable[];
+}
+
+export async function sqlCreateTable(
+	nodeId: string,
+	serverId: string,
+	auth: SqlAuth,
+	db: string,
+	table: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${sqlBase(serverId)}/create-table`,
+		body: { ...auth, db, table },
+	});
+}
+
+export async function sqlDropTable(
+	nodeId: string,
+	serverId: string,
+	auth: SqlAuth,
+	db: string,
+	table: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${sqlBase(serverId)}/drop-table`,
+		body: { ...auth, db, table },
+	});
+}
+
+export async function sqlTruncateTable(
+	nodeId: string,
+	serverId: string,
+	auth: SqlAuth,
+	db: string,
+	table: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${sqlBase(serverId)}/truncate-table`,
+		body: { ...auth, db, table },
+	});
+}
+
+export async function sqlColumns(
+	nodeId: string,
+	serverId: string,
+	auth: SqlAuth,
+	db: string,
+	table: string
+): Promise<SqlColumn[]> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${sqlBase(serverId)}/columns`,
+		body: { ...auth, db, table },
+	})) as SqlColumn[];
+}
+
+export async function sqlAddColumn(
+	nodeId: string,
+	serverId: string,
+	auth: SqlAuth,
+	db: string,
+	table: string,
+	col: { name: string; type: string; nullable: boolean; key: string }
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${sqlBase(serverId)}/add-column`,
+		body: { ...auth, db, table, ...col },
+	});
+}
+
+export async function sqlDropColumn(
+	nodeId: string,
+	serverId: string,
+	auth: SqlAuth,
+	db: string,
+	table: string,
+	column: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${sqlBase(serverId)}/drop-column`,
+		body: { ...auth, db, table, column },
+	});
+}
+
+export async function sqlUsers(
+	nodeId: string,
+	serverId: string,
+	auth: SqlAuth
+): Promise<SqlUser[]> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	return (await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${sqlBase(serverId)}/users`,
+		body: auth,
+	})) as SqlUser[];
+}
+
+export async function sqlCreateUser(
+	nodeId: string,
+	serverId: string,
+	auth: SqlAuth,
+	spec: { name: string; host: string; newPassword: string; access: string }
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${sqlBase(serverId)}/create-user`,
+		body: { ...auth, ...spec },
+	});
+}
+
+export async function sqlDropUser(
+	nodeId: string,
+	serverId: string,
+	auth: SqlAuth,
+	name: string,
+	host: string
+): Promise<void> {
+	const { node: ref, nodeKey } = await loadDialer(nodeId);
+	await daemonFetch(nodeKey, ref, {
+		method: "POST",
+		path: `${sqlBase(serverId)}/drop-user`,
+		body: { ...auth, name, host },
+	});
+}
+
 /** Streams `body` to the daemon as the new contents of `path` (atomic on the box). */
 export async function uploadNodeFile(
 	nodeId: string,

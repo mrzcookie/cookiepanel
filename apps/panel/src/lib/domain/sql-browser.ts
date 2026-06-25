@@ -1,69 +1,70 @@
-// SQL Browser domain types + pure, client-safe helpers. The SQL Browser is the
-// panel module unlocked by the single `database:browser` add-on (one add-on for
-// every engine, resolved via databaseEngine()): a lightweight phpMyAdmin for
-// creating databases and users and managing tables. Types only — the mutable
-// stub data lives in `sql-browser-store.ts`.
+import type { components } from "@cookiepanel/contract";
 
-/** A column's role in its table (primary key / unique / indexed / plain). */
-export type SqlColumnKey = "pk" | "unique" | "index" | "";
+// SQL Browser domain: a lightweight phpMyAdmin for the two SQL engine families
+// CookiePanel ships (PostgreSQL + MySQL/MariaDB). The panel-facing types are the
+// generated contract schemas (the daemon's wire shapes); the rest are pure,
+// client-safe helpers. The SQL face of the single `database:browser` add-on
+// (engine resolved via databaseEngine()).
 
-export type SqlColumn = {
-	name: string;
-	/** A SQL type label, e.g. "bigint", "varchar(255)" — never a raw image. */
-	type: string;
-	nullable: boolean;
-	key: SqlColumnKey;
-	/** A default expression as text, or null for none. */
-	default: string | null;
-};
+type S = components["schemas"];
+export type SqlDatabase = S["SqlDatabase"];
+export type SqlTable = S["SqlTable"];
+export type SqlColumn = S["SqlColumn"];
+export type SqlUser = S["SqlUser"];
 
-export type SqlTable = {
-	name: string;
-	rows: number;
-	sizeBytes: number;
-	columns: SqlColumn[];
-};
+/** The finer SQL engine — `databaseEngine()` only resolves to "sql". */
+export type SqlEngine = "postgres" | "mysql";
 
-export type SqlDatabase = {
-	name: string;
-	charset: string;
-	tables: SqlTable[];
-};
+// Detect Postgres vs MySQL/MariaDB from a template's friendly name. The daemon
+// needs this to pick the driver, container port, and dialect; everything that
+// isn't Postgres uses the MySQL driver (MariaDB shares its wire protocol).
+export function sqlEngine(text: string): SqlEngine {
+	return /postgre/i.test(text) ? "postgres" : "mysql";
+}
 
-export type SqlUser = {
-	name: string;
-	/** The host pattern the user may connect from ("%" = anywhere). */
-	host: string;
-	superuser: boolean;
-	/** Granted database names; ["*"] = every database. */
-	grants: string[];
-};
+/** The admin username the engine's official image creates. */
+export function sqlAdminUser(engine: SqlEngine): string {
+	return engine === "postgres" ? "postgres" : "root";
+}
 
-export type SqlData = {
-	databases: SqlDatabase[];
-	users: SqlUser[];
-};
+// A safe SQL identifier (no metacharacters), mirroring the daemon's allowlist —
+// names are validated up front so nothing can be query-injected.
+export const SQL_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
+export function isValidIdentifier(value: string): boolean {
+	return SQL_IDENTIFIER.test(value.trim());
+}
+
+// CREATE DATABASE character sets (MySQL only; Postgres inherits the template
+// encoding). Mirrors the daemon's allowlist.
 export const SQL_CHARSETS = ["utf8mb4", "utf8", "latin1", "ascii"] as const;
 
-export const SQL_COLUMN_TYPES = [
+const COMMON_COLUMN_TYPES = [
 	"bigint",
 	"int",
 	"varchar(255)",
 	"text",
 	"boolean",
 	"timestamp",
-	"jsonb",
-	"uuid",
 	"numeric",
-] as const;
+];
 
-// A safe SQL identifier (no metacharacters), mirroring the daemon's allowlist —
-// names are validated up front so nothing can be shell- or query-injected.
-export const SQL_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+/** The column types offered for an engine (matches the daemon's per-engine set). */
+export function columnTypes(engine: SqlEngine): string[] {
+	return engine === "postgres"
+		? [...COMMON_COLUMN_TYPES, "jsonb", "uuid"]
+		: [...COMMON_COLUMN_TYPES, "json"];
+}
 
-export function isValidIdentifier(value: string): boolean {
-	return SQL_IDENTIFIER.test(value.trim());
+const COLUMN_KEY_LABEL: Record<string, string> = {
+	pk: "Primary",
+	unique: "Unique",
+	index: "Index",
+};
+
+/** The label shown for a column's key role ("" for a plain column). */
+export function columnKeyLabel(key: string): string {
+	return COLUMN_KEY_LABEL[key] ?? "";
 }
 
 /** Plain-language summary of a user's grants for a row readout. */
@@ -76,11 +77,3 @@ export function grantsLabel(user: SqlUser): string {
 	}
 	return user.grants.join(", ");
 }
-
-/** The label shown for a column's key role. */
-export const COLUMN_KEY_LABEL: Record<SqlColumnKey, string> = {
-	pk: "Primary",
-	unique: "Unique",
-	index: "Index",
-	"": "",
-};
