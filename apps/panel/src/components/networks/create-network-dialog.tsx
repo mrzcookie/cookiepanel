@@ -172,7 +172,7 @@ export function CreateNetworkDialog({
 									<div className="grid flex-1 gap-2">
 										<Label htmlFor={field.name}>Subnet</Label>
 										<Input
-											className="font-mono text-xs"
+											className="font-mono text-sm"
 											id={field.name}
 											name={field.name}
 											onBlur={field.handleBlur}
@@ -190,7 +190,7 @@ export function CreateNetworkDialog({
 									<div className="grid flex-1 gap-2">
 										<Label htmlFor={field.name}>Gateway</Label>
 										<Input
-											className="font-mono text-xs"
+											className="font-mono text-sm"
 											id={field.name}
 											name={field.name}
 											onBlur={field.handleBlur}

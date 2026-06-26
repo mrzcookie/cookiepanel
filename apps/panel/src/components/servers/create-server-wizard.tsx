@@ -377,7 +377,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 			<PageHeader
 				back={{ label: "Servers", to: "/servers" }}
 				description="Pick an egg, choose where it runs, and we'll install and start it for you."
-				title="Create a server"
+				title="Deploy a server"
 			/>
 
 			{gate ?? (

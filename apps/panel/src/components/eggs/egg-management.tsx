@@ -71,7 +71,7 @@ export function EggManagement({ egg, scope }: { egg: Egg; scope: EggScope }) {
 			await invalidateEggs(queryClient);
 			toast.success(message);
 		} catch {
-			toast.error("Something went wrong. Try again.");
+			toast.error("Couldn't update the egg. Try again.");
 		} finally {
 			setBusy(false);
 		}
@@ -82,7 +82,7 @@ export function EggManagement({ egg, scope }: { egg: Egg; scope: EggScope }) {
 		try {
 			await actions.archive(egg.id);
 			await invalidateEggs(queryClient);
-			toast.success("Archived.");
+			toast.success(`Archived “${egg.name}”.`);
 			setArchiveOpen(false);
 		} catch {
 			toast.error("Couldn't archive the egg. Try again.");
@@ -148,7 +148,7 @@ export function EggManagement({ egg, scope }: { egg: Egg; scope: EggScope }) {
 				return;
 			}
 			await invalidateEggs(queryClient);
-			toast.success("Egg deleted.");
+			toast.success(`Deleted “${egg.name}”.`);
 			navigate({ to: scope.listPath as never });
 		} catch {
 			toast.error("Couldn't delete the egg. Try again.");
