@@ -383,9 +383,13 @@ export const createServer = createServerFn({ method: "POST" })
 			imageLabel: label,
 			image,
 			startupCommand: template.startupCommand,
-			// Custom stop-signal handling lands with the console/stop slice; the
-			// daemon defaults to SIGTERM for now.
-			stopSignal: null,
+			// A "signal" stop maps straight to docker's StopSignal; "command"
+			// (send a console command, then stop) and "native" keep the default —
+			// the command-based graceful stop is the console/stop slice's job.
+			stopSignal:
+				template.stopType === "signal" && template.stopValue
+					? template.stopValue
+					: null,
 			state: "installing",
 			port: data.port,
 			cpuLimitMillicores: Math.round(data.cpuLimitCores * 1000),
