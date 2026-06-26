@@ -57,7 +57,7 @@ question without a second look.
 
 ## Strategic principles
 
-1. **Color carries state, never decoration.** One azure accent is the only thing
+1. **Color carries state, never decoration.** One red accent is the only thing
    that lights up; green/amber/red appear only to signal state.
 2. **Hairlines over shadows.** Elevation and grouping come from rules and tint,
    not drop-shadows.

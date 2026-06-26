@@ -21,15 +21,15 @@ import "@xterm/xterm/css/xterm.css";
 // it stays accessible. Client-only (lazy + ClientOnly): xterm touches the DOM at
 // import.
 
-// "The Console" terminal palette: deep cool-ink surface, azure cursor + brand,
+// "The Console" terminal palette: deep cool-ink surface, red cursor + brand,
 // ANSI colors mapped to the app's semantic tones. xterm needs concrete color
 // strings, so these are the sRGB renderings of the OKLCH tokens.
 const THEME = {
 	background: "#0a0c11",
 	foreground: "#dfe3ea",
-	cursor: "#5aa6f0",
+	cursor: "#f0564a",
 	cursorAccent: "#0a0c11",
-	selectionBackground: "#21456e",
+	selectionBackground: "#5a2824",
 	black: "#1a1e26",
 	red: "#ef5350",
 	green: "#57d98f",

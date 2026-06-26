@@ -13,13 +13,13 @@ decoration. When in doubt: quieter and sharper.
 
 Dark is the default (`__root.tsx` `ThemeProvider defaultTheme="dark"`, system kept
 opt-in) because the product reads as a steady always-on console, and the single
-azure accent has to be the only thing that lights up.
+red accent has to be the only thing that lights up.
 
 ## Color
 
-OKLCH, with a **cool undertone (hue ~250)** on every neutral so the grays tie to
-the azure brand. Never `#000`/`#fff`. **Strategy: Restrained** — tinted ink
-neutrals plus ONE azure accent (`--primary`), with a small semantic set used only
+OKLCH, with a **warm undertone (hue ~25)** on every neutral so the grays tie to
+the red brand. Never `#000`/`#fff`. **Strategy: Restrained** — tinted ink
+neutrals plus ONE red accent (`--primary`), with a small semantic set used only
 for state. The accent is for primary actions, active nav, and live indicators;
 never for fill or decoration.
 
@@ -27,16 +27,16 @@ Key tokens (Console `.dark` / Daylight `:root`):
 
 | Role | Console | Daylight |
 | --- | --- | --- |
-| `--background` | `oklch(0.145 0.014 250)` | `oklch(0.975 0.004 250)` |
-| `--foreground` | `oklch(0.96 0.006 250)` | `oklch(0.18 0.02 252)` |
-| `--card` | `oklch(0.185 0.016 250)` | `oklch(0.955 0.006 250)` |
-| `--primary` (azure) | `oklch(0.68 0.18 250)` | `oklch(0.54 0.19 252)` |
-| `--muted-foreground` | `oklch(0.64 0.012 250)` | `oklch(0.46 0.014 250)` |
-| `--border` | `oklch(0.3 0.014 250)` | `oklch(0.88 0.01 250)` |
+| `--background` | `oklch(0.145 0.012 25)` | `oklch(0.975 0.004 25)` |
+| `--foreground` | `oklch(0.96 0.005 25)` | `oklch(0.18 0.018 25)` |
+| `--card` | `oklch(0.185 0.013 25)` | `oklch(0.955 0.006 25)` |
+| `--primary` (red) | `oklch(0.63 0.21 25)` | `oklch(0.545 0.215 25)` |
+| `--muted-foreground` | `oklch(0.64 0.011 25)` | `oklch(0.46 0.013 25)` |
+| `--border` | `oklch(0.3 0.012 25)` | `oklch(0.88 0.01 25)` |
 
 **Semantic vocabulary** (mapped in `@theme` → `text-ok`, `bg-warn-wash`, etc.):
-`--ok` green (150), `--warn` amber (75-80), `--destructive` red (~20), `--brand`
-= `--primary` (azure); washes `--ok-wash` / `--warn-wash` / `--brand-wash` /
+`--ok` green (150), `--warn` amber (75-80), `--destructive` red (~10), `--brand`
+= `--primary` (red); washes `--ok-wash` / `--warn-wash` / `--brand-wash` /
 `--danger-wash` for state banners; `--rule-bright` for a brighter hairline. Use
 these, never hardcoded `text-emerald-500` / `bg-amber-500`. The fixed console
 surface is `--color-terminal` (`#0a0c11`), shared with the xterm theme.
@@ -96,7 +96,7 @@ Every interactive component ships all states (default/hover/focus/active/
 disabled/loading/error). Vocabulary stays identical screen to screen.
 
 - **Buttons** (`ui/button.tsx`): mono, uppercase, `tracking-wider`, `rounded-lg`,
-  `text-xs`. Variants default(azure + bezel)/outline/secondary/ghost/destructive
+  `text-xs`. Variants default(red + bezel)/outline/secondary/ghost/destructive
   (tinted, not solid red)/link. `active:translate-y-px`.
 - **Badges** (`ui/badge.tsx`): sharp `rounded-sm`, mono uppercase `text-[0.7rem]`.
   For ownership/flags (`OFFICIAL`, `UPDATE`, `LOCKED`), not status (use chips).
@@ -109,7 +109,7 @@ disabled/loading/error). Vocabulary stays identical screen to screen.
   bg-transparent (`dark:bg-input/30`); labels mono uppercase `tracking-wide`.
 - **Empty states** (`empty-state.tsx`): dashed-border panel, a *bare* muted glyph
   (no filled bubble), title + description.
-- **Sidebar** (`app-sidebar.tsx`, shadcn collapsible-to-icon): azure Raptor brand
+- **Sidebar** (`app-sidebar.tsx`, shadcn collapsible-to-icon): red Raptor brand
   + wordmark, the `// manage` nav, the node status readout in the footer,
   `SidebarRail` for the edge handle. The collapse trigger lives in the top bar.
 
