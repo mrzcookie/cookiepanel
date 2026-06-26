@@ -342,24 +342,6 @@ export function defaultRuntimeLabel(template: Template): string {
 	);
 }
 
-/**
- * The variable snapshot a fresh deploy stores on a server: every non-secret
- * deploy variable at its default. Secrets are write-only and never persisted.
- * Used when switching a server's template, so its stored values match what a
- * brand-new deploy from that template would have.
- */
-export function defaultServerVariables(
-	template: Template
-): Record<string, string> {
-	const values: Record<string, string> = {};
-	for (const variable of deployVariables(template)) {
-		if (variable.access !== "secret") {
-			values[variable.envVariable] = variable.defaultValue ?? "";
-		}
-	}
-	return values;
-}
-
 /** The variables shown on the read-only detail page (everything but hidden). */
 export function shownVariables(template: Template): TemplateVariable[] {
 	return template.variables.filter((v) => v.access !== "hidden");

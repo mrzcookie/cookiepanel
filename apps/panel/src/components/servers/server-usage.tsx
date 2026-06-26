@@ -17,10 +17,9 @@ import type { ConsoleStats } from "./use-server-console";
 // graphs (CPU / memory / disk / network) that tick in time with the streamed
 // console above them.
 //
-// Today the points are simulated: a deterministic seed history (so SSR and the
-// first client render agree) that then random-walks on a timer once mounted.
-// When the daemon's stats WebSocket lands, swap `useLiveUsage` for the real
-// stream and the rest of this file is unchanged.
+// CPU and memory are real: useLiveUsage accumulates the daemon's stats-WS frames
+// into rolling series. Disk + network aren't in the stats frame yet, so those two
+// panels read "No live data" until those subsystems land.
 
 // ~80s of history at the console's heartbeat cadence — long enough to read a
 // trend, short enough to feel immediate.

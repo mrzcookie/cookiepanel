@@ -25,8 +25,8 @@ import { useServers } from "@/lib/server-queries";
 import { useTemplates } from "@/lib/templates-queries";
 
 // A search-bar-styled launcher in the topbar that opens a command palette for
-// jumping around the panel. Presentational + client-state only (no backend):
-// it reads the stub stores so jump-to-entity rows reflect the live fleet.
+// jumping around the panel. It reads the live query hooks (nodes / servers /
+// networks / templates) so jump-to-entity rows reflect the real fleet.
 export function CommandMenu() {
 	const [open, setOpen] = useState(false);
 	const [mod, setMod] = useState("Ctrl");

@@ -1,5 +1,4 @@
 import { Polar } from "@polar-sh/sdk";
-import type { CustomerState } from "@polar-sh/sdk/models/components/customerstate.js";
 import { env } from "@/server/env";
 
 /**
@@ -109,22 +108,4 @@ export async function setSubscriptionCancel(
 		id: subscriptionId,
 		subscriptionUpdate: { cancelAtPeriodEnd },
 	});
-}
-
-/** The org's live customer state from Polar (active subs, granted benefits), or
- * null when unconfigured or the customer doesn't exist yet. Used as a backstop
- * reconcile; the steady-state path is webhooks. */
-export async function fetchCustomerState(
-	orgId: string
-): Promise<CustomerState | null> {
-	const client = polarClient();
-	if (!client) {
-		return null;
-	}
-	try {
-		return await client.customers.getStateExternal({ externalId: orgId });
-	} catch {
-		// No customer yet (never checked out) — not an error for our purposes.
-		return null;
-	}
 }
