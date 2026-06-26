@@ -255,17 +255,9 @@ function DetailsCard({ server }: { server: ServerRow }) {
 
 function DangerZone({ server }: { server: ServerRow }) {
 	const navigate = Route.useNavigate();
-	const [reinstallOpen, setReinstallOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 
 	const queryClient = useQueryClient();
-
-	function reinstall() {
-		setReinstallOpen(false);
-		// Reinstall re-runs the egg's install script — it lands with the
-		// install pipeline (a later slice).
-		toast.message("Reinstall lands with the install pipeline.");
-	}
 
 	async function remove() {
 		try {
@@ -286,8 +278,9 @@ function DangerZone({ server }: { server: ServerRow }) {
 				<DangerRow
 					action={
 						<Button
-							onClick={() => setReinstallOpen(true)}
+							disabled
 							size="sm"
+							title="Reinstall isn't available yet"
 							variant="outline"
 						>
 							Reinstall
@@ -310,27 +303,6 @@ function DangerZone({ server }: { server: ServerRow }) {
 					title="Delete server"
 				/>
 			</DangerRows>
-
-			<Dialog onOpenChange={setReinstallOpen} open={reinstallOpen}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Reinstall this server?</DialogTitle>
-						<DialogDescription>
-							This re-runs the install script for “{server.name}”. Your data
-							volume is kept, but files the installer manages are replaced. The
-							server restarts when it's done.
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<DialogClose asChild>
-							<Button type="button" variant="outline">
-								Cancel
-							</Button>
-						</DialogClose>
-						<Button onClick={reinstall}>Reinstall</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
 
 			<Dialog onOpenChange={setDeleteOpen} open={deleteOpen}>
 				<DialogContent>

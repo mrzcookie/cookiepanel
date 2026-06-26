@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Check, ChevronRight } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { DetailList, DetailRow } from "@/components/shared/detail-list";
 import { PageHeader } from "@/components/shared/page-header";
@@ -87,13 +87,8 @@ function recordName(fqdn: string): string {
 	return parts.length > 2 ? (parts[0] ?? "@") : "@";
 }
 
-// The DNS pre-flight on the domain step. Optimistic: the real first heartbeat is
-// the actual validator, so the check only ever encourages — it never blocks
-// Continue.
-type DnsState = "idle" | "checking" | "pointed";
-// The IP the simulated DNS check reports, so the story stays consistent on the
-// domain step.
-const DETECTED_IP = "203.0.113.24";
+// The DNS step is purely instructional: the panel can't resolve DNS from the
+// browser, and the daemon's first heartbeat is the real validator.
 
 export function ConnectNodeWizard() {
 	const navigate = useNavigate();
@@ -103,7 +98,6 @@ export function ConnectNodeWizard() {
 	const [mode, setMode] = useState<Mode>("managed");
 	const [fqdn, setFqdn] = useState("");
 	const [port, setPort] = useState("8443");
-	const [dnsState, setDnsState] = useState<DnsState>("idle");
 	const [generating, setGenerating] = useState(false);
 	const [created, setCreated] = useState<{
 		node: NodeRow;
@@ -131,15 +125,6 @@ export function ConnectNodeWizard() {
 		portNum <= 65535;
 	const configureValid = nameValid && (mode === "managed" || ownValid);
 
-	// Simulate the DNS lookup the "Check domain" button kicks off.
-	useEffect(() => {
-		if (dnsState !== "checking") {
-			return;
-		}
-		const timer = setTimeout(() => setDnsState("pointed"), 1500);
-		return () => clearTimeout(timer);
-	}, [dnsState]);
-
 	async function generate() {
 		if (!configureValid || generating) {
 			return;
@@ -162,7 +147,6 @@ export function ConnectNodeWizard() {
 				managed: mode === "managed",
 			});
 			await invalidateNodes(queryClient);
-			setDnsState("idle");
 			setCreated({ node: result.node, command: result.enrollment.command });
 			setStepId(mode === "own" ? "dns" : "install");
 		} catch (error) {
@@ -204,12 +188,11 @@ export function ConnectNodeWizard() {
 		setMode("managed");
 		setFqdn("");
 		setPort("8443");
-		setDnsState("idle");
 		setStepId("prereqs");
 	}
 
 	const heading = stepHeading(stepId, name);
-	const status = stepStatus(stepId, fqdn, dnsState);
+	const status = stepStatus(stepId);
 
 	let footer: ReactNode;
 	if (stepId === "prereqs") {
@@ -245,7 +228,7 @@ export function ConnectNodeWizard() {
 					Back
 				</Button>
 				<Button className="ml-auto" onClick={() => setStepId("install")}>
-					{dnsState === "pointed" ? "Continue" : "Continue anyway"}
+					Continue
 				</Button>
 			</>
 		);
@@ -318,17 +301,11 @@ export function ConnectNodeWizard() {
 					/>
 				) : null}
 				{stepId === "dns" ? (
-					<DnsStep
-						dnsState={dnsState}
-						fqdn={fqdn.trim().toLowerCase()}
-						onCheck={() => setDnsState("checking")}
-						port={port}
-					/>
+					<DnsStep fqdn={fqdn.trim().toLowerCase()} port={port} />
 				) : null}
 				{stepId === "install" && node ? (
 					<InstallStep
 						command={created?.command ?? ""}
-						dnsPointed={mode === "own" && dnsState === "pointed"}
 						mode={mode}
 						node={node}
 					/>
@@ -382,20 +359,7 @@ function stepHeading(stepId: StepId, name: string) {
 	};
 }
 
-function stepStatus(
-	stepId: StepId,
-	fqdn: string,
-	dnsState: DnsState
-): string | undefined {
-	if (stepId === "dns") {
-		if (dnsState === "checking") {
-			return `Looking up ${fqdn || "your address"}.`;
-		}
-		if (dnsState === "pointed") {
-			return "Your domain points at the node.";
-		}
-		return undefined;
-	}
+function stepStatus(stepId: StepId): string | undefined {
 	if (stepId === "connect") {
 		return "Node registered. Awaiting first report.";
 	}
@@ -667,17 +631,7 @@ function ModeTile({
 
 // — Step 2 (own domain only): Point your domain ————————————————————————————————
 
-function DnsStep({
-	dnsState,
-	fqdn,
-	onCheck,
-	port,
-}: {
-	dnsState: DnsState;
-	fqdn: string;
-	onCheck: () => void;
-	port: string;
-}) {
+function DnsStep({ fqdn, port }: { fqdn: string; port: string }) {
 	const [serverIp, setServerIp] = useState("");
 	const shown = fqdn || "your address";
 	const name = recordName(fqdn);
@@ -784,40 +738,20 @@ function DnsStep({
 			</section>
 
 			<section className="space-y-3 border-t pt-5">
-				<Eyebrow>{"// 3. check it"}</Eyebrow>
+				<Eyebrow>{"// 3. give it a moment"}</Eyebrow>
 				<p className="text-muted-foreground text-sm">
-					When you have saved the record, check that it points the right way.
-					You can keep going even if it is not ready yet, but checking first
-					avoids surprises.
+					Once you have saved the record, DNS can take a few minutes (sometimes
+					up to an hour) to spread. You can continue and install now — the node
+					comes online on its own once it can reach the panel.
 				</p>
-				<div className="flex flex-wrap items-center gap-3">
-					<Button
-						disabled={dnsState === "checking"}
-						onClick={onCheck}
-						size="sm"
-						variant="outline"
-					>
-						{dnsState === "pointed" ? "Check again" : "Check domain"}
-					</Button>
-					<DnsCheckChip state={dnsState} />
-				</div>
-				{dnsState === "pointed" ? (
-					<div className="rounded-lg border px-3 py-1">
-						<DetailList>
-							<DetailRow label="Looked up" value={shown} />
-							<DetailRow label="Resolved to" value={DETECTED_IP} />
-						</DetailList>
-					</div>
-				) : (
-					<ul className="space-y-1 text-muted-foreground text-xs">
-						<li>Double-check the record Type is A and the Name matches.</li>
-						<li>Cloudflare users: confirm the proxy (orange cloud) is off.</li>
-						<li>
-							DNS can take up to an hour. Give it a few minutes, then check
-							again.
-						</li>
-					</ul>
-				)}
+				<ul className="space-y-1 text-muted-foreground text-xs">
+					<li>Double-check the record Type is A and the Name matches.</li>
+					<li>Cloudflare users: confirm the proxy (orange cloud) is off.</li>
+					<li>
+						DNS can take up to an hour. Give it a few minutes if the node
+						doesn't connect right away.
+					</li>
+				</ul>
 			</section>
 
 			<div className="border-t pt-5">
@@ -842,43 +776,23 @@ function DnsStep({
 				</Collapsible>
 			</div>
 
-			{dnsState === "pointed" ? (
-				<p className="text-ok text-sm">
-					DNS verified. Next, install the agent.
-				</p>
-			) : (
-				<p className="text-muted-foreground text-sm">
-					DNS changes usually take a few minutes, sometimes up to an hour. You
-					can continue now and install while it catches up. The node comes
-					online once DNS resolves.
-				</p>
-			)}
+			<p className="text-muted-foreground text-sm">
+				DNS changes usually take a few minutes, sometimes up to an hour. You can
+				continue now and install while it catches up. The node comes online once
+				DNS resolves.
+			</p>
 		</div>
 	);
-}
-
-function DnsCheckChip({ state }: { state: DnsState }) {
-	if (state === "checking") {
-		return (
-			<StatusIndicator live status={{ label: "Checking", tone: "pending" }} />
-		);
-	}
-	if (state === "pointed") {
-		return <StatusIndicator status={{ label: "Pointed", tone: "online" }} />;
-	}
-	return <StatusIndicator status={{ label: "Not checked", tone: "muted" }} />;
 }
 
 // — Step 3: Install ————————————————————————————————————————————————————————————
 
 function InstallStep({
 	command,
-	dnsPointed,
 	mode,
 	node,
 }: {
 	command: string;
-	dnsPointed: boolean;
 	mode: Mode;
 	node: NodeRow;
 }) {
@@ -922,7 +836,6 @@ function InstallStep({
 					label="Reachability"
 					value={mode === "managed" ? "Raptor subdomain" : "Your own domain"}
 				/>
-				{dnsPointed ? <DetailRow label="DNS" value="Pointed" /> : null}
 			</DetailList>
 			<p className="text-muted-foreground text-xs">
 				The token works one time and then expires. After this, the panel and

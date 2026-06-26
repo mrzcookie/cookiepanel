@@ -1,6 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import {
 	Card,
@@ -71,23 +69,16 @@ const FLAGS: Flag[] = [
 	},
 ];
 
+// Read-only preview: flag persistence isn't wired to a backend yet, so the
+// toggles are disabled rather than faking a save.
 function FeatureFlagsCard() {
-	const [flags, setFlags] = useState<Record<string, boolean>>(() =>
-		Object.fromEntries(FLAGS.map((flag) => [flag.key, flag.enabled]))
-	);
-
-	function toggle(key: string, label: string) {
-		const next = !flags[key];
-		setFlags({ ...flags, [key]: next });
-		toast.success(`${label} ${next ? "enabled" : "disabled"}.`);
-	}
-
 	return (
 		<Card>
 			<CardHeader>
 				<CardTitle>Feature flags</CardTitle>
 				<CardDescription>
-					Turn platform capabilities on or off for every organization.
+					Turn platform capabilities on or off for every organization. Editing
+					isn't available yet — these show the planned defaults.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="divide-y">
@@ -108,9 +99,10 @@ function FeatureFlagsCard() {
 							</p>
 						</div>
 						<Switch
-							checked={flags[flag.key] ?? false}
+							aria-readonly
+							checked={flag.enabled}
+							disabled
 							id={`flag-${flag.key}`}
-							onCheckedChange={() => toggle(flag.key, flag.label)}
 						/>
 					</div>
 				))}

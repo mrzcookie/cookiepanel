@@ -1,8 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { LayoutTemplate, Pencil } from "lucide-react";
+import { LayoutTemplate, Pencil, Rocket } from "lucide-react";
 import { CustomizeButton } from "@/components/eggs/customize-button";
 import { EggDetailBody } from "@/components/eggs/egg-detail";
-import { UseEggDialog } from "@/components/eggs/use-egg-dialog";
 import { ErrorScreen } from "@/components/layout/error-screen";
 import { EntityIconChip } from "@/components/shared/entity-card";
 import { PageHeader } from "@/components/shared/page-header";
@@ -59,7 +58,13 @@ function EggView({ egg }: { egg: Egg }) {
 						) : (
 							<CustomizeButton eggId={egg.id} />
 						)}
-						{deployable ? <UseEggDialog egg={egg} /> : null}
+						{deployable ? (
+							<Button asChild>
+								<Link search={{ egg: egg.id }} to="/servers/new">
+									<Rocket className="size-4" /> Use egg
+								</Link>
+							</Button>
+						) : null}
 					</>
 				}
 				back={{ label: "Eggs", to: "/eggs" }}

@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { activityFor } from "@/components/servers/server-activity";
 import { ActivityList } from "@/components/shared/activity-list";
 import {
 	Card,
@@ -31,7 +30,9 @@ function ServerActivityTab() {
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<ActivityList items={activityFor(server)} />
+				{/* Per-server activity isn't wired to the org activity log yet; the
+				    list renders its own "No activity yet" empty state. */}
+				<ActivityList items={[]} />
 			</CardContent>
 		</Card>
 	);
