@@ -175,6 +175,11 @@ function NetworksCard({
 									<TableCell>
 										{network.name === "bridge" ? null : (
 											<RemoveButton
+												confirm={{
+													title: "Delete this network?",
+													description: `Servers attached to "${network.name}" will lose it. This can't be undone.`,
+													action: "Delete network",
+												}}
 												label={`Delete ${network.name}`}
 												onClick={() => remove(network)}
 											/>
@@ -266,6 +271,11 @@ function AllocationsCard({
 									<TableCell>
 										{allocation.serverId === null ? (
 											<RemoveButton
+												confirm={{
+													title: "Release this port?",
+													description: `${allocation.ip}:${allocation.port} will be freed and its firewall rule closed.`,
+													action: "Release port",
+												}}
 												label={`Release ${allocation.ip}:${allocation.port}`}
 												onClick={() => release(allocation)}
 											/>

@@ -5,6 +5,17 @@ import { ErrorScreen } from "@/components/layout/error-screen";
 import { IsolatedBadge } from "@/components/networks/isolated-badge";
 import { DetailList, DetailRow } from "@/components/shared/detail-list";
 import { PageHeader } from "@/components/shared/page-header";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -75,9 +86,28 @@ function NetworkManage({ network }: { network: NetworkRow }) {
 			<PageHeader
 				actions={
 					deletable ? (
-						<Button onClick={remove} size="sm" variant="destructive">
-							Delete
-						</Button>
+						<AlertDialog>
+							<AlertDialogTrigger asChild>
+								<Button size="sm" variant="destructive">
+									Delete
+								</Button>
+							</AlertDialogTrigger>
+							<AlertDialogContent>
+								<AlertDialogHeader>
+									<AlertDialogTitle>Delete this network?</AlertDialogTitle>
+									<AlertDialogDescription>
+										Servers attached to “{network.name}” will lose it. This
+										can't be undone.
+									</AlertDialogDescription>
+								</AlertDialogHeader>
+								<AlertDialogFooter>
+									<AlertDialogCancel>Cancel</AlertDialogCancel>
+									<AlertDialogAction onClick={remove}>
+										Delete network
+									</AlertDialogAction>
+								</AlertDialogFooter>
+							</AlertDialogContent>
+						</AlertDialog>
 					) : null
 				}
 				back={{ label: "Networks", to: "/networks" }}
