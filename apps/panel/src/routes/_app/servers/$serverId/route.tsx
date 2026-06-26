@@ -21,10 +21,13 @@ import {
 import { serverStatus } from "@/lib/status";
 
 export const Route = createFileRoute("/_app/servers/$serverId")({
-	// Warm the eggs cache so the per-tab egg reads (startup, database)
-	// resolve without a flash.
-	loader: ({ context }) =>
-		context.queryClient.ensureQueryData(eggsListQueryOptions()),
+	// Preload the eggs cache (per-tab egg reads) AND the server itself, so the
+	// detail shell renders with data instead of flashing a blank screen.
+	loader: ({ context, params }) =>
+		Promise.all([
+			context.queryClient.ensureQueryData(eggsListQueryOptions()),
+			context.queryClient.ensureQueryData(serverQueryOptions(params.serverId)),
+		]),
 	component: ServerDetailLayout,
 	notFoundComponent: () => (
 		<ErrorScreen
