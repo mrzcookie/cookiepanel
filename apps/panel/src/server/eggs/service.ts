@@ -1,4 +1,5 @@
 import type { Egg, EggImage, EggVariable } from "@/lib/domain/eggs";
+import { INSTALL_ENTRYPOINTS } from "@/lib/domain/eggs";
 import { recordActivity } from "@/server/activity/record";
 import { type EggImportResult, fetchEggJson, parseEgg } from "./egg-import";
 import {
@@ -91,9 +92,13 @@ function toEgg(
 		stopType: record.stopType,
 		stopValue: record.stopValue,
 		doneMarkers: record.doneMarkers,
-		installScript: record.installScript,
-		installContainerImage: record.installContainerImage,
-		installEntrypoint: record.installEntrypoint,
+		// Server-only outside the editor (eggs-over-images): the consumer catalog
+		// never carries the raw install image or the root-run install script.
+		installScript: withImage ? record.installScript : "",
+		installContainerImage: withImage ? record.installContainerImage : "",
+		installEntrypoint: withImage
+			? record.installEntrypoint
+			: INSTALL_ENTRYPOINTS[0],
 		features: record.features,
 		configFiles: record.configFiles,
 	};

@@ -96,6 +96,13 @@ export const removeAllocation = createServerFn({ method: "POST" })
 		if (!row) {
 			throw new Error("Not found");
 		}
+		// A slot assigned to a server can't be released (domain.md): freeing the
+		// port out from under a running server would break its networking.
+		if (row.serverId) {
+			throw new Error(
+				"This port is assigned to a server and can't be released."
+			);
+		}
 		await closeFirewall(row.nodeId, row.port, row.protocol);
 		await allocationsRepository.remove(orgId, data.id);
 		return { id: data.id };

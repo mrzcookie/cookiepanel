@@ -20,5 +20,8 @@ export function billingQueryOptions() {
 		queryKey: ["billing", "org"] as const,
 		queryFn: () => getBilling(),
 		refetchOnWindowFocus: true,
+		// Override the global 60s staleTime so the focus refetch actually fires —
+		// otherwise returning from Polar checkout shows stale state for up to a minute.
+		staleTime: 0,
 	});
 }

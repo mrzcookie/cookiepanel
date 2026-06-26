@@ -769,7 +769,7 @@ export async function getNodeUrlDownload(
 ): Promise<DaemonDownloadJob> {
 	const { node: ref, nodeKey } = await loadDialer(nodeId);
 	return (await daemonFetch(nodeKey, ref, {
-		path: `${filesBase(serverId)}/url-download/${jobId}`,
+		path: `${filesBase(serverId)}/url-download/${encodeURIComponent(jobId)}`,
 	})) as DaemonDownloadJob;
 }
 
@@ -958,7 +958,7 @@ export async function setNodeBackupLock(
 	const { node: ref, nodeKey } = await loadDialer(nodeId);
 	await daemonFetch(nodeKey, ref, {
 		method: "POST",
-		path: `${backupsBase(serverId)}/${archive}/lock`,
+		path: `${backupsBase(serverId)}/${encodeURIComponent(archive)}/lock`,
 		body: { locked },
 	});
 }
@@ -971,7 +971,7 @@ export async function deleteNodeBackup(
 	const { node: ref, nodeKey } = await loadDialer(nodeId);
 	await daemonFetch(nodeKey, ref, {
 		method: "DELETE",
-		path: `${backupsBase(serverId)}/${archive}`,
+		path: `${backupsBase(serverId)}/${encodeURIComponent(archive)}`,
 	});
 }
 
