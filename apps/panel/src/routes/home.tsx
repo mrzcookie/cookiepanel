@@ -91,7 +91,9 @@ function Landing() {
 						{"// connect a box"}
 					</div>
 					<div className="terminal flex items-center gap-3 rounded-lg px-4 py-3">
-						<span className="font-mono text-ok text-sm">$</span>
+						<span aria-hidden className="font-mono text-ok text-sm">
+							$
+						</span>
 						<code className="min-w-0 flex-1 truncate font-mono text-sm">
 							{INSTALL}
 						</code>

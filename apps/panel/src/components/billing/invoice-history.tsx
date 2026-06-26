@@ -1,8 +1,6 @@
-import { Download, Receipt } from "lucide-react";
-import { toast } from "sonner";
+import { Receipt } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusIndicator } from "@/components/shared/status-indicator";
-import { Button } from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
@@ -48,9 +46,6 @@ export function InvoiceHistory({ invoices }: { invoices: Invoice[] }) {
 								<TableHead>Date</TableHead>
 								<TableHead className="text-right">Amount</TableHead>
 								<TableHead>Status</TableHead>
-								<TableHead className="w-0">
-									<span className="sr-only">Download</span>
-								</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
@@ -67,20 +62,6 @@ export function InvoiceHistory({ invoices }: { invoices: Invoice[] }) {
 									</TableCell>
 									<TableCell>
 										<StatusIndicator status={invoiceStatus(invoice.status)} />
-									</TableCell>
-									<TableCell>
-										<Button
-											className="size-7 text-muted-foreground"
-											onClick={() => toast.info("Opening invoice…")}
-											size="icon"
-											type="button"
-											variant="ghost"
-										>
-											<Download />
-											<span className="sr-only">
-												Download invoice {invoice.number}
-											</span>
-										</Button>
 									</TableCell>
 								</TableRow>
 							))}

@@ -225,10 +225,7 @@ function PercentPanel({
 function LivePill() {
 	return (
 		<span className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-			<span className="relative flex size-1.5">
-				<span className="absolute inline-flex size-full animate-ping rounded-full bg-brand opacity-75 motion-reduce:hidden" />
-				<span className="relative inline-flex size-1.5 rounded-full bg-brand" />
-			</span>
+			<span className="size-1.5 rounded-full bg-brand [animation:live-pulse_1.4s_ease-in-out_infinite] motion-reduce:animate-none" />
 			Live
 		</span>
 	);

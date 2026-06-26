@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Area, AreaChart, YAxis } from "recharts";
 import { DetailList, DetailRow } from "@/components/shared/detail-list";
 import { CardStat } from "@/components/shared/entity-card";
 import { StatusIndicator } from "@/components/shared/status-indicator";
@@ -11,7 +10,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 import type { NodeRow } from "@/lib/domain/nodes";
 import type { ServerRow } from "@/lib/domain/servers";
 import { formatBytes } from "@/lib/format";
@@ -81,46 +79,21 @@ function NodeOverview() {
 	);
 }
 
-// A deterministic recent-history trend ending at the current value. Visual stub
-// only (the daemon reports a point-in-time value); no random so it stays stable.
-function usageSeries(current: number) {
-	const points = 20;
-	return Array.from({ length: points }, (_, i) => {
-		if (i === points - 1) {
-			return { i, value: current };
-		}
-		const wave =
-			Math.sin((i + current) / 2.3) * 7 + Math.sin((i + current) / 5.5) * 4;
-		return { i, value: Math.round(Math.min(98, Math.max(2, current + wave))) };
-	});
-}
-
+// An honest point-in-time bar — the daemon reports a single current value, not a
+// history, so we show the live percentage rather than a fabricated trend.
 function UsageChart({ stressed, value }: { stressed: boolean; value: number }) {
-	const config = {
-		value: {
-			label: "Usage",
-			color: stressed ? "var(--destructive)" : "var(--foreground)",
-		},
-	} satisfies ChartConfig;
 	return (
-		<ChartContainer className="aspect-auto h-20 w-full" config={config}>
-			<AreaChart
-				data={usageSeries(value)}
-				margin={{ bottom: 0, left: 0, right: 0, top: 2 }}
-			>
-				<YAxis domain={[0, 100]} hide />
-				<Area
-					dataKey="value"
-					dot={false}
-					fill="var(--color-value)"
-					fillOpacity={0.12}
-					isAnimationActive={false}
-					stroke="var(--color-value)"
-					strokeWidth={2}
-					type="monotone"
+		<div className="flex h-20 items-end rounded-lg bg-muted/40 p-3">
+			<div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+				<div
+					className={cn(
+						"h-full rounded-full transition-[width] duration-500",
+						stressed ? "bg-destructive" : "bg-foreground/70"
+					)}
+					style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
 				/>
-			</AreaChart>
-		</ChartContainer>
+			</div>
+		</div>
 	);
 }
 

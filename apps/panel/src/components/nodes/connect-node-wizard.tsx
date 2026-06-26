@@ -329,7 +329,7 @@ function stepHeading(stepId: StepId, name: string) {
 		return {
 			title: "Before you start",
 			description:
-				"Here is everything you need to connect a node. Get these ready, then we will set it up. It takes about five minutes.",
+				"Here is everything you need to connect a node. Get these ready, then we'll set it up. It takes about five minutes.",
 		};
 	}
 	if (stepId === "setup") {
@@ -343,7 +343,7 @@ function stepHeading(stepId: StepId, name: string) {
 		return {
 			title: "Point your domain at this node",
 			description:
-				"Find your server's public address, then add one DNS record at your domain provider. We will check it for you before you continue.",
+				"Find your server's public address, then add one DNS record at your domain provider. We'll check it for you before you continue.",
 		};
 	}
 	if (stepId === "install") {
@@ -508,7 +508,7 @@ function SetupStep({
 						value="managed"
 					/>
 					<ModeTile
-						body="Point a domain you already own at this node. More setup, but the address is yours. We will walk you through it."
+						body="Point a domain you already own at this node. More setup, but the address is yours. We'll walk you through it."
 						current={mode}
 						eyebrow="advanced"
 						onSelect={onMode}
@@ -537,7 +537,7 @@ function SetupStep({
 				<div className="space-y-4">
 					<p className="text-muted-foreground text-sm">
 						Tell us the exact address this node will answer on, and the port.
-						You will point your domain at it in the next step.
+						You'll point your domain at it in the next step.
 					</p>
 					<div className="grid gap-4 sm:grid-cols-[1fr_auto]">
 						<div className="grid gap-2">
@@ -561,7 +561,7 @@ function SetupStep({
 							>
 								{fqdnInvalid
 									? "Enter a full hostname, like node1.yourdomain.com."
-									: "A full hostname on a domain you own. We will get a free HTTPS certificate for it."}
+									: "A full hostname on a domain you own. We'll get a free HTTPS certificate for it."}
 							</p>
 						</div>
 						<div className="grid gap-2">
@@ -643,7 +643,7 @@ function DnsStep({ fqdn, port }: { fqdn: string; port: string }) {
 			<p className="text-muted-foreground text-sm">
 				DNS is the phone book of the internet. Right now{" "}
 				<span className="font-mono text-foreground">{shown}</span> does not lead
-				anywhere. You will fix that by adding one "A record" at the company you
+				anywhere. You'll fix that by adding one "A record" at the company you
 				manage your domain with. An A record is just a line that says "this name
 				points to this machine." Do this in a second tab and come back. Nothing
 				here can break your existing site or email.
@@ -686,7 +686,7 @@ function DnsStep({ fqdn, port }: { fqdn: string; port: string }) {
 					>
 						{ipInvalid
 							? "That does not look like an IPv4 address."
-							: "Paste it here and we will fill it into the record below."}
+							: "Paste it here and we'll fill it into the record below."}
 					</p>
 				</div>
 			</section>
@@ -770,7 +770,7 @@ function DnsStep({ fqdn, port }: { fqdn: string; port: string }) {
 						On most rented servers these are open already. If your machine is
 						behind a home router or a cloud firewall, allow incoming traffic on
 						those ports (look for "firewall rules", "security group", or "port
-						forwarding"). If you are not sure, continue anyway. We will tell you
+						forwarding"). If you are not sure, continue anyway. We'll tell you
 						if anything is unreachable.
 					</p>
 				</Collapsible>
@@ -805,7 +805,7 @@ function InstallStep({
 			</p>
 			<TerminalBlock command={command} />
 			<p className="text-muted-foreground text-xs">
-				Not root? The sudo in the command handles it; you will be asked for your
+				Not root? The sudo in the command handles it; you'll be asked for your
 				password. Not sure how to open a terminal on a VPS? Your host's
 				dashboard usually has a "Console" or "SSH" button.
 			</p>
