@@ -1,4 +1,4 @@
-# DESIGN.md — RaptorPanel "The Console"
+# DESIGN.md — Raptor "The Console"
 
 The panel's design system. **"The Console"** (dark) is the default; **"Daylight"**
 (light) is a faithful inversion. Source of truth for tokens is

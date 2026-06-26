@@ -1,4 +1,4 @@
-# PRODUCT.md — RaptorPanel
+# PRODUCT.md — Raptor
 
 Context for design work. Pairs with `DESIGN.md` (the design system) and the
 deep-dive rules in `.claude/rules/`. Read both before any UI task.
@@ -8,9 +8,9 @@ surface, not a marketing artifact; restraint and legibility beat expression.
 
 ## What it is
 
-RaptorPanel is a **hosted, multi-tenant control panel for running Docker game
+Raptor is a **hosted, multi-tenant control panel for running Docker game
 servers and apps on your own Linux boxes**. You connect a machine you own, and
-RaptorPanel turns it into a managed fleet: spin up a Minecraft (or any) server
+Raptor turns it into a managed fleet: spin up a Minecraft (or any) server
 from a **Egg**, watch live CPU/memory, and manage files, networks, ports,
 firewall, schedules, and backups, without touching a terminal.
 

@@ -1,5 +1,5 @@
 {
-	"name": "@raptorpanel/contract",
+	"name": "@raptor/contract",
 	"version": "0.0.0",
 	"private": true,
 	"description": "The panel↔daemon HTTPS API contract: one OpenAPI spec, codegen'd to TypeScript (panel) + Go (daemon).",

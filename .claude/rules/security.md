@@ -1,6 +1,6 @@
 # Security — the non-negotiables
 
-RaptorPanel runs other people's servers on machines they own, and one panel
+Raptor runs other people's servers on machines they own, and one panel
 serves many tenants. Two properties are non-negotiable: **tenants can never
 reach each other's resources**, and **the root daemon never trusts its input**.
 Treat a violation of either as a bug, not an edge case.

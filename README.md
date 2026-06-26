@@ -1,9 +1,9 @@
-# RaptorPanel
+# Raptor
 
 A hosted, multi-tenant control panel for running Docker game servers and apps on
 **your own Linux boxes** — plus the per-box daemon that does the work.
 
-Connect a machine you own and RaptorPanel turns it into a managed fleet: deploy a
+Connect a machine you own and Raptor turns it into a managed fleet: deploy a
 server from a **Egg**, watch live resource usage, and manage files,
 networks, ports, firewall, schedules, and backups — no terminal required. It's
 built for people who aren't Linux admins: you think in *servers* and *eggs*,
@@ -11,7 +11,7 @@ not images and containers. The goal is **easy + secure** by default.
 
 ## How it works
 
-RaptorPanel is two programs:
+Raptor is two programs:
 
 - A central web **panel** (the hosted SaaS) owns identity, organizations,
   eggs, and the desired state of your fleet.
@@ -57,7 +57,7 @@ pnpm install                 # install JS/TS workspaces
 pnpm dev:up                  # start dev infra (Postgres + Redis) — see infra/
 
 cp apps/panel/.env.example apps/panel/.env          # then fill AUTH_SECRET + ENCRYPTION_KEY
-pnpm --filter @raptorpanel/panel db:migrate         # apply database migrations
+pnpm --filter @raptor/panel db:migrate         # apply database migrations
 
 pnpm dev                     # run the panel (Vite dev) on :3000
 pnpm dev:down                # stop the dev infra when done
@@ -82,14 +82,14 @@ pnpm wings:run              # run the daemon (heartbeat loop; needs `wings confi
 
 ## Repo docs
 
-- `CLAUDE.md` — the project guide (what RaptorPanel is, the rules, the current
+- `CLAUDE.md` — the project guide (what Raptor is, the rules, the current
   phase). The entry point for contributors and AI agents.
 - `.claude/rules/` — deep dives: `architecture`, `domain`, `panel`, `daemon`,
   `security`, `design`.
 
 ## License
 
-Copyright (C) 2026 RaptorPanel.
+Copyright (C) 2026 Xena Studios.
 
 This program is free software: licensed under the GNU Affero General Public
 License, either version 3 or (at your option) any later version

@@ -21,7 +21,7 @@ import type { EggScope } from "@/lib/eggs-scope";
 type Mode = "paste" | "url";
 
 /**
- * Import a Pterodactyl/Pelican egg (or a RaptorPanel export) by pasting/uploading
+ * Import a Pterodactyl/Pelican egg (or a Raptor export) by pasting/uploading
  * JSON or from a URL. The server parses the egg into a draft — mapping runtimes,
  * variables, startup, and install — and reports any fields it had to drop; the
  * draft opens in the editor for review before publishing.

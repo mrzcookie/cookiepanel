@@ -44,7 +44,7 @@ const trustedOrigins = csv(env.AUTH_TRUSTED_ORIGINS);
 const adminUserIds = csv(env.AUTH_ADMIN_USER_IDS);
 
 /**
- * Polar billing — mounted **for webhooks only**. RaptorPanel bills the org, not
+ * Polar billing — mounted **for webhooks only**. Raptor bills the org, not
  * the user, so checkout/portal/seats are driven through the SDK with
  * `externalCustomerId = orgId` (see server/billing); the plugin's own
  * checkout/portal endpoints are user-scoped and intentionally unused. This adds
@@ -185,8 +185,8 @@ export const auth = betterAuth({
 		sendVerificationEmail: async ({ user, url }) => {
 			await sendEmail({
 				to: user.email,
-				subject: "Verify your RaptorPanel email",
-				text: `Verify your email address for RaptorPanel:\n\n${url}\n\nIf you didn't request this, you can ignore this email.`,
+				subject: "Verify your Raptor email",
+				text: `Verify your email address for Raptor:\n\n${url}\n\nIf you didn't request this, you can ignore this email.`,
 			});
 		},
 	},
@@ -214,8 +214,8 @@ export const auth = betterAuth({
 			sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
 				await sendEmail({
 					to: user.email,
-					subject: "Confirm your RaptorPanel email change",
-					text: `You asked to change your RaptorPanel email to ${newEmail}.\n\nConfirm the change (this link is sent to your current address):\n\n${url}\n\nIf you didn't request this, ignore this email — your address won't change.`,
+					subject: "Confirm your Raptor email change",
+					text: `You asked to change your Raptor email to ${newEmail}.\n\nConfirm the change (this link is sent to your current address):\n\n${url}\n\nIf you didn't request this, ignore this email — your address won't change.`,
 				});
 			},
 		},
@@ -227,15 +227,15 @@ export const auth = betterAuth({
 			sendDeleteAccountVerification: async ({ user, url }) => {
 				await sendEmail({
 					to: user.email,
-					subject: "Confirm your RaptorPanel account deletion",
-					text: `You asked to delete your RaptorPanel account.\n\nConfirm — this permanently deletes your account and removes you from every organization:\n\n${url}\n\nIf you didn't request this, ignore this email and your account stays safe.`,
+					subject: "Confirm your Raptor account deletion",
+					text: `You asked to delete your Raptor account.\n\nConfirm — this permanently deletes your account and removes you from every organization:\n\n${url}\n\nIf you didn't request this, ignore this email and your account stays safe.`,
 				});
 			},
 		},
 	},
 
 	advanced: {
-		cookiePrefix: "raptorpanel",
+		cookiePrefix: "raptor",
 		// UUIDs everywhere, so app-table FKs to user/org ids stay UUIDs.
 		generateId: () => randomUUID(),
 		// Real client IP behind a reverse proxy (for rate limiting / auditing).
@@ -303,9 +303,9 @@ export const auth = betterAuth({
 				const url = `${env.AUTH_URL}/accept-invitation/${invitation.id}`;
 				await sendEmail({
 					to: email,
-					subject: `Join ${org.name} on RaptorPanel`,
-					text: `${who} invited you to join ${org.name} on RaptorPanel.\n\nAccept: ${url}\n\nThis invitation expires in 7 days.`,
-					html: `<p>${who} invited you to join <strong>${org.name}</strong> on RaptorPanel.</p><p><a href="${url}">Accept invitation</a></p><p>This invitation expires in 7 days.</p>`,
+					subject: `Join ${org.name} on Raptor`,
+					text: `${who} invited you to join ${org.name} on Raptor.\n\nAccept: ${url}\n\nThis invitation expires in 7 days.`,
+					html: `<p>${who} invited you to join <strong>${org.name}</strong> on Raptor.</p><p><a href="${url}">Accept invitation</a></p><p>This invitation expires in 7 days.</p>`,
 				});
 			},
 		}),
@@ -318,8 +318,8 @@ export const auth = betterAuth({
 			sendMagicLink: async ({ email, url }) => {
 				await sendEmail({
 					to: email,
-					subject: "Your RaptorPanel login link",
-					text: `Log in to RaptorPanel:\n\n${url}\n\nThis link expires shortly. If you didn't request it, ignore this email.`,
+					subject: "Your Raptor login link",
+					text: `Log in to Raptor:\n\n${url}\n\nThis link expires shortly. If you didn't request it, ignore this email.`,
 				});
 			},
 		}),

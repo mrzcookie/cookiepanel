@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/docker"
+	"github.com/xena-studios/raptor/apps/wings/internal/docker"
 )
 
 var nameRE = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,62}$`)

@@ -18,7 +18,7 @@ import (
 )
 
 // RuleComment tags every rule we add, so list/remove only ever see ours.
-const RuleComment = "raptorpanel"
+const RuleComment = "raptor"
 
 // SSHPort is never closeable — closing it could lock the operator off the box.
 const SSHPort = 22

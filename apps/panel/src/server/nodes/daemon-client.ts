@@ -7,7 +7,7 @@ import {
 	type TLSSocket,
 	connect as tlsConnect,
 } from "node:tls";
-import type { components } from "@raptorpanel/contract";
+import type { components } from "@raptor/contract";
 import { eq } from "drizzle-orm";
 import type { NodeHostInfo, NodeLiveStats } from "@/lib/domain/nodes";
 import { unseal } from "@/server/crypto";

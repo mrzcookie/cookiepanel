@@ -34,11 +34,11 @@ jobs:
       # Regenerate from openapi.yaml; the committed bindings must match. (The
       # conformance assertions themselves run in the panel typecheck + daemon
       # `go test` jobs.)
-      - run: pnpm --filter @raptorpanel/contract generate
+      - run: pnpm --filter @raptor/contract generate
       - name: committed bindings match the spec
         run: |
           if ! git diff --exit-code -- packages/contract/gen apps/wings/internal/contract/contract.gen.go; then
-            echo "::error::Generated contract bindings are stale. Run: pnpm --filter @raptorpanel/contract generate"
+            echo "::error::Generated contract bindings are stale. Run: pnpm --filter @raptor/contract generate"
             exit 1
           fi
 
@@ -60,8 +60,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:ci
-      - run: pnpm --filter @raptorpanel/panel typecheck
-      - run: pnpm --filter @raptorpanel/panel build
+      - run: pnpm --filter @raptor/panel typecheck
+      - run: pnpm --filter @raptor/panel build
 
   daemon:
     name: Daemon — fmt, vet, test, build

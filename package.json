@@ -1,5 +1,5 @@
 {
-	"name": "raptorpanel",
+	"name": "raptor",
 	"private": true,
 	"type": "module",
 	"license": "AGPL-3.0-or-later",
@@ -15,7 +15,7 @@
 		"check": "biome check --write",
 		"check:ci": "biome ci",
 		"knip": "knip",
-		"analyze": "pnpm --filter @raptorpanel/panel analyze",
+		"analyze": "pnpm --filter @raptor/panel analyze",
 		"dev:up": "docker compose -f infra/compose.yaml up -d --wait",
 		"dev:down": "docker compose -f infra/compose.yaml down",
 		"wings:build": "make -C apps/wings build",

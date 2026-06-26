@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/docker"
+	"github.com/xena-studios/raptor/apps/wings/internal/docker"
 )
 
 // installLogLimit caps how much install output is echoed back in an error so a

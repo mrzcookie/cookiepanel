@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/store"
+	"github.com/xena-studios/raptor/apps/wings/internal/store"
 )
 
 // Client dials the local control socket over HTTP-over-Unix. The on-box TUI and

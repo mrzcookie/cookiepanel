@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/docker"
+	"github.com/xena-studios/raptor/apps/wings/internal/docker"
 )
 
 // installTestImage is small, present on most hosts, and has sh + coreutils. The

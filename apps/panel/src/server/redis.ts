@@ -8,7 +8,7 @@ import { env } from "@/server/env";
  * open a new connection each reload.
  */
 const globalForRedis = globalThis as unknown as {
-	__raptorpanelRedis?: Redis;
+	__raptorRedis?: Redis;
 };
 
 function createRedis() {
@@ -27,8 +27,8 @@ function createRedis() {
 	return client;
 }
 
-export const redis = globalForRedis.__raptorpanelRedis ?? createRedis();
+export const redis = globalForRedis.__raptorRedis ?? createRedis();
 
 if (env.NODE_ENV !== "production") {
-	globalForRedis.__raptorpanelRedis = redis;
+	globalForRedis.__raptorRedis = redis;
 }

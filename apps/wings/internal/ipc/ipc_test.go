@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/server"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/store"
+	"github.com/xena-studios/raptor/apps/wings/internal/server"
+	"github.com/xena-studios/raptor/apps/wings/internal/store"
 )
 
 func newTestServer(t *testing.T, sock string) (*Server, *store.Store) {

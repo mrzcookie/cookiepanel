@@ -486,8 +486,8 @@ function FirewallBody({
 
 			{firewall.backend === "none" ? (
 				<p className="text-muted-foreground text-sm">
-					No managed firewall on this node (no ufw or iptables). RaptorPanel
-					isn't filtering inbound traffic here.
+					No managed firewall on this node (no ufw or iptables). Raptor isn't
+					filtering inbound traffic here.
 				</p>
 			) : (
 				<div className="space-y-2">

@@ -10,7 +10,7 @@ import { env } from "@/server/env";
  * fresh client each reload.
  */
 const globalForS3 = globalThis as unknown as {
-	__raptorpanelS3?: S3Client;
+	__raptorS3?: S3Client;
 };
 
 /**
@@ -65,9 +65,9 @@ export function getS3Client(): S3Client {
 	if (!isStorageConfigured()) {
 		throw notConfigured();
 	}
-	const client = globalForS3.__raptorpanelS3 ?? createS3Client();
+	const client = globalForS3.__raptorS3 ?? createS3Client();
 	if (env.NODE_ENV !== "production") {
-		globalForS3.__raptorpanelS3 = client;
+		globalForS3.__raptorS3 = client;
 	}
 	return client;
 }

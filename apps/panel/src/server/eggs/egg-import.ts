@@ -20,7 +20,7 @@ import { type EggInputParsed, isValidEnvName } from "./validation";
  * field rather than by a format flag:
  *  - a Pterodactyl / Pelican egg (`docker_images`, `env_variable`, Laravel-style
  *    rule strings), the dominant interchange format; and
- *  - RaptorPanel's own export (`runtimes`, friendly `type` + `access`), so a
+ *  - Raptor's own export (`runtimes`, friendly `type` + `access`), so a
  *    egg round-trips losslessly.
  *
  * Parsing is tolerant and never throws on bad input: it sanitises into our shape

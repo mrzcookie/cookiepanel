@@ -12,7 +12,7 @@ import (
 
 // NetworkIDLabel tags managed docker networks with the panel's network id, so
 // list/remove can scope to ours.
-const NetworkIDLabel = "raptorpanel.networkId"
+const NetworkIDLabel = "raptor.networkId"
 
 // Network is the projection surfaced to the API.
 type Network struct {

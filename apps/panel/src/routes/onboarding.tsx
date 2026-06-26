@@ -48,7 +48,7 @@ function Onboarding() {
 					to="/home"
 				>
 					<Cookie className="size-5 text-primary" strokeWidth={2} />
-					RaptorPanel
+					Raptor Panel
 				</Link>
 
 				{signedIn ? (

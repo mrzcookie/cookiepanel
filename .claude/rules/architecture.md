@@ -6,7 +6,7 @@
 > implements every subsystem. What remains is end-to-end testing on real boxes,
 > not building the wire. This describes how it works today.
 
-RaptorPanel is one product split into two programs that run in different places
+Raptor is one product split into two programs that run in different places
 and trust each other over the network.
 
 ## Panel (control plane)
@@ -88,11 +88,11 @@ per node and then pinned.
 ## The shared contract (so the halves never drift)
 
 The panel↔daemon API is defined **once** as an OpenAPI spec in the
-`@raptorpanel/contract` package (`packages/contract/openapi.yaml`). Code
+`@raptor/contract` package (`packages/contract/openapi.yaml`). Code
 generation produces typed bindings for **both** sides:
 
 - **TypeScript types** (`openapi-typescript`) the panel imports as
-  `@raptorpanel/contract`.
+  `@raptor/contract`.
 - **Go types** (`oapi-codegen`, models-only) the daemon imports as
   `internal/contract`.
 
@@ -115,7 +115,7 @@ differently, by their role:
 
 So the loop is: daemon struct ⟷ spec (conformance) ⟷ generated types ⟷ panel
 (direct consumption) — drift anywhere fails a build. The workflow to evolve the
-API: edit `openapi.yaml`, run `pnpm --filter @raptorpanel/contract generate`,
+API: edit `openapi.yaml`, run `pnpm --filter @raptor/contract generate`,
 reconcile the daemon structs until conformance passes (the panel just recompiles),
 and commit the spec **and** the regenerated output.
 

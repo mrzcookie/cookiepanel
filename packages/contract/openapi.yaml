@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: RaptorPanel panel↔daemon API
+  title: Raptor panel↔daemon API
   version: 1.0.0
   description: >
     The HTTPS API the panel calls on each box's `wings`. This spec is the single

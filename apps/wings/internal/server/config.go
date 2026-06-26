@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/filesystem"
+	"github.com/xena-studios/raptor/apps/wings/internal/filesystem"
 	"gopkg.in/yaml.v3"
 )
 

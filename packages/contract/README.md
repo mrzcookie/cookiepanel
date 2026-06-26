@@ -1,4 +1,4 @@
-# @raptorpanel/contract
+# @raptor/contract
 
 The **single source of truth** for the panel↔daemon HTTPS API. One OpenAPI spec
 (`openapi.yaml`) is code-generated into typed bindings for both sides, and each
@@ -9,7 +9,7 @@ the panel (TypeScript) and the daemon (Go) can't drift apart.
 
 - **`openapi.yaml`** — the spec. The one thing you edit to change the API.
 - **`gen/contract.ts`** — generated TypeScript types (committed). The panel imports
-  these as `@raptorpanel/contract` and its `daemon-client` wire types **are** these
+  these as `@raptor/contract` and its `daemon-client` wire types **are** these
   schemas (aliases), so it consumes the contract directly.
 - **`../../apps/wings/internal/contract/contract.gen.go`** — generated Go types
   (committed). The daemon imports them as `internal/contract`.
@@ -22,7 +22,7 @@ spec.
 ## Workflow — changing the API
 
 1. Edit `openapi.yaml`.
-2. `pnpm --filter @raptorpanel/contract generate` (runs both codegens).
+2. `pnpm --filter @raptor/contract generate` (runs both codegens).
 3. Reconcile the **daemon's** domain structs until conformance passes (the panel
    consumes the generated types directly, so it just recompiles — fix any consumer
    the new shape breaks).

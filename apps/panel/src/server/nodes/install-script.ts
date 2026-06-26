@@ -103,7 +103,7 @@ fi
 
 cat > /etc/systemd/system/wings.service <<'UNIT'
 [Unit]
-Description=RaptorPanel daemon (wings)
+Description=Raptor Wings
 After=network-online.target docker.service
 Wants=network-online.target
 

@@ -13,12 +13,12 @@ import * as schema from "./schema";
 // globalThis so HMR re-evaluating this module doesn't open a fresh pool each
 // time and exhaust connections.
 const globalForDb = globalThis as unknown as {
-	__raptorpanelDbClient?: ReturnType<typeof postgres>;
+	__raptorDbClient?: ReturnType<typeof postgres>;
 };
 
-const client = globalForDb.__raptorpanelDbClient ?? postgres(env.DATABASE_URL);
+const client = globalForDb.__raptorDbClient ?? postgres(env.DATABASE_URL);
 if (env.NODE_ENV !== "production") {
-	globalForDb.__raptorpanelDbClient = client;
+	globalForDb.__raptorDbClient = client;
 }
 
 export const db = drizzle(client, { schema });

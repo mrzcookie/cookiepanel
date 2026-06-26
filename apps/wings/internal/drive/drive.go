@@ -34,7 +34,7 @@ import (
 	"time"
 
 	"github.com/shirou/gopsutil/v4/disk"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/store"
+	"github.com/xena-studios/raptor/apps/wings/internal/store"
 )
 
 // Sentinel errors the API maps onto HTTP status codes.

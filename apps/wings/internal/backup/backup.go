@@ -26,9 +26,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/docker"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/safe"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/store"
+	"github.com/xena-studios/raptor/apps/wings/internal/docker"
+	"github.com/xena-studios/raptor/apps/wings/internal/safe"
+	"github.com/xena-studios/raptor/apps/wings/internal/store"
 )
 
 const (

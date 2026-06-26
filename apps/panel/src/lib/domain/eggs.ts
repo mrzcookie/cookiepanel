@@ -1,6 +1,6 @@
 // Egg domain types + pure, client-safe helpers.
 //
-// A Egg is RaptorPanel's "egg": a deployable recipe for a game server or
+// A Egg is Raptor's "egg": a deployable recipe for a game server or
 // app — friendly variables, one or more runtime images, a startup command, and
 // an optional install script. Users pick Eggs, never raw Docker image
 // strings: an image lives on a *runtime* and is an authoring detail, surfaced

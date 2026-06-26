@@ -22,10 +22,10 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/diskquota"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/docker"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/filesystem"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/safe"
+	"github.com/xena-studios/raptor/apps/wings/internal/diskquota"
+	"github.com/xena-studios/raptor/apps/wings/internal/docker"
+	"github.com/xena-studios/raptor/apps/wings/internal/filesystem"
+	"github.com/xena-studios/raptor/apps/wings/internal/safe"
 )
 
 // nameRE validates the panel-supplied name; the container name is `wings-<name>`.

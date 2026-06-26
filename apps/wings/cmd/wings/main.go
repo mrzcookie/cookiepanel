@@ -1,4 +1,4 @@
-// Command wings is the RaptorPanel daemon that runs on each managed Linux box.
+// Command wings is the Raptor Wings daemon that runs on each managed Linux box.
 //
 // It is built in vertical slices: enrollment + heartbeat first (this slice),
 // then the HTTPS control API, Docker, networking, the firewall, the scheduler,
@@ -8,7 +8,7 @@ package main
 import (
 	"os"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/cli"
+	"github.com/xena-studios/raptor/apps/wings/internal/cli"
 )
 
 func main() {

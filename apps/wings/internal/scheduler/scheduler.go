@@ -14,9 +14,9 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/safe"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/server"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/store"
+	"github.com/xena-studios/raptor/apps/wings/internal/safe"
+	"github.com/xena-studios/raptor/apps/wings/internal/server"
+	"github.com/xena-studios/raptor/apps/wings/internal/store"
 )
 
 // Step types in a schedule's script.

@@ -76,7 +76,7 @@ export const EGGS: Egg[] = [
 				name: "Message of the day",
 				description: "Shown in the server list.",
 				envVariable: "SERVER_MOTD",
-				defaultValue: "A RaptorPanel server",
+				defaultValue: "A Raptor server",
 				type: "text",
 				required: false,
 				options: [],

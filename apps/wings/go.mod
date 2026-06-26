@@ -1,4 +1,4 @@
-module github.com/xena-studios/raptorpanel/apps/wings
+module github.com/xena-studios/raptor/apps/wings
 
 go 1.25.0
 

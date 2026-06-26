@@ -46,7 +46,7 @@ plane; `wings` is the hands on the box.
 | **API** | The panel-facing **HTTPS** server. Bearer-auth (constant-time compare of the node key) wraps every route; a panic in a handler becomes a 500, never crashes the box's control plane. |
 | **Auth (JWT)** | Verifies the short-lived browser JWT for the console WebSocket — **HS256 only**, expiry required, bound to a specific server + node. |
 | **WebSocket** | Browser-facing console: one socket multiplexes live logs **and** resource stats as typed JSON frames. Auth is the JWT (query param), verified locally. |
-| **Docker** | Wraps the Docker Engine API. **Labels every managed container/volume** (`raptorpanel.*`) so the daemon only ever touches its own resources. |
+| **Docker** | Wraps the Docker Engine API. **Labels every managed container/volume** (`raptor.*`) so the daemon only ever touches its own resources. |
 | **Server** | Container lifecycle (create / start / stop / restart / delete, console + stats), and the **egg-style install pipeline**: run the untrusted install script **once in its own throwaway container** under a memory cap + hard timeout, then create the long-lived container. |
 | **Network** | Docker network lifecycle (bridge / macvlan / ipvlan; subnet/gateway) + attach/detach a server. Names are regex-validated. |
 | **Firewall** | Host firewall with **pluggable backends** chosen at runtime (ufw → iptables → no-op). Every rule is **tagged** so the daemon only manages its own rules — never the operator's. Opened/closed in lockstep with port allocations. |
@@ -85,7 +85,7 @@ Because the daemon is root, validation is consistent and up front:
 
 ## Build & run
 
-- Module `github.com/xena-studios/raptorpanel/apps/wings`, Go (see `apps/wings/go.mod`).
+- Module `github.com/xena-studios/raptor/apps/wings`, Go (see `apps/wings/go.mod`).
 - `pnpm wings:build` / `pnpm wings:run` (Make targets). `make cross` builds
   linux amd64/arm64.
 - `gofmt` + `go vet` are enforced by the lefthook pre-commit hook and CI.

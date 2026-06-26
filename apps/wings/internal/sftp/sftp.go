@@ -23,7 +23,7 @@ import (
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/safe"
+	"github.com/xena-studios/raptor/apps/wings/internal/safe"
 )
 
 // DefaultPort is the TCP port the SFTP server listens on. Fixed (not advertised

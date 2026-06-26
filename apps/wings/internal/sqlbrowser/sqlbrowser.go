@@ -1,5 +1,5 @@
 // Package sqlbrowser is the read/manage surface behind a SQL server's "Browser"
-// add-on — a lightweight phpMyAdmin for the two SQL engine families RaptorPanel
+// add-on — a lightweight phpMyAdmin for the two SQL engine families Raptor
 // ships: PostgreSQL (pgx) and MySQL/MariaDB (go-sql-driver). It connects with the
 // admin user + password the panel passes (over the pinned channel; never stored)
 // and exposes a database → table → column explorer plus user management and the

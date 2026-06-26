@@ -1,6 +1,6 @@
 # Panel conventions
 
-`apps/panel` is `@raptorpanel/panel`: **TanStack Start (SSR) + React 19 +
+`apps/panel` is `@raptor/panel`: **TanStack Start (SSR) + React 19 +
 Tailwind v4**, file-based routing, server functions for the API. This file has
 two parts: the **UI patterns** the panel is built on and the **data/server
 layer** behind them. The data layer is now wired for essentially everything; only

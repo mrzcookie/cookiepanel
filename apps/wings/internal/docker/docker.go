@@ -3,7 +3,7 @@
 // container lifecycle (pull / create / start / stop / remove / list / inspect),
 // and per-server named volumes (so a server's data survives a recreate and the
 // file manager can reach it on the host). Every managed container and volume is
-// labelled `raptorpanel.*` so the daemon only ever touches its own resources.
+// labelled `raptor.*` so the daemon only ever touches its own resources.
 package docker
 
 import (
@@ -23,9 +23,9 @@ import (
 // Labels applied to every container the daemon manages, so docker queries can
 // scope to "ours" without colliding with whatever else the operator runs.
 const (
-	ManagedLabel  = "raptorpanel.managed"
-	ServerIDLabel = "raptorpanel.serverId"
-	KindLabel     = "raptorpanel.kind"
+	ManagedLabel  = "raptor.managed"
+	ServerIDLabel = "raptor.serverId"
+	KindLabel     = "raptor.kind"
 )
 
 // KindServer is the value stamped into KindLabel for managed server containers.

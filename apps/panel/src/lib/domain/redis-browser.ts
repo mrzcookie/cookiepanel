@@ -1,4 +1,4 @@
-import type { components } from "@raptorpanel/contract";
+import type { components } from "@raptor/contract";
 
 // Redis "Browser" domain: the panel-facing types are the generated contract
 // schemas (the daemon's wire shapes), plus a few pure helpers. The Redis face of

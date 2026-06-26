@@ -60,7 +60,7 @@ export const env = createEnv({
 		POLAR_SERVER: z.enum(["sandbox", "production"]).default("sandbox"),
 		POLAR_NODE_PRODUCT_ID: z.string().optional(),
 
-		// --- Managed-node DNS — Cloudflare (optional; the RaptorPanel-subdomain path) ---
+		// --- Managed-node DNS — Cloudflare (optional; the Raptor-subdomain path) ---
 		// When both are set, the panel auto-manages each managed node's subdomain
 		// A record (created at enrollment, when the node's public IP is first
 		// observed; removed when the node is). Absent = auto-DNS is a no-op and the

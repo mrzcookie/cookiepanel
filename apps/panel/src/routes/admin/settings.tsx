@@ -20,7 +20,7 @@ function AdminSettings() {
 	return (
 		<>
 			<PageHeader
-				description="Global feature flags for RaptorPanel itself."
+				description="Global feature flags for Raptor itself."
 				eyebrow="system"
 				title="Settings"
 			/>

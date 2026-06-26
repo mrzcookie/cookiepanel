@@ -160,7 +160,7 @@ func mint(fqdn string) (cryptotls.Certificate, error) {
 	}
 	tmpl := x509.Certificate{
 		SerialNumber:          serial,
-		Subject:               pkix.Name{CommonName: fqdn, Organization: []string{"RaptorPanel"}},
+		Subject:               pkix.Name{CommonName: fqdn, Organization: []string{"Raptor"}},
 		NotBefore:             time.Now().Add(-time.Hour),
 		NotAfter:              time.Now().Add(certValidity),
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/ipc"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/store"
+	"github.com/xena-studios/raptor/apps/wings/internal/ipc"
+	"github.com/xena-studios/raptor/apps/wings/internal/store"
 )
 
 func demoModel() model {

@@ -289,8 +289,7 @@ function AppearanceCard() {
 			<CardHeader>
 				<CardTitle>Appearance</CardTitle>
 				<CardDescription>
-					Choose how RaptorPanel looks to you. Your choice is saved to your
-					account.
+					Choose how Raptor looks to you. Your choice is saved to your account.
 				</CardDescription>
 			</CardHeader>
 			<CardContent>

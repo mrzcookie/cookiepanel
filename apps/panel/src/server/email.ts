@@ -9,7 +9,7 @@ export type SendEmailOptions = {
 };
 
 // Resend allows "Name <addr@host>"; fall back to their onboarding sender in dev.
-const FROM = env.EMAIL_FROM ?? "RaptorPanel <onboarding@resend.dev>";
+const FROM = env.EMAIL_FROM ?? "Raptor <onboarding@resend.dev>";
 
 /**
  * Send a transactional email via Resend. Shared across features — auth magic

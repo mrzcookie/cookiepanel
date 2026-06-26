@@ -14,8 +14,8 @@ import (
 	"github.com/moby/moby/api/pkg/stdcopy"
 	cstats "github.com/moby/moby/api/types/container"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/auth"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/safe"
+	"github.com/xena-studios/raptor/apps/wings/internal/auth"
+	"github.com/xena-studios/raptor/apps/wings/internal/safe"
 )
 
 // JWT-authed browser console gateway. One WS at /api/servers/{id}/ws emits typed

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/docker"
+	"github.com/xena-studios/raptor/apps/wings/internal/docker"
 )
 
 // liveDB starts a real database container publishing its port to a free host port

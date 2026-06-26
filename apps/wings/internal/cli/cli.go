@@ -30,23 +30,23 @@ import (
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/spf13/cobra"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/api"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/backup"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/credentials"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/docker"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/drive"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/filesystem"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/firewall"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/ipc"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/network"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/remote"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/scheduler"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/server"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/sftp"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/store"
-	wingstls "github.com/xena-studios/raptorpanel/apps/wings/internal/tls"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/tui"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/version"
+	"github.com/xena-studios/raptor/apps/wings/internal/api"
+	"github.com/xena-studios/raptor/apps/wings/internal/backup"
+	"github.com/xena-studios/raptor/apps/wings/internal/credentials"
+	"github.com/xena-studios/raptor/apps/wings/internal/docker"
+	"github.com/xena-studios/raptor/apps/wings/internal/drive"
+	"github.com/xena-studios/raptor/apps/wings/internal/filesystem"
+	"github.com/xena-studios/raptor/apps/wings/internal/firewall"
+	"github.com/xena-studios/raptor/apps/wings/internal/ipc"
+	"github.com/xena-studios/raptor/apps/wings/internal/network"
+	"github.com/xena-studios/raptor/apps/wings/internal/remote"
+	"github.com/xena-studios/raptor/apps/wings/internal/scheduler"
+	"github.com/xena-studios/raptor/apps/wings/internal/server"
+	"github.com/xena-studios/raptor/apps/wings/internal/sftp"
+	"github.com/xena-studios/raptor/apps/wings/internal/store"
+	wingstls "github.com/xena-studios/raptor/apps/wings/internal/tls"
+	"github.com/xena-studios/raptor/apps/wings/internal/tui"
+	"github.com/xena-studios/raptor/apps/wings/internal/version"
 )
 
 const (
@@ -59,7 +59,7 @@ const (
 func Run(args []string) int {
 	root := &cobra.Command{
 		Use:           "wings",
-		Short:         "RaptorPanel daemon",
+		Short:         "Raptor Wings",
 		Version:       version.String(),
 		SilenceUsage:  true,
 		SilenceErrors: false,

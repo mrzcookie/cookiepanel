@@ -1,7 +1,7 @@
-import type { components } from "@raptorpanel/contract";
+import type { components } from "@raptor/contract";
 
 // SQL Browser domain: a lightweight phpMyAdmin for the two SQL engine families
-// RaptorPanel ships (PostgreSQL + MySQL/MariaDB). The panel-facing types are the
+// Raptor ships (PostgreSQL + MySQL/MariaDB). The panel-facing types are the
 // generated contract schemas (the daemon's wire shapes); the rest are pure,
 // client-safe helpers. The SQL face of the single `database:browser` add-on
 // (engine resolved via databaseEngine()).

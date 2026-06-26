@@ -107,7 +107,7 @@ function AcceptInvitation() {
 					to="/home"
 				>
 					<Cookie className="size-5 text-primary" strokeWidth={2} />
-					RaptorPanel
+					Raptor Panel
 				</Link>
 
 				{status === "loading" ? (
@@ -126,7 +126,7 @@ function AcceptInvitation() {
 							<p className="text-muted-foreground text-sm">{errorMessage}</p>
 						</div>
 						<Button asChild size="sm" variant="outline">
-							<Link to="/">Back to RaptorPanel</Link>
+							<Link to="/">Back to Raptor Panel</Link>
 						</Button>
 					</div>
 				) : null}

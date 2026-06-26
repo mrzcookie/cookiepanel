@@ -23,9 +23,9 @@ import (
 
 	"github.com/moby/moby/api/pkg/stdcopy"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/docker"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/server"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/store"
+	"github.com/xena-studios/raptor/apps/wings/internal/docker"
+	"github.com/xena-studios/raptor/apps/wings/internal/server"
+	"github.com/xena-studios/raptor/apps/wings/internal/store"
 )
 
 // DefaultSocket is where the control socket lives on a managed box.

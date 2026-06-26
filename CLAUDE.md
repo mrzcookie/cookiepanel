@@ -1,8 +1,8 @@
-# RaptorPanel — project guide
+# Raptor — project guide
 
-RaptorPanel is a **hosted, multi-tenant control panel for running Docker game
+Raptor is a **hosted, multi-tenant control panel for running Docker game
 servers and apps on your own Linux boxes**. You connect a machine you own, and
-RaptorPanel turns it into a managed fleet: spin up a Minecraft (or any) server
+Raptor turns it into a managed fleet: spin up a Minecraft (or any) server
 from a **Egg**, watch live CPU/memory, and manage files, networks, ports,
 firewall, schedules, and backups — without touching a terminal.
 
@@ -13,7 +13,7 @@ by default.
 
 ## The two halves
 
-RaptorPanel is one product made of two programs:
+Raptor is one product made of two programs:
 
 - **Panel** — the hosted web app (the SaaS we run). It owns identity,
   organizations, eggs, and the *desired* state of the fleet. Multi-tenant:
@@ -30,7 +30,7 @@ wire format is pinned by a **shared API contract** so the two never drift. See
 
 ## Monorepo layout
 
-- `apps/panel` — `@raptorpanel/panel`: TanStack Start (SSR) + React 19 +
+- `apps/panel` — `@raptor/panel`: TanStack Start (SSR) + React 19 +
   Tailwind v4 web app & API. Server-only code lives under `src/server`.
 - `apps/wings` — `wings`: the Go agent for each managed box (all subsystems
   built; in testing + hardening).

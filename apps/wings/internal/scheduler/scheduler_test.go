@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/server"
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/store"
+	"github.com/xena-studios/raptor/apps/wings/internal/server"
+	"github.com/xena-studios/raptor/apps/wings/internal/store"
 )
 
 // fakeServers records the calls a fired schedule makes, and can be told to fail

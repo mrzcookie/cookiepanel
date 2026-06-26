@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/xena-studios/raptorpanel/apps/wings/internal/safe"
+	"github.com/xena-studios/raptor/apps/wings/internal/safe"
 )
 
 // JobState is the lifecycle of a URL-download job.

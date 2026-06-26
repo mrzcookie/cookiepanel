@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils";
 type Mode = "managed" | "own";
 type StepId = "prereqs" | "setup" | "dns" | "install" | "connect";
 
-// A node is reachable at a RaptorPanel-minted subdomain or an operator-owned
+// A node is reachable at a Raptor-minted subdomain or an operator-owned
 // FQDN. We mirror the real shape: a freshly created node is a hostname allowlist
 // check away from a single-use install command.
 const HOSTNAME =
@@ -291,7 +291,7 @@ export function ConnectNodeWizard() {
 		<>
 			<PageHeader
 				back={{ label: "Nodes", to: "/nodes" }}
-				description="Pair a Linux machine you own with RaptorPanel. Name it, run one command on it, and it joins your fleet."
+				description="Pair a Linux machine you own with Raptor. Name it, run one command on it, and it joins your fleet."
 				title="Connect a node"
 			/>
 
@@ -359,7 +359,7 @@ function stepHeading(stepId: StepId, name: string) {
 		return {
 			title: "Set up your node",
 			description:
-				"Give it a name and choose how RaptorPanel reaches it. You can rename it later.",
+				"Give it a name and choose how Raptor reaches it. You can rename it later.",
 		};
 	}
 	if (stepId === "dns") {
@@ -455,8 +455,8 @@ function PrereqsStep() {
 	return (
 		<div className="max-w-xl space-y-5">
 			<p className="text-muted-foreground text-sm">
-				A node is a Linux machine you own that RaptorPanel runs your servers on.
-				Have these ready before you continue.
+				A node is a Linux machine you own that Raptor runs your servers on. Have
+				these ready before you continue.
 			</p>
 			<ul className="space-y-3">
 				{REQUIREMENTS.map(([lead, detail]) => (
@@ -470,7 +470,7 @@ function PrereqsStep() {
 				))}
 			</ul>
 			<p className="rounded-lg border bg-muted/20 px-3 py-2.5 text-muted-foreground text-xs">
-				Nothing else to install. RaptorPanel sets up everything it needs on the
+				Nothing else to install. Raptor sets up everything it needs on the
 				machine, including Docker if it is missing. It only manages servers you
 				create here and never touches the rest of your machine.
 			</p>
@@ -534,13 +534,13 @@ function SetupStep({
 			<div className="space-y-2.5">
 				<Eyebrow>{"// how we reach this node"}</Eyebrow>
 				<fieldset className="grid gap-3 sm:grid-cols-2">
-					<legend className="sr-only">How RaptorPanel reaches this node</legend>
+					<legend className="sr-only">How Raptor reaches this node</legend>
 					<ModeTile
 						body="Easiest by far. We create a web address for this node and handle all the network setup for you. Pick this if you are not sure."
 						current={mode}
 						eyebrow="recommended"
 						onSelect={onMode}
-						title="RaptorPanel subdomain"
+						title="Raptor subdomain"
 						value="managed"
 					/>
 					<ModeTile
@@ -699,8 +699,8 @@ function DnsStep({
 				<Eyebrow>{"// 1. find your server's public IP"}</Eyebrow>
 				<p className="text-muted-foreground text-sm">
 					An A record needs your server's public IPv4 address, four numbers like
-					203.0.113.24. RaptorPanel does not know it yet, so grab it from the
-					server itself. On the node, run:
+					203.0.113.24. Raptor does not know it yet, so grab it from the server
+					itself. On the node, run:
 				</p>
 				<TerminalBlock command="curl -4 ifconfig.me" label="find IP command" />
 				<p className="text-muted-foreground text-xs">
@@ -825,7 +825,7 @@ function DnsStep({
 					<p>Your node also needs to be reachable from the internet on:</p>
 					<ul className="space-y-1">
 						<li>
-							Port {port || "8443"} (TCP) is how RaptorPanel talks to your node.
+							Port {port || "8443"} (TCP) is how Raptor talks to your node.
 						</li>
 						<li>
 							Ports 80 and 443 (TCP) are used once to get your node a free HTTPS
@@ -920,9 +920,7 @@ function InstallStep({
 				<DetailRow label="Address" value={`${node.fqdn}:${node.daemonPort}`} />
 				<DetailRow
 					label="Reachability"
-					value={
-						mode === "managed" ? "RaptorPanel subdomain" : "Your own domain"
-					}
+					value={mode === "managed" ? "Raptor subdomain" : "Your own domain"}
 				/>
 				{dnsPointed ? <DetailRow label="DNS" value="Pointed" /> : null}
 			</DetailList>
@@ -973,9 +971,7 @@ function ConnectStep({
 					/>
 					<DetailRow
 						label="Reachability"
-						value={
-							mode === "managed" ? "RaptorPanel subdomain" : "Your own domain"
-						}
+						value={mode === "managed" ? "Raptor subdomain" : "Your own domain"}
 					/>
 				</DetailList>
 			) : null}
