@@ -2,7 +2,10 @@
 
 package filesystem
 
-import "os"
+import (
+	"os"
+	"path/filepath"
+)
 
 // Non-Linux fallback (the macOS dev box): openat2 isn't available, so fall back to
 // SecureJoin + the plain os call. This keeps containment against *planted*
@@ -24,4 +27,64 @@ func mkdirAllInRoot(root, rel string, mode os.FileMode) error {
 		return err
 	}
 	return os.MkdirAll(abs, mode)
+}
+
+// pendingWrite mirrors the Linux atomic-write handle with SecureJoin'd paths.
+type pendingWrite struct {
+	File      *os.File
+	tmpPath   string
+	finalPath string
+}
+
+func startWriteInRoot(root, rel string, mode os.FileMode) (*pendingWrite, error) {
+	abs, err := resolve(root, rel)
+	if err != nil {
+		return nil, err
+	}
+	dir := filepath.Dir(abs)
+	if _, err := os.Stat(dir); err != nil {
+		return nil, err // ENOENT propagated; the caller maps it
+	}
+	f, err := os.CreateTemp(dir, ".cookied-write-*")
+	if err != nil {
+		return nil, err
+	}
+	if mode != 0 {
+		_ = f.Chmod(mode.Perm())
+	}
+	return &pendingWrite{File: f, tmpPath: f.Name(), finalPath: abs}, nil
+}
+
+func (p *pendingWrite) commit() error {
+	if err := p.File.Close(); err != nil {
+		_ = os.Remove(p.tmpPath)
+		return err
+	}
+	if err := os.Rename(p.tmpPath, p.finalPath); err != nil {
+		_ = os.Remove(p.tmpPath)
+		return err
+	}
+	return nil
+}
+
+func (p *pendingWrite) abort() {
+	_ = p.File.Close()
+	_ = os.Remove(p.tmpPath)
+}
+
+func renameInRoot(root, fromRel, toRel string, noReplace bool) error {
+	src, err := resolve(root, fromRel)
+	if err != nil {
+		return err
+	}
+	dst, err := resolve(root, toRel)
+	if err != nil {
+		return err
+	}
+	if noReplace {
+		if _, err := os.Lstat(dst); err == nil {
+			return os.ErrExist
+		}
+	}
+	return os.Rename(src, dst)
 }

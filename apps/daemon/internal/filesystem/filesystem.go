@@ -121,14 +121,54 @@ func (m *Manager) root(ctx context.Context, serverID string) (string, error) {
 //
 // SecureJoin returns a *path*, so a TOCTOU window remains — an attacker who swaps
 // a component for a symlink between this call and the os.* call could still
-// escape. The content **read** paths (Read, Open) and Mkdir close that window on
-// Linux by going through openInRoot/mkdirAllInRoot (openat2 RESOLVE_IN_ROOT — the
-// kernel resolves atomically; see saferoot_linux.go). resolve is still used for
-// the containment guards (trash/root checks, error display) and for the write +
-// rename paths, where openat2's atomic-create/rename primitives aren't wrapped
-// yet — those keep the planted-symlink containment, with the residual race.
+// escape. On Linux the actual I/O closes that window by going through the openat2
+// primitives in saferoot_linux.go: reads (Read, Open) via openInRoot, Mkdir via
+// mkdirAllInRoot, and the write + rename paths via startWriteInRoot/renameInRoot
+// (which operate relative to an O_PATH handle to the pinned parent directory).
+// resolve is now used only for the *containment guards* (root/trash checks,
+// destination-exists pre-checks, and error display) — the authoritative
+// resolution is the openat2 op itself.
 func resolve(root, rel string) (string, error) {
 	return securejoin.SecureJoin(root, strings.TrimSpace(rel))
+}
+
+// checkWriteTarget runs the containment guards for a write/rename destination:
+// it must resolve inside root, must not be the root itself, and must not land in
+// the recycle bin. The race-safe resolution happens in the openat2 op that
+// follows; this is the advisory guard + friendly errors.
+func checkWriteTarget(root, rel string) error {
+	abs, err := resolve(root, rel)
+	if err != nil {
+		return err
+	}
+	if abs == root {
+		return fmt.Errorf("cannot write to the server root")
+	}
+	if withinTrash(root, abs) {
+		return ErrTraversal
+	}
+	return nil
+}
+
+// atomicWrite creates rel's content via a temp file in its (race-safely opened)
+// parent directory, fills it with fill, then atomically renames it into place.
+func (m *Manager) atomicWrite(root, rel string, fill func(io.Writer) error) error {
+	if err := checkWriteTarget(root, rel); err != nil {
+		return err
+	}
+	pw, err := startWriteInRoot(root, rel, 0o600)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			abs, _ := resolve(root, rel)
+			return fmt.Errorf("parent directory does not exist: %s", relPath(root, filepath.Dir(abs)))
+		}
+		return err
+	}
+	if err := fill(pw.File); err != nil {
+		pw.abort()
+		return err
+	}
+	return pw.commit()
 }
 
 // relPath maps an absolute path under root back to the "/"-prefixed
@@ -286,43 +326,10 @@ func (m *Manager) Write(ctx context.Context, serverID, rel string, content []byt
 	if err != nil {
 		return err
 	}
-	abs, err := resolve(root, rel)
-	if err != nil {
+	return m.atomicWrite(root, rel, func(w io.Writer) error {
+		_, err := w.Write(content)
 		return err
-	}
-	if abs == root {
-		return fmt.Errorf("cannot write to the server root")
-	}
-	if withinTrash(root, abs) {
-		return ErrTraversal
-	}
-	dir := filepath.Dir(abs)
-	if _, err := os.Stat(dir); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("parent directory does not exist: %s", relPath(root, dir))
-		}
-		return err
-	}
-	tmp, err := os.CreateTemp(dir, ".cookied-write-*")
-	if err != nil {
-		return err
-	}
-	tmpPath := tmp.Name()
-	cleanup := func() { _ = os.Remove(tmpPath) }
-	if _, err := tmp.Write(content); err != nil {
-		_ = tmp.Close()
-		cleanup()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		cleanup()
-		return err
-	}
-	if err := os.Rename(tmpPath, abs); err != nil {
-		cleanup()
-		return err
-	}
-	return nil
+	})
 }
 
 // Mkdir creates a directory at rel, including any missing parents.
@@ -368,7 +375,14 @@ func (m *Manager) Rename(ctx context.Context, serverID, from, to string) error {
 	if _, err := os.Lstat(dst); err == nil {
 		return fmt.Errorf("destination exists: %s", relPath(root, dst))
 	}
-	return os.Rename(src, dst)
+	// noReplace so a destination that appears in the race is rejected atomically.
+	if err := renameInRoot(root, from, to, true); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("destination exists: %s", relPath(root, dst))
+		}
+		return err
+	}
+	return nil
 }
 
 // Open returns a read-only file handle plus its FileInfo, suitable for streaming
@@ -413,43 +427,10 @@ func (m *Manager) WriteStream(ctx context.Context, serverID, rel string, r io.Re
 	if err != nil {
 		return err
 	}
-	abs, err := resolve(root, rel)
-	if err != nil {
+	return m.atomicWrite(root, rel, func(w io.Writer) error {
+		_, err := io.Copy(w, r)
 		return err
-	}
-	if abs == root {
-		return fmt.Errorf("cannot write to the server root")
-	}
-	if withinTrash(root, abs) {
-		return ErrTraversal
-	}
-	dir := filepath.Dir(abs)
-	if _, err := os.Stat(dir); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("parent directory does not exist: %s", relPath(root, dir))
-		}
-		return err
-	}
-	tmp, err := os.CreateTemp(dir, ".cookied-write-*")
-	if err != nil {
-		return err
-	}
-	tmpPath := tmp.Name()
-	cleanup := func() { _ = os.Remove(tmpPath) }
-	if _, err := io.Copy(tmp, r); err != nil {
-		_ = tmp.Close()
-		cleanup()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		cleanup()
-		return err
-	}
-	if err := os.Rename(tmpPath, abs); err != nil {
-		cleanup()
-		return err
-	}
-	return nil
+	})
 }
 
 // WriteStreamFromURL fetches url, streams the response into rel as an atomic
@@ -464,21 +445,8 @@ func (m *Manager) WriteStreamFromURL(
 	if err != nil {
 		return err
 	}
-	abs, err := resolve(root, rel)
-	if err != nil {
-		return err
-	}
-	if abs == root {
-		return fmt.Errorf("cannot write to the server root")
-	}
-	if withinTrash(root, abs) {
-		return ErrTraversal
-	}
-	dir := filepath.Dir(abs)
-	if _, err := os.Stat(dir); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("parent directory does not exist: %s", relPath(root, dir))
-		}
+	// Fail fast on a bad target before spending a network fetch.
+	if err := checkWriteTarget(root, rel); err != nil {
 		return err
 	}
 	// Pull the URL. The HTTP client is local so a slow upstream doesn't tie up
@@ -498,27 +466,10 @@ func (m *Manager) WriteStreamFromURL(
 	}
 	onTotal(resp.ContentLength) // -1 if upstream didn't set Content-Length
 
-	tmp, err := os.CreateTemp(dir, ".cookied-dl-*")
-	if err != nil {
+	return m.atomicWrite(root, rel, func(w io.Writer) error {
+		_, err := copyWithProgress(ctx, w, resp.Body, onProgress)
 		return err
-	}
-	tmpPath := tmp.Name()
-	cleanup := func() { _ = os.Remove(tmpPath) }
-
-	if _, err := copyWithProgress(ctx, tmp, resp.Body, onProgress); err != nil {
-		_ = tmp.Close()
-		cleanup()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		cleanup()
-		return err
-	}
-	if err := os.Rename(tmpPath, abs); err != nil {
-		cleanup()
-		return err
-	}
-	return nil
+	})
 }
 
 // Delete removes the file or directory at rel. Directories are removed
@@ -594,12 +545,14 @@ func (m *Manager) Trash(ctx context.Context, serverID, rel string) error {
 
 	id := newTrashID()
 	dest := filepath.Join(trashRoot(root), id)
-	if err := os.MkdirAll(dest, 0o755); err != nil {
+	entryRel := filepath.Join(trashDirName, id)
+	if err := mkdirAllInRoot(root, entryRel, 0o755); err != nil {
 		return err
 	}
 	// Move the payload first; if anything below fails, tear the entry down so we
-	// never leave a half-written bin record.
-	if err := os.Rename(abs, filepath.Join(dest, trashPayload)); err != nil {
+	// never leave a half-written bin record. The source side is user-supplied, so
+	// the move resolves it race-safely (the bin dir is daemon-created).
+	if err := renameInRoot(root, rel, filepath.Join(entryRel, trashPayload), true); err != nil {
 		_ = os.RemoveAll(dest)
 		return err
 	}
@@ -711,10 +664,13 @@ func (m *Manager) RestoreTrash(ctx context.Context, serverID, id string) error {
 		dst = filepath.Join(root, filepath.Base(meta.Name))
 	}
 	dst = nonConflicting(dst)
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	// The restore target is derived from caller-influenced trash metadata, so make
+	// the parent + move race-safe (the payload side is daemon-created).
+	if err := mkdirAllInRoot(root, relPath(root, filepath.Dir(dst)), 0o755); err != nil {
 		return err
 	}
-	if err := os.Rename(payload, dst); err != nil {
+	payloadRel := filepath.Join(trashDirName, id, trashPayload)
+	if err := renameInRoot(root, payloadRel, relPath(root, dst), true); err != nil {
 		return err
 	}
 	return os.RemoveAll(entryDir)
