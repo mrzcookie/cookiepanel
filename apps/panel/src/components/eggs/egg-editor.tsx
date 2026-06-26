@@ -143,7 +143,7 @@ export function EggEditor({
 		<div className="space-y-6">
 			<div
 				aria-label="Egg sections"
-				className="flex flex-wrap items-center gap-1 border-b"
+				className="flex flex-wrap items-center gap-4 border-b"
 				onKeyDown={(event) => handleTablistKeys(event, TAB_KEYS, tab, setTab)}
 				role="tablist"
 			>
@@ -152,9 +152,9 @@ export function EggEditor({
 						aria-controls={`tpl-panel-${entry.key}`}
 						aria-selected={tab === entry.key}
 						className={cn(
-							"-mb-px border-b-2 px-3 py-2 font-medium text-sm transition-colors",
+							"-mb-px border-b-2 px-1 pb-3 text-sm transition-colors",
 							tab === entry.key
-								? "border-primary text-foreground"
+								? "border-primary font-medium text-foreground"
 								: "border-transparent text-muted-foreground hover:text-foreground"
 						)}
 						id={`tpl-tab-${entry.key}`}

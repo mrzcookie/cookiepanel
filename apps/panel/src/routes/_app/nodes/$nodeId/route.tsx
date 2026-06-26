@@ -70,7 +70,9 @@ function NodeChrome({ node }: { node: NodeRow }) {
 				<PageHeader
 					back={{ label: "Nodes", to: "/nodes" }}
 					border={false}
-					description={`${node.fqdn}:${node.daemonPort}`}
+					description={
+						<span className="font-mono">{`${node.fqdn}:${node.daemonPort}`}</span>
+					}
 					title={
 						<span className="flex items-center gap-2.5">
 							{node.name}

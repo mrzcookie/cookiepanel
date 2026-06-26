@@ -68,7 +68,7 @@ export function CommandMenu() {
 	return (
 		<>
 			<button
-				className="inline-flex h-8 w-full max-w-xs items-center gap-2 rounded-md border bg-background px-3 text-muted-foreground text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+				className="inline-flex h-8 w-full max-w-xs items-center gap-2 rounded-lg border bg-background px-3 text-muted-foreground text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
 				onClick={() => setOpen(true)}
 				type="button"
 			>

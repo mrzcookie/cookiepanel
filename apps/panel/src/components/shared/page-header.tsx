@@ -19,7 +19,7 @@ export function PageHeader({
 	eyebrow,
 }: {
 	title: ReactNode;
-	description?: string;
+	description?: ReactNode;
 	actions?: ReactNode;
 	/** A back-link in the kicker slot, for detail/wizard headers. Replaces the
 	 * eyebrow (the two share the slot; a header has one or the other). */
