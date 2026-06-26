@@ -78,8 +78,10 @@ import {
 	useSqlTables,
 	useSqlUsers,
 } from "@/lib/sql-browser-queries";
+import { handleTablistKeys } from "@/lib/tablist";
 
 type View = "databases" | "users";
+const VIEWS = ["databases", "users"] as const;
 
 function errorMessage(error: unknown, fallback: string) {
 	return error instanceof Error ? error.message : fallback;
@@ -107,6 +109,7 @@ export function SqlBrowser({ server }: { server: ServerRow }) {
 				<div
 					aria-label="SQL Browser sections"
 					className="-mb-px flex gap-4"
+					onKeyDown={(event) => handleTablistKeys(event, VIEWS, view, setView)}
 					role="tablist"
 				>
 					<Subtab
@@ -194,6 +197,7 @@ function Subtab({
 			id={`sqlb-tab-${value}`}
 			onClick={onClick}
 			role="tab"
+			tabIndex={active ? 0 : -1}
 			type="button"
 		>
 			<Icon className="size-4" />

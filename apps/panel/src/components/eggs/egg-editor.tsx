@@ -56,6 +56,7 @@ import {
 } from "@/lib/domain/eggs-editor";
 import { eggActions, invalidateEggs } from "@/lib/eggs-queries";
 import type { EggScope } from "@/lib/eggs-scope";
+import { handleTablistKeys } from "@/lib/tablist";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -68,6 +69,7 @@ const TABS = [
 	{ key: "addons", label: "Add-ons" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
+const TAB_KEYS = TABS.map((entry) => entry.key);
 
 const FEATURE_ICONS: Record<string, ComponentType<{ className?: string }>> = {
 	"minecraft:eula": FileCheck,
@@ -142,6 +144,7 @@ export function EggEditor({
 			<div
 				aria-label="Egg sections"
 				className="flex flex-wrap items-center gap-1 border-b"
+				onKeyDown={(event) => handleTablistKeys(event, TAB_KEYS, tab, setTab)}
 				role="tablist"
 			>
 				{TABS.map((entry) => (
@@ -158,6 +161,7 @@ export function EggEditor({
 						key={entry.key}
 						onClick={() => setTab(entry.key)}
 						role="tab"
+						tabIndex={tab === entry.key ? 0 : -1}
 						type="button"
 					>
 						{entry.label}
