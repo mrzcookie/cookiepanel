@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
+	CardAction,
 	CardContent,
 	CardDescription,
 	CardHeader,
@@ -75,22 +76,22 @@ function ServerBackupsTab() {
 
 	return (
 		<Card>
-			<CardHeader className="flex flex-row items-start justify-between gap-4">
-				<div className="space-y-1.5">
-					<CardTitle>Backups</CardTitle>
-					<CardDescription>
-						Snapshots of this server's data volume, kept on the node and
-						deduplicated. Lock one to keep it from being deleted.
-					</CardDescription>
-				</div>
-				<Button
-					disabled={atLimit || unreachable}
-					onClick={() => setCreateOpen(true)}
-					size="sm"
-				>
-					<Plus />
-					Create backup
-				</Button>
+			<CardHeader>
+				<CardTitle>Backups</CardTitle>
+				<CardDescription>
+					Snapshots of this server's data volume, kept on the node and
+					deduplicated. Lock one to keep it from being deleted.
+				</CardDescription>
+				<CardAction>
+					<Button
+						disabled={atLimit || unreachable}
+						onClick={() => setCreateOpen(true)}
+						size="sm"
+					>
+						<Plus />
+						Create backup
+					</Button>
+				</CardAction>
 			</CardHeader>
 			<CardContent>
 				{isLoading ? (
