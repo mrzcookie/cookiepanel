@@ -70,6 +70,16 @@ export const nodesRepository = {
 			.where(eq(node.organizationId, orgId))
 			.then((rows) => rows.at(0)?.value ?? 0),
 
+	/** Whether this org already has a node at fqdn — the managed-subdomain
+	 * collision guard (a managed subdomain derives from the node name). */
+	fqdnExists: (orgId: string, fqdn: string): Promise<boolean> =>
+		db
+			.select({ id: node.id })
+			.from(node)
+			.where(and(eq(node.organizationId, orgId), eq(node.fqdn, fqdn)))
+			.limit(1)
+			.then((rows) => rows.length > 0),
+
 	/** Insert a node and its bootstrap credential atomically. */
 	create: async (
 		orgId: string,

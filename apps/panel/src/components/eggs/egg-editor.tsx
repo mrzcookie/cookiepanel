@@ -315,6 +315,11 @@ function RuntimesTab({ state, patch }: TabProps) {
 				container image it runs.
 			</p>
 			<div className="space-y-3">
+				{state.images.length === 0 ? (
+					<div className="rounded-lg border border-dashed bg-card px-4 py-10 text-center text-muted-foreground text-sm">
+						No runtimes yet.
+					</div>
+				) : null}
 				{state.images.map((image, index) => (
 					<div
 						className="flex flex-wrap items-end gap-2 rounded-lg border bg-card p-3"

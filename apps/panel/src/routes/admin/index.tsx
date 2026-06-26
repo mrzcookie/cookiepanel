@@ -128,7 +128,7 @@ function AdminOverview() {
 					<CardHeader>
 						<CardTitle>Revenue</CardTitle>
 						<CardDescription>
-							Monthly recurring revenue, last 12 months.
+							Monthly recurring revenue, last 12 months (sample data).
 						</CardDescription>
 					</CardHeader>
 					<CardContent>
@@ -172,7 +172,7 @@ function AdminOverview() {
 					<CardHeader>
 						<CardTitle>Growth</CardTitle>
 						<CardDescription>
-							Users and organizations over time.
+							Users and organizations over time (sample data).
 						</CardDescription>
 					</CardHeader>
 					<CardContent>

@@ -220,6 +220,16 @@ export const createNode = createServerFn({ method: "POST" })
 			daemonPort = data.daemonPort;
 		}
 
+		// Reject a duplicate address within the org — a managed subdomain derives
+		// from the node name, so two same-named nodes would collide on one FQDN.
+		if (await nodesRepository.fqdnExists(orgId, fqdn)) {
+			throw new Error(
+				data.managed
+					? "A node with this name already exists. Pick a different name."
+					: "A node with this address is already connected."
+			);
+		}
+
 		// Single-use bootstrap token: persist only its hash + expiry (in the
 		// sibling node_credential row), and return the plaintext exactly once — for
 		// the operator's install command. It's never readable again.
