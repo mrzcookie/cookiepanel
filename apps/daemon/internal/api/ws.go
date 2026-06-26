@@ -15,6 +15,7 @@ import (
 	cstats "github.com/moby/moby/api/types/container"
 
 	"github.com/cookiepanel/cookied/internal/auth"
+	"github.com/cookiepanel/cookied/internal/safe"
 )
 
 // JWT-authed browser console gateway. One WS at /api/servers/{id}/ws emits typed
@@ -114,8 +115,12 @@ func (s *Server) streamServerSession(
 	defer stats.Close()
 
 	errCh := make(chan error, 2)
-	go func() { errCh <- s.pumpLogs(ctx, conn, logs) }()
-	go func() { errCh <- s.pumpStats(ctx, conn, stats) }()
+	go func() {
+		errCh <- safe.Guard("ws:pumpLogs", func() error { return s.pumpLogs(ctx, conn, logs) })
+	}()
+	go func() {
+		errCh <- safe.Guard("ws:pumpStats", func() error { return s.pumpStats(ctx, conn, stats) })
+	}()
 
 	select {
 	case <-ctx.Done():
@@ -165,6 +170,7 @@ func newLineForwarder(
 		done:   make(chan struct{}),
 	}
 	go func() {
+		defer safe.Recover("ws:lineForwarder")
 		defer close(lf.done)
 		sc := bufio.NewScanner(pr)
 		sc.Buffer(make([]byte, 64*1024), 1024*1024)

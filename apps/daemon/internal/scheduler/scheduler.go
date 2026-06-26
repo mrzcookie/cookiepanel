@@ -14,6 +14,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 
+	"github.com/cookiepanel/cookied/internal/safe"
 	"github.com/cookiepanel/cookied/internal/server"
 	"github.com/cookiepanel/cookied/internal/store"
 )
@@ -215,8 +216,11 @@ func scriptTimeout(steps []store.ScheduleStep) time.Duration {
 	return total
 }
 
-// fire runs a schedule's whole script with its own bounded context.
+// fire runs a schedule's whole script with its own bounded context. It's the
+// single entry point for both cron-triggered and RunNow runs, so the panic guard
+// here covers every background fire — a panic in one schedule can't crash the box.
 func (s *Scheduler) fire(sc store.Schedule) {
+	defer safe.Recover("schedule:" + sc.ID)
 	ctx, cancel := context.WithTimeout(context.Background(), scriptTimeout(sc.Steps))
 	defer cancel()
 	if err := s.fireCtx(ctx, sc); err != nil {

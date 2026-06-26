@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/cookiepanel/cookied/internal/docker"
+	"github.com/cookiepanel/cookied/internal/safe"
 	"github.com/cookiepanel/cookied/internal/store"
 )
 
@@ -160,6 +161,7 @@ func (m *Manager) Create(serverID, name string) (Backup, error) {
 	m.mu.Unlock()
 
 	go func() {
+		defer safe.Recover("backup:create:" + archive)
 		ctx, cancel := context.WithTimeout(context.Background(), createTimeout)
 		defer cancel()
 		if err := m.createAndStore(ctx, serverID, archive, name, now); err != nil {

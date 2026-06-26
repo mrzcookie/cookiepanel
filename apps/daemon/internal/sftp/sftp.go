@@ -22,6 +22,8 @@ import (
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/cookiepanel/cookied/internal/safe"
 )
 
 // DefaultPort is the TCP port the SFTP server listens on. Fixed (not advertised
@@ -115,6 +117,7 @@ func (m *Manager) Shutdown() {
 }
 
 func (m *Manager) acceptLoop() {
+	defer safe.Recover("sftp:acceptLoop")
 	for {
 		conn, err := m.listener.Accept()
 		if err != nil {
@@ -131,6 +134,7 @@ func (m *Manager) acceptLoop() {
 }
 
 func (m *Manager) sweepLoop() {
+	defer safe.Recover("sftp:sweepLoop")
 	t := time.NewTicker(10 * time.Minute)
 	defer t.Stop()
 	for {
@@ -144,6 +148,7 @@ func (m *Manager) sweepLoop() {
 }
 
 func (m *Manager) handleConn(nConn net.Conn) {
+	defer safe.Recover("sftp:handleConn")
 	defer nConn.Close()
 	sshConn, chans, reqs, err := ssh.NewServerConn(nConn, m.sshConfig)
 	if err != nil {
@@ -169,6 +174,7 @@ func (m *Manager) handleConn(nConn net.Conn) {
 }
 
 func (m *Manager) handleSession(ch ssh.Channel, requests <-chan *ssh.Request, serverID string) {
+	defer safe.Recover("sftp:handleSession")
 	defer ch.Close()
 	for req := range requests {
 		// Only the "sftp" subsystem is allowed — no shell, exec, pty, etc.

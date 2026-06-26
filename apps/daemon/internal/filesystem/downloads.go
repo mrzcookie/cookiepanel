@@ -14,6 +14,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/cookiepanel/cookied/internal/safe"
 )
 
 // JobState is the lifecycle of a URL-download job.
@@ -163,6 +165,7 @@ func (j *Jobs) Start(m *Manager, serverID, path, target string) (string, error) 
 }
 
 func (j *Jobs) run(ctx context.Context, m *Manager, job *Job) {
+	defer safe.Recover("filesystem:download:" + job.ID)
 	err := m.WriteStreamFromURL(ctx, job.ServerID, job.Path, job.URL,
 		func(total int64) { j.update(job.ID, func(jj *Job) { jj.Total = total }) },
 		func(done int64) { j.update(job.ID, func(jj *Job) { jj.Done = done }) },
@@ -231,6 +234,7 @@ func (j *Jobs) StartSweeper(ctx context.Context) {
 		interval = time.Minute
 	}
 	go func() {
+		defer safe.Recover("filesystem:download-sweeper")
 		t := time.NewTicker(interval)
 		defer t.Stop()
 		for {

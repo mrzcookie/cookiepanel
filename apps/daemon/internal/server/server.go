@@ -25,6 +25,7 @@ import (
 	"github.com/cookiepanel/cookied/internal/diskquota"
 	"github.com/cookiepanel/cookied/internal/docker"
 	"github.com/cookiepanel/cookied/internal/filesystem"
+	"github.com/cookiepanel/cookied/internal/safe"
 )
 
 // nameRE validates the panel-supplied name; the container name is `cookied-<name>`.
@@ -230,6 +231,7 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (*Server, error
 	m.installs[req.ServerID] = st
 	m.mu.Unlock()
 	go func() {
+		defer safe.Recover("server:install:" + req.ServerID)
 		defer cancel()
 		if err := m.provision(bg, req, spec); err != nil {
 			slog.Error("server install failed", "server", req.ServerID, "err", err)
