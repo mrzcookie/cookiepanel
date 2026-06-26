@@ -172,6 +172,19 @@ func TestConformance(t *testing.T) {
 		Key: "z", Type: "zset", TTLSeconds: -1,
 		Members: []redisbrowser.ScoreMember{{Member: "m", Score: 1.5}},
 	})
+	assertConforms[contract.RedisKeyDetail](t, "RedisKeyDetail/string", redisbrowser.KeyDetail{
+		Key: "s", Type: "string", TTLSeconds: -1, SizeBytes: 8, Length: 11,
+		Truncated: true, String: "hello world",
+	})
+	assertConforms[contract.RedisKeyDetail](t, "RedisKeyDetail/list", redisbrowser.KeyDetail{
+		Key: "l", Type: "list", TTLSeconds: -1, Length: 2, Items: []string{"a", "b"},
+	})
+	assertConforms[contract.RedisKeyDetail](t, "RedisKeyDetail/stream", redisbrowser.KeyDetail{
+		Key: "x", Type: "stream", TTLSeconds: -1, Length: 1,
+		Entries: []redisbrowser.StreamEntry{
+			{ID: "1-0", Fields: []redisbrowser.Field{{Field: "a", Value: "1"}}},
+		},
+	})
 	assertConforms[contract.RedisSetRequest](t, "RedisSetRequest", redisbrowser.SetRequest{
 		Key: "k", Type: "string", TTLSeconds: -1, String: "v",
 	})
