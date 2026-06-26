@@ -428,6 +428,17 @@ function FirewallCard({ node }: { node: NodeRow }) {
 	});
 	const firewall = query.data?.ok ? query.data.data : null;
 
+	// Distinguish loading from a failed daemon read on an online node — otherwise
+	// a failed read sits on "Reading…" forever.
+	let message: string;
+	if (!live) {
+		message = "The node is offline, so its firewall can't be read.";
+	} else if (query.isPending) {
+		message = "Reading the firewall from the node…";
+	} else {
+		message = "Couldn't read the firewall from the node right now.";
+	}
+
 	return (
 		<Card>
 			<CardHeader>
@@ -440,11 +451,7 @@ function FirewallCard({ node }: { node: NodeRow }) {
 				{firewall ? (
 					<FirewallBody daemonPort={node.daemonPort} firewall={firewall} />
 				) : (
-					<p className="text-muted-foreground text-sm">
-						{live
-							? "Reading the firewall from the node…"
-							: "The node is offline, so its firewall can't be read."}
-					</p>
+					<p className="text-muted-foreground text-sm">{message}</p>
 				)}
 			</CardContent>
 		</Card>

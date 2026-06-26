@@ -156,7 +156,7 @@ function GeneralCard({ node }: { node: NodeRow }) {
 					</div>
 					<div className="flex justify-end">
 						<Button disabled={saving || !(changed && valid)} type="submit">
-							Save
+							Save changes
 						</Button>
 					</div>
 				</form>
@@ -277,7 +277,7 @@ function CapacityForm({
 			/>
 			<div className="flex justify-end border-t pt-4">
 				<Button disabled={saving || !changed} onClick={save}>
-					Save
+					Save changes
 				</Button>
 			</div>
 		</div>

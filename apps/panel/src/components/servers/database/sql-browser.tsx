@@ -61,7 +61,7 @@ import {
 	type SqlUser,
 	sqlEngine,
 } from "@/lib/domain/sql-browser";
-import { formatBytes, formatCount } from "@/lib/format";
+import { formatBytes, formatCount, pluralize } from "@/lib/format";
 import {
 	addSqlColumn,
 	createSqlDatabase,
@@ -233,7 +233,9 @@ function DatabaseList({
 					New database
 				</Button>
 			}
-			subtitle={read?.ok ? `${databases.length} databases` : undefined}
+			subtitle={
+				read?.ok ? `${pluralize(databases.length, "database")}` : undefined
+			}
 			title="Databases"
 		>
 			{read && !read.ok ? (
@@ -365,7 +367,7 @@ function TableList({
 					New table
 				</Button>
 			}
-			subtitle={read?.ok ? `${tables.length} tables` : undefined}
+			subtitle={read?.ok ? `${pluralize(tables.length, "table")}` : undefined}
 			title={
 				<Breadcrumb
 					current={database}
@@ -540,7 +542,7 @@ function TableStructure({
 					Add column
 				</Button>
 			}
-			subtitle={read?.ok ? `${columns.length} columns` : undefined}
+			subtitle={read?.ok ? `${pluralize(columns.length, "column")}` : undefined}
 			title={
 				<Breadcrumb
 					current={table}
@@ -670,7 +672,7 @@ function UsersPanel({
 					New user
 				</Button>
 			}
-			subtitle={read?.ok ? `${users.length} users` : undefined}
+			subtitle={read?.ok ? `${pluralize(users.length, "user")}` : undefined}
 			title="Users"
 		>
 			{read && !read.ok ? (
