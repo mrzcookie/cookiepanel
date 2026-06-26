@@ -245,7 +245,7 @@ function DetailsCard({ server }: { server: ServerRow }) {
 				<DetailList>
 					<DetailRow copyable label="Server ID" value={server.id} />
 					<DetailRow label="Node" value={server.nodeName} />
-					<DetailRow label="Template" value={server.templateName} />
+					<DetailRow label="Egg" value={server.eggName} />
 					<DetailRow label="Created" value={server.createdAt} />
 				</DetailList>
 			</CardContent>
@@ -262,7 +262,7 @@ function DangerZone({ server }: { server: ServerRow }) {
 
 	function reinstall() {
 		setReinstallOpen(false);
-		// Reinstall re-runs the template's install script — it lands with the
+		// Reinstall re-runs the egg's install script — it lands with the
 		// install pipeline (a later slice).
 		toast.message("Reinstall lands with the install pipeline.");
 	}
@@ -293,7 +293,7 @@ function DangerZone({ server }: { server: ServerRow }) {
 							Reinstall
 						</Button>
 					}
-					description="Re-run the template's install script. The data volume is kept, but installed files are replaced."
+					description="Re-run the egg's install script. The data volume is kept, but installed files are replaced."
 					title="Reinstall server"
 				/>
 				<DangerRow

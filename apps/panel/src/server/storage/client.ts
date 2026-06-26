@@ -2,7 +2,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { env } from "@/server/env";
 
 /**
- * Shared S3-compatible object-storage client (server-only). Backs template
+ * Shared S3-compatible object-storage client (server-only). Backs egg
  * icons + uploads; works with Cloudflare R2 / AWS S3 / MinIO. Storage is
  * OPTIONAL — when the S3_* env group is absent the panel runs without it, so
  * callers must gate on `isStorageConfigured()` before reaching for the client.
@@ -10,7 +10,7 @@ import { env } from "@/server/env";
  * fresh client each reload.
  */
 const globalForS3 = globalThis as unknown as {
-	__cookiepanelS3?: S3Client;
+	__raptorpanelS3?: S3Client;
 };
 
 /**
@@ -65,9 +65,9 @@ export function getS3Client(): S3Client {
 	if (!isStorageConfigured()) {
 		throw notConfigured();
 	}
-	const client = globalForS3.__cookiepanelS3 ?? createS3Client();
+	const client = globalForS3.__raptorpanelS3 ?? createS3Client();
 	if (env.NODE_ENV !== "production") {
-		globalForS3.__cookiepanelS3 = client;
+		globalForS3.__raptorpanelS3 = client;
 	}
 	return client;
 }

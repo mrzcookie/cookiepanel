@@ -21,7 +21,7 @@ const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 /**
  * Two modes:
  * - **Preview** (`value`/`onChange`, or neither): reads the file to a data URL
- *   locally — for fields whose backend isn't wired yet (org logo, template icon).
+ *   locally — for fields whose backend isn't wired yet (org logo, egg icon).
  * - **Live upload** (`onUpload`): hands the raw `File` to the caller, which owns
  *   the request, the toast, and refreshing `value` (so pass `value` too). No
  *   data-URL read and no premature "updated" toast; the field shows a busy state

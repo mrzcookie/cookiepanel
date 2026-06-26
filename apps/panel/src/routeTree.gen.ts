@@ -21,14 +21,14 @@ import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminBillingRouteImport } from './routes/admin/billing'
 import { Route as AdminActivityRouteImport } from './routes/admin/activity'
 import { Route as AcceptInvitationInvitationIdRouteImport } from './routes/accept-invitation.$invitationId'
-import { Route as AppTemplatesRouteImport } from './routes/_app/templates'
+import { Route as AppEggsRouteImport } from './routes/_app/eggs'
 import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
 import { Route as AppAccountRouteRouteImport } from './routes/_app/account/route'
 import { Route as AdminUsersIndexRouteImport } from './routes/admin/users/index'
-import { Route as AdminTemplatesIndexRouteImport } from './routes/admin/templates/index'
 import { Route as AdminSubdomainsIndexRouteImport } from './routes/admin/subdomains/index'
 import { Route as AdminOrgsIndexRouteImport } from './routes/admin/orgs/index'
 import { Route as AdminNodesIndexRouteImport } from './routes/admin/nodes/index'
+import { Route as AdminEggsIndexRouteImport } from './routes/admin/eggs/index'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppServersIndexRouteImport } from './routes/_app/servers/index'
 import { Route as AppNodesIndexRouteImport } from './routes/_app/nodes/index'
@@ -37,25 +37,24 @@ import { Route as AppAccountIndexRouteImport } from './routes/_app/account/index
 import { Route as ApiFilesUploadRouteImport } from './routes/api/files/upload'
 import { Route as ApiFilesDownloadRouteImport } from './routes/api/files/download'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
-import { Route as AdminTemplatesNewRouteImport } from './routes/admin/templates/new'
-import { Route as AdminTemplatesTemplateIdRouteImport } from './routes/admin/templates/$templateId'
 import { Route as AdminNodesNodeIdRouteImport } from './routes/admin/nodes/$nodeId'
-import { Route as AppTemplatesNewRouteImport } from './routes/_app/templates_/new'
-import { Route as AppTemplatesTemplateIdRouteImport } from './routes/_app/templates_/$templateId'
+import { Route as AdminEggsNewRouteImport } from './routes/admin/eggs/new'
+import { Route as AdminEggsEggIdRouteImport } from './routes/admin/eggs/$eggId'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
 import { Route as AppSettingsBillingRouteImport } from './routes/_app/settings/billing'
 import { Route as AppSettingsActivityRouteImport } from './routes/_app/settings/activity'
 import { Route as AppServersNewRouteImport } from './routes/_app/servers/new'
 import { Route as AppNodesNewRouteImport } from './routes/_app/nodes/new'
 import { Route as AppNetworksNetworkIdRouteImport } from './routes/_app/networks/$networkId'
+import { Route as AppEggsNewRouteImport } from './routes/_app/eggs_/new'
+import { Route as AppEggsEggIdRouteImport } from './routes/_app/eggs_/$eggId'
 import { Route as AppAccountActivityRouteImport } from './routes/_app/account/activity'
 import { Route as AppServersServerIdRouteRouteImport } from './routes/_app/servers/$serverId/route'
 import { Route as AppNodesNodeIdRouteRouteImport } from './routes/_app/nodes/$nodeId/route'
 import { Route as AppServersServerIdIndexRouteImport } from './routes/_app/servers/$serverId/index'
 import { Route as AppNodesNodeIdIndexRouteImport } from './routes/_app/nodes/$nodeId/index'
 import { Route as ApiDaemonV1HeartbeatRouteImport } from './routes/api/daemon/v1/heartbeat'
-import { Route as AdminTemplatesTemplateIdEditRouteImport } from './routes/admin/templates/$templateId_/edit'
-import { Route as AppTemplatesTemplateIdEditRouteImport } from './routes/_app/templates_/$templateId_/edit'
+import { Route as AdminEggsEggIdEditRouteImport } from './routes/admin/eggs/$eggId_/edit'
 import { Route as AppServersServerIdStartupRouteImport } from './routes/_app/servers/$serverId/startup'
 import { Route as AppServersServerIdSettingsRouteImport } from './routes/_app/servers/$serverId/settings'
 import { Route as AppServersServerIdSchedulesRouteImport } from './routes/_app/servers/$serverId/schedules'
@@ -67,6 +66,7 @@ import { Route as AppServersServerIdActivityRouteImport } from './routes/_app/se
 import { Route as AppNodesNodeIdStorageRouteImport } from './routes/_app/nodes/$nodeId/storage'
 import { Route as AppNodesNodeIdSettingsRouteImport } from './routes/_app/nodes/$nodeId/settings'
 import { Route as AppNodesNodeIdNetworkingRouteImport } from './routes/_app/nodes/$nodeId/networking'
+import { Route as AppEggsEggIdEditRouteImport } from './routes/_app/eggs_/$eggId_/edit'
 import { Route as ApiDaemonV1NodesActivateRouteImport } from './routes/api/daemon/v1/nodes/activate'
 
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -129,9 +129,9 @@ const AcceptInvitationInvitationIdRoute =
     path: '/accept-invitation/$invitationId',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AppTemplatesRoute = AppTemplatesRouteImport.update({
-  id: '/templates',
-  path: '/templates',
+const AppEggsRoute = AppEggsRouteImport.update({
+  id: '/eggs',
+  path: '/eggs',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppSettingsRouteRoute = AppSettingsRouteRouteImport.update({
@@ -149,11 +149,6 @@ const AdminUsersIndexRoute = AdminUsersIndexRouteImport.update({
   path: '/users/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
-const AdminTemplatesIndexRoute = AdminTemplatesIndexRouteImport.update({
-  id: '/templates/',
-  path: '/templates/',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
 const AdminSubdomainsIndexRoute = AdminSubdomainsIndexRouteImport.update({
   id: '/subdomains/',
   path: '/subdomains/',
@@ -167,6 +162,11 @@ const AdminOrgsIndexRoute = AdminOrgsIndexRouteImport.update({
 const AdminNodesIndexRoute = AdminNodesIndexRouteImport.update({
   id: '/nodes/',
   path: '/nodes/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminEggsIndexRoute = AdminEggsIndexRouteImport.update({
+  id: '/eggs/',
+  path: '/eggs/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
@@ -209,31 +209,20 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminTemplatesNewRoute = AdminTemplatesNewRouteImport.update({
-  id: '/templates/new',
-  path: '/templates/new',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminTemplatesTemplateIdRoute =
-  AdminTemplatesTemplateIdRouteImport.update({
-    id: '/templates/$templateId',
-    path: '/templates/$templateId',
-    getParentRoute: () => AdminRouteRoute,
-  } as any)
 const AdminNodesNodeIdRoute = AdminNodesNodeIdRouteImport.update({
   id: '/nodes/$nodeId',
   path: '/nodes/$nodeId',
   getParentRoute: () => AdminRouteRoute,
 } as any)
-const AppTemplatesNewRoute = AppTemplatesNewRouteImport.update({
-  id: '/templates_/new',
-  path: '/templates/new',
-  getParentRoute: () => AppRouteRoute,
+const AdminEggsNewRoute = AdminEggsNewRouteImport.update({
+  id: '/eggs/new',
+  path: '/eggs/new',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
-const AppTemplatesTemplateIdRoute = AppTemplatesTemplateIdRouteImport.update({
-  id: '/templates_/$templateId',
-  path: '/templates/$templateId',
-  getParentRoute: () => AppRouteRoute,
+const AdminEggsEggIdRoute = AdminEggsEggIdRouteImport.update({
+  id: '/eggs/$eggId',
+  path: '/eggs/$eggId',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
   id: '/members',
@@ -263,6 +252,16 @@ const AppNodesNewRoute = AppNodesNewRouteImport.update({
 const AppNetworksNetworkIdRoute = AppNetworksNetworkIdRouteImport.update({
   id: '/networks/$networkId',
   path: '/networks/$networkId',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppEggsNewRoute = AppEggsNewRouteImport.update({
+  id: '/eggs_/new',
+  path: '/eggs/new',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppEggsEggIdRoute = AppEggsEggIdRouteImport.update({
+  id: '/eggs_/$eggId',
+  path: '/eggs/$eggId',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppAccountActivityRoute = AppAccountActivityRouteImport.update({
@@ -295,18 +294,11 @@ const ApiDaemonV1HeartbeatRoute = ApiDaemonV1HeartbeatRouteImport.update({
   path: '/api/daemon/v1/heartbeat',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminTemplatesTemplateIdEditRoute =
-  AdminTemplatesTemplateIdEditRouteImport.update({
-    id: '/templates/$templateId_/edit',
-    path: '/templates/$templateId/edit',
-    getParentRoute: () => AdminRouteRoute,
-  } as any)
-const AppTemplatesTemplateIdEditRoute =
-  AppTemplatesTemplateIdEditRouteImport.update({
-    id: '/templates_/$templateId_/edit',
-    path: '/templates/$templateId/edit',
-    getParentRoute: () => AppRouteRoute,
-  } as any)
+const AdminEggsEggIdEditRoute = AdminEggsEggIdEditRouteImport.update({
+  id: '/eggs/$eggId_/edit',
+  path: '/eggs/$eggId/edit',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AppServersServerIdStartupRoute =
   AppServersServerIdStartupRouteImport.update({
     id: '/startup',
@@ -370,6 +362,11 @@ const AppNodesNodeIdNetworkingRoute =
     path: '/networking',
     getParentRoute: () => AppNodesNodeIdRouteRoute,
   } as any)
+const AppEggsEggIdEditRoute = AppEggsEggIdEditRouteImport.update({
+  id: '/eggs_/$eggId_/edit',
+  path: '/eggs/$eggId/edit',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const ApiDaemonV1NodesActivateRoute =
   ApiDaemonV1NodesActivateRouteImport.update({
     id: '/api/daemon/v1/nodes/activate',
@@ -386,7 +383,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/account': typeof AppAccountRouteRouteWithChildren
   '/settings': typeof AppSettingsRouteRouteWithChildren
-  '/templates': typeof AppTemplatesRoute
+  '/eggs': typeof AppEggsRoute
   '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/billing': typeof AdminBillingRoute
@@ -395,17 +392,17 @@ export interface FileRoutesByFullPath {
   '/nodes/$nodeId': typeof AppNodesNodeIdRouteRouteWithChildren
   '/servers/$serverId': typeof AppServersServerIdRouteRouteWithChildren
   '/account/activity': typeof AppAccountActivityRoute
+  '/eggs/$eggId': typeof AppEggsEggIdRoute
+  '/eggs/new': typeof AppEggsNewRoute
   '/networks/$networkId': typeof AppNetworksNetworkIdRoute
   '/nodes/new': typeof AppNodesNewRoute
   '/servers/new': typeof AppServersNewRoute
   '/settings/activity': typeof AppSettingsActivityRoute
   '/settings/billing': typeof AppSettingsBillingRoute
   '/settings/members': typeof AppSettingsMembersRoute
-  '/templates/$templateId': typeof AppTemplatesTemplateIdRoute
-  '/templates/new': typeof AppTemplatesNewRoute
+  '/admin/eggs/$eggId': typeof AdminEggsEggIdRoute
+  '/admin/eggs/new': typeof AdminEggsNewRoute
   '/admin/nodes/$nodeId': typeof AdminNodesNodeIdRoute
-  '/admin/templates/$templateId': typeof AdminTemplatesTemplateIdRoute
-  '/admin/templates/new': typeof AdminTemplatesNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/download': typeof ApiFilesDownloadRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
@@ -414,11 +411,12 @@ export interface FileRoutesByFullPath {
   '/nodes/': typeof AppNodesIndexRoute
   '/servers/': typeof AppServersIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
+  '/admin/eggs/': typeof AdminEggsIndexRoute
   '/admin/nodes/': typeof AdminNodesIndexRoute
   '/admin/orgs/': typeof AdminOrgsIndexRoute
   '/admin/subdomains/': typeof AdminSubdomainsIndexRoute
-  '/admin/templates/': typeof AdminTemplatesIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
+  '/eggs/$eggId/edit': typeof AppEggsEggIdEditRoute
   '/nodes/$nodeId/networking': typeof AppNodesNodeIdNetworkingRoute
   '/nodes/$nodeId/settings': typeof AppNodesNodeIdSettingsRoute
   '/nodes/$nodeId/storage': typeof AppNodesNodeIdStorageRoute
@@ -430,8 +428,7 @@ export interface FileRoutesByFullPath {
   '/servers/$serverId/schedules': typeof AppServersServerIdSchedulesRoute
   '/servers/$serverId/settings': typeof AppServersServerIdSettingsRoute
   '/servers/$serverId/startup': typeof AppServersServerIdStartupRoute
-  '/templates/$templateId/edit': typeof AppTemplatesTemplateIdEditRoute
-  '/admin/templates/$templateId/edit': typeof AdminTemplatesTemplateIdEditRoute
+  '/admin/eggs/$eggId/edit': typeof AdminEggsEggIdEditRoute
   '/api/daemon/v1/heartbeat': typeof ApiDaemonV1HeartbeatRoute
   '/nodes/$nodeId/': typeof AppNodesNodeIdIndexRoute
   '/servers/$serverId/': typeof AppServersServerIdIndexRoute
@@ -442,7 +439,7 @@ export interface FileRoutesByTo {
   '/install.sh': typeof InstallDotshRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
-  '/templates': typeof AppTemplatesRoute
+  '/eggs': typeof AppEggsRoute
   '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/billing': typeof AdminBillingRoute
@@ -450,17 +447,17 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/admin': typeof AdminIndexRoute
   '/account/activity': typeof AppAccountActivityRoute
+  '/eggs/$eggId': typeof AppEggsEggIdRoute
+  '/eggs/new': typeof AppEggsNewRoute
   '/networks/$networkId': typeof AppNetworksNetworkIdRoute
   '/nodes/new': typeof AppNodesNewRoute
   '/servers/new': typeof AppServersNewRoute
   '/settings/activity': typeof AppSettingsActivityRoute
   '/settings/billing': typeof AppSettingsBillingRoute
   '/settings/members': typeof AppSettingsMembersRoute
-  '/templates/$templateId': typeof AppTemplatesTemplateIdRoute
-  '/templates/new': typeof AppTemplatesNewRoute
+  '/admin/eggs/$eggId': typeof AdminEggsEggIdRoute
+  '/admin/eggs/new': typeof AdminEggsNewRoute
   '/admin/nodes/$nodeId': typeof AdminNodesNodeIdRoute
-  '/admin/templates/$templateId': typeof AdminTemplatesTemplateIdRoute
-  '/admin/templates/new': typeof AdminTemplatesNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/download': typeof ApiFilesDownloadRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
@@ -469,11 +466,12 @@ export interface FileRoutesByTo {
   '/nodes': typeof AppNodesIndexRoute
   '/servers': typeof AppServersIndexRoute
   '/settings': typeof AppSettingsIndexRoute
+  '/admin/eggs': typeof AdminEggsIndexRoute
   '/admin/nodes': typeof AdminNodesIndexRoute
   '/admin/orgs': typeof AdminOrgsIndexRoute
   '/admin/subdomains': typeof AdminSubdomainsIndexRoute
-  '/admin/templates': typeof AdminTemplatesIndexRoute
   '/admin/users': typeof AdminUsersIndexRoute
+  '/eggs/$eggId/edit': typeof AppEggsEggIdEditRoute
   '/nodes/$nodeId/networking': typeof AppNodesNodeIdNetworkingRoute
   '/nodes/$nodeId/settings': typeof AppNodesNodeIdSettingsRoute
   '/nodes/$nodeId/storage': typeof AppNodesNodeIdStorageRoute
@@ -485,8 +483,7 @@ export interface FileRoutesByTo {
   '/servers/$serverId/schedules': typeof AppServersServerIdSchedulesRoute
   '/servers/$serverId/settings': typeof AppServersServerIdSettingsRoute
   '/servers/$serverId/startup': typeof AppServersServerIdStartupRoute
-  '/templates/$templateId/edit': typeof AppTemplatesTemplateIdEditRoute
-  '/admin/templates/$templateId/edit': typeof AdminTemplatesTemplateIdEditRoute
+  '/admin/eggs/$eggId/edit': typeof AdminEggsEggIdEditRoute
   '/api/daemon/v1/heartbeat': typeof ApiDaemonV1HeartbeatRoute
   '/nodes/$nodeId': typeof AppNodesNodeIdIndexRoute
   '/servers/$serverId': typeof AppServersServerIdIndexRoute
@@ -502,7 +499,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/_app/account': typeof AppAccountRouteRouteWithChildren
   '/_app/settings': typeof AppSettingsRouteRouteWithChildren
-  '/_app/templates': typeof AppTemplatesRoute
+  '/_app/eggs': typeof AppEggsRoute
   '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/billing': typeof AdminBillingRoute
@@ -512,17 +509,17 @@ export interface FileRoutesById {
   '/_app/nodes/$nodeId': typeof AppNodesNodeIdRouteRouteWithChildren
   '/_app/servers/$serverId': typeof AppServersServerIdRouteRouteWithChildren
   '/_app/account/activity': typeof AppAccountActivityRoute
+  '/_app/eggs_/$eggId': typeof AppEggsEggIdRoute
+  '/_app/eggs_/new': typeof AppEggsNewRoute
   '/_app/networks/$networkId': typeof AppNetworksNetworkIdRoute
   '/_app/nodes/new': typeof AppNodesNewRoute
   '/_app/servers/new': typeof AppServersNewRoute
   '/_app/settings/activity': typeof AppSettingsActivityRoute
   '/_app/settings/billing': typeof AppSettingsBillingRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
-  '/_app/templates_/$templateId': typeof AppTemplatesTemplateIdRoute
-  '/_app/templates_/new': typeof AppTemplatesNewRoute
+  '/admin/eggs/$eggId': typeof AdminEggsEggIdRoute
+  '/admin/eggs/new': typeof AdminEggsNewRoute
   '/admin/nodes/$nodeId': typeof AdminNodesNodeIdRoute
-  '/admin/templates/$templateId': typeof AdminTemplatesTemplateIdRoute
-  '/admin/templates/new': typeof AdminTemplatesNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/download': typeof ApiFilesDownloadRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
@@ -531,11 +528,12 @@ export interface FileRoutesById {
   '/_app/nodes/': typeof AppNodesIndexRoute
   '/_app/servers/': typeof AppServersIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
+  '/admin/eggs/': typeof AdminEggsIndexRoute
   '/admin/nodes/': typeof AdminNodesIndexRoute
   '/admin/orgs/': typeof AdminOrgsIndexRoute
   '/admin/subdomains/': typeof AdminSubdomainsIndexRoute
-  '/admin/templates/': typeof AdminTemplatesIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
+  '/_app/eggs_/$eggId_/edit': typeof AppEggsEggIdEditRoute
   '/_app/nodes/$nodeId/networking': typeof AppNodesNodeIdNetworkingRoute
   '/_app/nodes/$nodeId/settings': typeof AppNodesNodeIdSettingsRoute
   '/_app/nodes/$nodeId/storage': typeof AppNodesNodeIdStorageRoute
@@ -547,8 +545,7 @@ export interface FileRoutesById {
   '/_app/servers/$serverId/schedules': typeof AppServersServerIdSchedulesRoute
   '/_app/servers/$serverId/settings': typeof AppServersServerIdSettingsRoute
   '/_app/servers/$serverId/startup': typeof AppServersServerIdStartupRoute
-  '/_app/templates_/$templateId_/edit': typeof AppTemplatesTemplateIdEditRoute
-  '/admin/templates/$templateId_/edit': typeof AdminTemplatesTemplateIdEditRoute
+  '/admin/eggs/$eggId_/edit': typeof AdminEggsEggIdEditRoute
   '/api/daemon/v1/heartbeat': typeof ApiDaemonV1HeartbeatRoute
   '/_app/nodes/$nodeId/': typeof AppNodesNodeIdIndexRoute
   '/_app/servers/$serverId/': typeof AppServersServerIdIndexRoute
@@ -565,7 +562,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/account'
     | '/settings'
-    | '/templates'
+    | '/eggs'
     | '/accept-invitation/$invitationId'
     | '/admin/activity'
     | '/admin/billing'
@@ -574,17 +571,17 @@ export interface FileRouteTypes {
     | '/nodes/$nodeId'
     | '/servers/$serverId'
     | '/account/activity'
+    | '/eggs/$eggId'
+    | '/eggs/new'
     | '/networks/$networkId'
     | '/nodes/new'
     | '/servers/new'
     | '/settings/activity'
     | '/settings/billing'
     | '/settings/members'
-    | '/templates/$templateId'
-    | '/templates/new'
+    | '/admin/eggs/$eggId'
+    | '/admin/eggs/new'
     | '/admin/nodes/$nodeId'
-    | '/admin/templates/$templateId'
-    | '/admin/templates/new'
     | '/api/auth/$'
     | '/api/files/download'
     | '/api/files/upload'
@@ -593,11 +590,12 @@ export interface FileRouteTypes {
     | '/nodes/'
     | '/servers/'
     | '/settings/'
+    | '/admin/eggs/'
     | '/admin/nodes/'
     | '/admin/orgs/'
     | '/admin/subdomains/'
-    | '/admin/templates/'
     | '/admin/users/'
+    | '/eggs/$eggId/edit'
     | '/nodes/$nodeId/networking'
     | '/nodes/$nodeId/settings'
     | '/nodes/$nodeId/storage'
@@ -609,8 +607,7 @@ export interface FileRouteTypes {
     | '/servers/$serverId/schedules'
     | '/servers/$serverId/settings'
     | '/servers/$serverId/startup'
-    | '/templates/$templateId/edit'
-    | '/admin/templates/$templateId/edit'
+    | '/admin/eggs/$eggId/edit'
     | '/api/daemon/v1/heartbeat'
     | '/nodes/$nodeId/'
     | '/servers/$serverId/'
@@ -621,7 +618,7 @@ export interface FileRouteTypes {
     | '/install.sh'
     | '/login'
     | '/onboarding'
-    | '/templates'
+    | '/eggs'
     | '/accept-invitation/$invitationId'
     | '/admin/activity'
     | '/admin/billing'
@@ -629,17 +626,17 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/account/activity'
+    | '/eggs/$eggId'
+    | '/eggs/new'
     | '/networks/$networkId'
     | '/nodes/new'
     | '/servers/new'
     | '/settings/activity'
     | '/settings/billing'
     | '/settings/members'
-    | '/templates/$templateId'
-    | '/templates/new'
+    | '/admin/eggs/$eggId'
+    | '/admin/eggs/new'
     | '/admin/nodes/$nodeId'
-    | '/admin/templates/$templateId'
-    | '/admin/templates/new'
     | '/api/auth/$'
     | '/api/files/download'
     | '/api/files/upload'
@@ -648,11 +645,12 @@ export interface FileRouteTypes {
     | '/nodes'
     | '/servers'
     | '/settings'
+    | '/admin/eggs'
     | '/admin/nodes'
     | '/admin/orgs'
     | '/admin/subdomains'
-    | '/admin/templates'
     | '/admin/users'
+    | '/eggs/$eggId/edit'
     | '/nodes/$nodeId/networking'
     | '/nodes/$nodeId/settings'
     | '/nodes/$nodeId/storage'
@@ -664,8 +662,7 @@ export interface FileRouteTypes {
     | '/servers/$serverId/schedules'
     | '/servers/$serverId/settings'
     | '/servers/$serverId/startup'
-    | '/templates/$templateId/edit'
-    | '/admin/templates/$templateId/edit'
+    | '/admin/eggs/$eggId/edit'
     | '/api/daemon/v1/heartbeat'
     | '/nodes/$nodeId'
     | '/servers/$serverId'
@@ -680,7 +677,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/_app/account'
     | '/_app/settings'
-    | '/_app/templates'
+    | '/_app/eggs'
     | '/accept-invitation/$invitationId'
     | '/admin/activity'
     | '/admin/billing'
@@ -690,17 +687,17 @@ export interface FileRouteTypes {
     | '/_app/nodes/$nodeId'
     | '/_app/servers/$serverId'
     | '/_app/account/activity'
+    | '/_app/eggs_/$eggId'
+    | '/_app/eggs_/new'
     | '/_app/networks/$networkId'
     | '/_app/nodes/new'
     | '/_app/servers/new'
     | '/_app/settings/activity'
     | '/_app/settings/billing'
     | '/_app/settings/members'
-    | '/_app/templates_/$templateId'
-    | '/_app/templates_/new'
+    | '/admin/eggs/$eggId'
+    | '/admin/eggs/new'
     | '/admin/nodes/$nodeId'
-    | '/admin/templates/$templateId'
-    | '/admin/templates/new'
     | '/api/auth/$'
     | '/api/files/download'
     | '/api/files/upload'
@@ -709,11 +706,12 @@ export interface FileRouteTypes {
     | '/_app/nodes/'
     | '/_app/servers/'
     | '/_app/settings/'
+    | '/admin/eggs/'
     | '/admin/nodes/'
     | '/admin/orgs/'
     | '/admin/subdomains/'
-    | '/admin/templates/'
     | '/admin/users/'
+    | '/_app/eggs_/$eggId_/edit'
     | '/_app/nodes/$nodeId/networking'
     | '/_app/nodes/$nodeId/settings'
     | '/_app/nodes/$nodeId/storage'
@@ -725,8 +723,7 @@ export interface FileRouteTypes {
     | '/_app/servers/$serverId/schedules'
     | '/_app/servers/$serverId/settings'
     | '/_app/servers/$serverId/startup'
-    | '/_app/templates_/$templateId_/edit'
-    | '/admin/templates/$templateId_/edit'
+    | '/admin/eggs/$eggId_/edit'
     | '/api/daemon/v1/heartbeat'
     | '/_app/nodes/$nodeId/'
     | '/_app/servers/$serverId/'
@@ -834,11 +831,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AcceptInvitationInvitationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/templates': {
-      id: '/_app/templates'
-      path: '/templates'
-      fullPath: '/templates'
-      preLoaderRoute: typeof AppTemplatesRouteImport
+    '/_app/eggs': {
+      id: '/_app/eggs'
+      path: '/eggs'
+      fullPath: '/eggs'
+      preLoaderRoute: typeof AppEggsRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/settings': {
@@ -862,13 +859,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
-    '/admin/templates/': {
-      id: '/admin/templates/'
-      path: '/templates'
-      fullPath: '/admin/templates/'
-      preLoaderRoute: typeof AdminTemplatesIndexRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
     '/admin/subdomains/': {
       id: '/admin/subdomains/'
       path: '/subdomains'
@@ -888,6 +878,13 @@ declare module '@tanstack/react-router' {
       path: '/nodes'
       fullPath: '/admin/nodes/'
       preLoaderRoute: typeof AdminNodesIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/eggs/': {
+      id: '/admin/eggs/'
+      path: '/eggs'
+      fullPath: '/admin/eggs/'
+      preLoaderRoute: typeof AdminEggsIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/_app/settings/': {
@@ -946,20 +943,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/templates/new': {
-      id: '/admin/templates/new'
-      path: '/templates/new'
-      fullPath: '/admin/templates/new'
-      preLoaderRoute: typeof AdminTemplatesNewRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/templates/$templateId': {
-      id: '/admin/templates/$templateId'
-      path: '/templates/$templateId'
-      fullPath: '/admin/templates/$templateId'
-      preLoaderRoute: typeof AdminTemplatesTemplateIdRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
     '/admin/nodes/$nodeId': {
       id: '/admin/nodes/$nodeId'
       path: '/nodes/$nodeId'
@@ -967,19 +950,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminNodesNodeIdRouteImport
       parentRoute: typeof AdminRouteRoute
     }
-    '/_app/templates_/new': {
-      id: '/_app/templates_/new'
-      path: '/templates/new'
-      fullPath: '/templates/new'
-      preLoaderRoute: typeof AppTemplatesNewRouteImport
-      parentRoute: typeof AppRouteRoute
+    '/admin/eggs/new': {
+      id: '/admin/eggs/new'
+      path: '/eggs/new'
+      fullPath: '/admin/eggs/new'
+      preLoaderRoute: typeof AdminEggsNewRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
-    '/_app/templates_/$templateId': {
-      id: '/_app/templates_/$templateId'
-      path: '/templates/$templateId'
-      fullPath: '/templates/$templateId'
-      preLoaderRoute: typeof AppTemplatesTemplateIdRouteImport
-      parentRoute: typeof AppRouteRoute
+    '/admin/eggs/$eggId': {
+      id: '/admin/eggs/$eggId'
+      path: '/eggs/$eggId'
+      fullPath: '/admin/eggs/$eggId'
+      preLoaderRoute: typeof AdminEggsEggIdRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
     '/_app/settings/members': {
       id: '/_app/settings/members'
@@ -1021,6 +1004,20 @@ declare module '@tanstack/react-router' {
       path: '/networks/$networkId'
       fullPath: '/networks/$networkId'
       preLoaderRoute: typeof AppNetworksNetworkIdRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/eggs_/new': {
+      id: '/_app/eggs_/new'
+      path: '/eggs/new'
+      fullPath: '/eggs/new'
+      preLoaderRoute: typeof AppEggsNewRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/eggs_/$eggId': {
+      id: '/_app/eggs_/$eggId'
+      path: '/eggs/$eggId'
+      fullPath: '/eggs/$eggId'
+      preLoaderRoute: typeof AppEggsEggIdRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/account/activity': {
@@ -1065,19 +1062,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDaemonV1HeartbeatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/templates/$templateId_/edit': {
-      id: '/admin/templates/$templateId_/edit'
-      path: '/templates/$templateId/edit'
-      fullPath: '/admin/templates/$templateId/edit'
-      preLoaderRoute: typeof AdminTemplatesTemplateIdEditRouteImport
+    '/admin/eggs/$eggId_/edit': {
+      id: '/admin/eggs/$eggId_/edit'
+      path: '/eggs/$eggId/edit'
+      fullPath: '/admin/eggs/$eggId/edit'
+      preLoaderRoute: typeof AdminEggsEggIdEditRouteImport
       parentRoute: typeof AdminRouteRoute
-    }
-    '/_app/templates_/$templateId_/edit': {
-      id: '/_app/templates_/$templateId_/edit'
-      path: '/templates/$templateId/edit'
-      fullPath: '/templates/$templateId/edit'
-      preLoaderRoute: typeof AppTemplatesTemplateIdEditRouteImport
-      parentRoute: typeof AppRouteRoute
     }
     '/_app/servers/$serverId/startup': {
       id: '/_app/servers/$serverId/startup'
@@ -1155,6 +1145,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/nodes/$nodeId/networking'
       preLoaderRoute: typeof AppNodesNodeIdNetworkingRouteImport
       parentRoute: typeof AppNodesNodeIdRouteRoute
+    }
+    '/_app/eggs_/$eggId_/edit': {
+      id: '/_app/eggs_/$eggId_/edit'
+      path: '/eggs/$eggId/edit'
+      fullPath: '/eggs/$eggId/edit'
+      preLoaderRoute: typeof AppEggsEggIdEditRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/api/daemon/v1/nodes/activate': {
       id: '/api/daemon/v1/nodes/activate'
@@ -1247,37 +1244,37 @@ const AppServersServerIdRouteRouteWithChildren =
 interface AppRouteRouteChildren {
   AppAccountRouteRoute: typeof AppAccountRouteRouteWithChildren
   AppSettingsRouteRoute: typeof AppSettingsRouteRouteWithChildren
-  AppTemplatesRoute: typeof AppTemplatesRoute
+  AppEggsRoute: typeof AppEggsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppNodesNodeIdRouteRoute: typeof AppNodesNodeIdRouteRouteWithChildren
   AppServersServerIdRouteRoute: typeof AppServersServerIdRouteRouteWithChildren
+  AppEggsEggIdRoute: typeof AppEggsEggIdRoute
+  AppEggsNewRoute: typeof AppEggsNewRoute
   AppNetworksNetworkIdRoute: typeof AppNetworksNetworkIdRoute
   AppNodesNewRoute: typeof AppNodesNewRoute
   AppServersNewRoute: typeof AppServersNewRoute
-  AppTemplatesTemplateIdRoute: typeof AppTemplatesTemplateIdRoute
-  AppTemplatesNewRoute: typeof AppTemplatesNewRoute
   AppNetworksIndexRoute: typeof AppNetworksIndexRoute
   AppNodesIndexRoute: typeof AppNodesIndexRoute
   AppServersIndexRoute: typeof AppServersIndexRoute
-  AppTemplatesTemplateIdEditRoute: typeof AppTemplatesTemplateIdEditRoute
+  AppEggsEggIdEditRoute: typeof AppEggsEggIdEditRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppAccountRouteRoute: AppAccountRouteRouteWithChildren,
   AppSettingsRouteRoute: AppSettingsRouteRouteWithChildren,
-  AppTemplatesRoute: AppTemplatesRoute,
+  AppEggsRoute: AppEggsRoute,
   AppIndexRoute: AppIndexRoute,
   AppNodesNodeIdRouteRoute: AppNodesNodeIdRouteRouteWithChildren,
   AppServersServerIdRouteRoute: AppServersServerIdRouteRouteWithChildren,
+  AppEggsEggIdRoute: AppEggsEggIdRoute,
+  AppEggsNewRoute: AppEggsNewRoute,
   AppNetworksNetworkIdRoute: AppNetworksNetworkIdRoute,
   AppNodesNewRoute: AppNodesNewRoute,
   AppServersNewRoute: AppServersNewRoute,
-  AppTemplatesTemplateIdRoute: AppTemplatesTemplateIdRoute,
-  AppTemplatesNewRoute: AppTemplatesNewRoute,
   AppNetworksIndexRoute: AppNetworksIndexRoute,
   AppNodesIndexRoute: AppNodesIndexRoute,
   AppServersIndexRoute: AppServersIndexRoute,
-  AppTemplatesTemplateIdEditRoute: AppTemplatesTemplateIdEditRoute,
+  AppEggsEggIdEditRoute: AppEggsEggIdEditRoute,
 }
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
@@ -1289,15 +1286,15 @@ interface AdminRouteRouteChildren {
   AdminBillingRoute: typeof AdminBillingRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminEggsEggIdRoute: typeof AdminEggsEggIdRoute
+  AdminEggsNewRoute: typeof AdminEggsNewRoute
   AdminNodesNodeIdRoute: typeof AdminNodesNodeIdRoute
-  AdminTemplatesTemplateIdRoute: typeof AdminTemplatesTemplateIdRoute
-  AdminTemplatesNewRoute: typeof AdminTemplatesNewRoute
+  AdminEggsIndexRoute: typeof AdminEggsIndexRoute
   AdminNodesIndexRoute: typeof AdminNodesIndexRoute
   AdminOrgsIndexRoute: typeof AdminOrgsIndexRoute
   AdminSubdomainsIndexRoute: typeof AdminSubdomainsIndexRoute
-  AdminTemplatesIndexRoute: typeof AdminTemplatesIndexRoute
   AdminUsersIndexRoute: typeof AdminUsersIndexRoute
-  AdminTemplatesTemplateIdEditRoute: typeof AdminTemplatesTemplateIdEditRoute
+  AdminEggsEggIdEditRoute: typeof AdminEggsEggIdEditRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
@@ -1305,15 +1302,15 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminBillingRoute: AdminBillingRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminEggsEggIdRoute: AdminEggsEggIdRoute,
+  AdminEggsNewRoute: AdminEggsNewRoute,
   AdminNodesNodeIdRoute: AdminNodesNodeIdRoute,
-  AdminTemplatesTemplateIdRoute: AdminTemplatesTemplateIdRoute,
-  AdminTemplatesNewRoute: AdminTemplatesNewRoute,
+  AdminEggsIndexRoute: AdminEggsIndexRoute,
   AdminNodesIndexRoute: AdminNodesIndexRoute,
   AdminOrgsIndexRoute: AdminOrgsIndexRoute,
   AdminSubdomainsIndexRoute: AdminSubdomainsIndexRoute,
-  AdminTemplatesIndexRoute: AdminTemplatesIndexRoute,
   AdminUsersIndexRoute: AdminUsersIndexRoute,
-  AdminTemplatesTemplateIdEditRoute: AdminTemplatesTemplateIdEditRoute,
+  AdminEggsEggIdEditRoute: AdminEggsEggIdEditRoute,
 }
 
 const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(

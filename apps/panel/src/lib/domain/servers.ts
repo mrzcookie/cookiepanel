@@ -10,15 +10,15 @@ export type ServerState =
 export type ServerRow = {
 	id: string;
 	name: string;
-	/** Friendly template label — NEVER a raw image string. */
-	templateName: string;
-	/** The source template (snapshotted at creation); resolves the variable
+	/** Friendly egg label — NEVER a raw image string. */
+	eggName: string;
+	/** The source egg (snapshotted at creation); resolves the variable
 	 * schema + startup command shown on the Startup tab. */
-	templateId: string;
-	/** Friendly runtime label from the template (e.g. "Java 21") — never the
+	eggId: string;
+	/** Friendly runtime label from the egg (e.g. "Java 21") — never the
 	 * raw image string. */
 	imageLabel: string;
-	/** The source template has a newer published version. */
+	/** The source egg has a newer published version. */
 	updateAvailable: boolean;
 	state: ServerState;
 	/** Node it runs on (stable id + display name + panel-reachable address). */

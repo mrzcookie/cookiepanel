@@ -10,7 +10,7 @@ export type ActivityCategory =
 	| "node"
 	| "server"
 	| "network"
-	| "template"
+	| "egg"
 	| "billing";
 
 export type ActivityEntry = {

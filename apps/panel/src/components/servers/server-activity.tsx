@@ -78,7 +78,7 @@ export function activityFor(server: ServerRow): ActivityItem[] {
 			"9",
 			Server,
 			"Jane Cooper",
-			`created the server from ${server.templateName}`,
+			`created the server from ${server.eggName}`,
 			server.createdAt
 		),
 	];

@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 // The instrument-panel status chip: `[ LABEL ]` in mono + uppercase with a
 // semantic tone. The bracket notation reads as a console readout, not a generic
-// dot-pill — the one way state is shown across nodes, servers, drives, templates.
+// dot-pill — the one way state is shown across nodes, servers, drives, eggs.
 // `live` adds an alpha-only pulse (no glow). Color never carries meaning alone:
 // the label always spells out the state.
 export function StatusIndicator({

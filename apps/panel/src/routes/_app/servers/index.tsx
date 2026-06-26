@@ -48,11 +48,11 @@ function Servers() {
 			createLabel="Deploy server"
 			description="Game and app instances you're running."
 			eyebrow="fleet"
-			emptyDescription="Servers you deploy from a template will appear here."
+			emptyDescription="Servers you deploy from a egg will appear here."
 			emptyTitle="No servers yet"
 			filter={(server, q) =>
 				server.name.toLowerCase().includes(q) ||
-				server.templateName.toLowerCase().includes(q) ||
+				server.eggName.toLowerCase().includes(q) ||
 				server.nodeName.toLowerCase().includes(q)
 			}
 			icon={Server}
@@ -101,7 +101,7 @@ function ServerCard({ server }: { server: ServerRow }) {
 		<EntityCard
 			action={<StatusIndicator status={serverStatus(server.state)} />}
 			icon={Server}
-			subtitle={server.templateName}
+			subtitle={server.eggName}
 			title={<ServerLink server={server} />}
 			titleSuffix={
 				server.updateAvailable ? (
@@ -149,7 +149,7 @@ function ServersTable({ servers }: { servers: ServerRow[] }) {
 			<TableHeader>
 				<TableRow>
 					<TableHead>Server</TableHead>
-					<TableHead>Template</TableHead>
+					<TableHead>Egg</TableHead>
 					<TableHead>Node</TableHead>
 					<TableHead>Connect</TableHead>
 					<TableHead className="text-right">Status</TableHead>
@@ -172,7 +172,7 @@ function ServersTable({ servers }: { servers: ServerRow[] }) {
 								/>
 							</TableCell>
 							<TableCell className="text-muted-foreground">
-								{server.templateName}
+								{server.eggName}
 							</TableCell>
 							<TableCell className="text-muted-foreground">
 								{server.nodeName}

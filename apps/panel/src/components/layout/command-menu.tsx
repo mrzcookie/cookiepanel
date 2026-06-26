@@ -18,15 +18,15 @@ import {
 	CommandList,
 	CommandSeparator,
 } from "@/components/ui/command";
+import { useEggs } from "@/lib/eggs-queries";
 import { NAV } from "@/lib/nav";
 import { useNetworks } from "@/lib/networking-queries";
 import { useNodes } from "@/lib/node-queries";
 import { useServers } from "@/lib/server-queries";
-import { useTemplates } from "@/lib/templates-queries";
 
 // A search-bar-styled launcher in the topbar that opens a command palette for
 // jumping around the panel. It reads the live query hooks (nodes / servers /
-// networks / templates) so jump-to-entity rows reflect the real fleet.
+// networks / eggs) so jump-to-entity rows reflect the real fleet.
 export function CommandMenu() {
 	const [open, setOpen] = useState(false);
 	const [mod, setMod] = useState("Ctrl");
@@ -35,7 +35,7 @@ export function CommandMenu() {
 	const nodes = useNodes();
 	const servers = useServers();
 	const networks = useNetworks();
-	const templates = useTemplates();
+	const eggs = useEggs();
 
 	// Match the host's modifier key after mount (keeps SSR + first render stable).
 	useEffect(() => {
@@ -122,11 +122,11 @@ export function CommandMenu() {
 							Deploy a server
 						</CommandItem>
 						<CommandItem
-							onSelect={() => run(() => navigate({ to: "/templates/new" }))}
-							value="new template create"
+							onSelect={() => run(() => navigate({ to: "/eggs/new" }))}
+							value="new egg create"
 						>
 							<Plus />
-							New template
+							New egg
 						</CommandItem>
 					</CommandGroup>
 
@@ -205,25 +205,25 @@ export function CommandMenu() {
 						</CommandGroup>
 					) : null}
 
-					{templates.length > 0 ? (
-						<CommandGroup heading="Templates">
-							{templates.map((template) => (
+					{eggs.length > 0 ? (
+						<CommandGroup heading="Eggs">
+							{eggs.map((egg) => (
 								<CommandItem
-									key={template.id}
+									key={egg.id}
 									onSelect={() =>
 										run(() =>
 											navigate({
-												params: { templateId: template.id },
-												to: "/templates/$templateId",
+												params: { eggId: egg.id },
+												to: "/eggs/$eggId",
 											})
 										)
 									}
-									value={`template ${template.name} ${template.category}`}
+									value={`egg ${egg.name} ${egg.category}`}
 								>
 									<LayoutTemplate />
-									<span className="truncate">{template.name}</span>
+									<span className="truncate">{egg.name}</span>
 									<span className="ml-auto truncate font-mono text-muted-foreground text-xs">
-										{template.category}
+										{egg.category}
 									</span>
 								</CommandItem>
 							))}

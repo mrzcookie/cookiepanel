@@ -60,7 +60,7 @@ export const ADMIN_NODES: AdminNode[] = [
 	node({
 		id: "a0000000-0001-4a00-8a00-0000000000a1",
 		name: "atlas",
-		fqdn: "atlas.acme.cookiepanel.app",
+		fqdn: "atlas.acme.raptorpanel.app",
 		managed: true,
 		publicIp: "203.0.113.10",
 		orgId: ORG.acme.id,
@@ -69,7 +69,7 @@ export const ADMIN_NODES: AdminNode[] = [
 	node({
 		id: "a0000000-0002-4a00-8a00-0000000000a2",
 		name: "valhalla",
-		fqdn: "valhalla.acme.cookiepanel.app",
+		fqdn: "valhalla.acme.raptorpanel.app",
 		managed: true,
 		publicIp: "203.0.113.11",
 		cpuPercent: 41,
@@ -80,7 +80,7 @@ export const ADMIN_NODES: AdminNode[] = [
 	node({
 		id: "a0000000-0003-4a00-8a00-0000000000a3",
 		name: "nimbus",
-		fqdn: "nimbus.acme.cookiepanel.app",
+		fqdn: "nimbus.acme.raptorpanel.app",
 		managed: true,
 		publicIp: "203.0.113.12",
 		daemonVersion: "1.4.0",
@@ -91,7 +91,7 @@ export const ADMIN_NODES: AdminNode[] = [
 	node({
 		id: "a0000000-0004-4a00-8a00-0000000000a4",
 		name: "orion",
-		fqdn: "orion.acme.cookiepanel.app",
+		fqdn: "orion.acme.raptorpanel.app",
 		managed: true,
 		status: "unhealthy",
 		publicIp: "203.0.113.13",
@@ -132,7 +132,7 @@ export const ADMIN_NODES: AdminNode[] = [
 	node({
 		id: "b0000000-0001-4a00-8a00-0000000000b1",
 		name: "eu-west-01",
-		fqdn: "eu-west-01.northwind.cookiepanel.app",
+		fqdn: "eu-west-01.northwind.raptorpanel.app",
 		managed: true,
 		publicIp: "198.51.100.20",
 		serversRunning: 1,
@@ -144,7 +144,7 @@ export const ADMIN_NODES: AdminNode[] = [
 	node({
 		id: "c0000000-0001-4a00-8a00-0000000000c1",
 		name: "pf-1",
-		fqdn: "pf-1.pixelforge.cookiepanel.app",
+		fqdn: "pf-1.pixelforge.raptorpanel.app",
 		managed: true,
 		publicIp: "192.0.2.30",
 		orgId: ORG.pixelforge.id,
@@ -163,7 +163,7 @@ export const ADMIN_NODES: AdminNode[] = [
 	node({
 		id: "c0000000-0003-4a00-8a00-0000000000c3",
 		name: "pf-3",
-		fqdn: "pf-3.pixelforge.cookiepanel.app",
+		fqdn: "pf-3.pixelforge.raptorpanel.app",
 		managed: true,
 		status: "pending",
 		publicIp: null,
@@ -190,7 +190,7 @@ export const ADMIN_NODES: AdminNode[] = [
 export const SUBDOMAINS: Subdomain[] = [
 	{
 		id: "5b000000-0001-4a00-8a00-0000000000d1",
-		hostname: "atlas.acme.cookiepanel.app",
+		hostname: "atlas.acme.raptorpanel.app",
 		recordType: "A",
 		target: "203.0.113.10",
 		status: "active",
@@ -202,7 +202,7 @@ export const SUBDOMAINS: Subdomain[] = [
 	},
 	{
 		id: "5b000000-0002-4a00-8a00-0000000000d2",
-		hostname: "valhalla.acme.cookiepanel.app",
+		hostname: "valhalla.acme.raptorpanel.app",
 		recordType: "A",
 		target: "203.0.113.11",
 		status: "active",
@@ -214,7 +214,7 @@ export const SUBDOMAINS: Subdomain[] = [
 	},
 	{
 		id: "5b000000-0003-4a00-8a00-0000000000d3",
-		hostname: "nimbus.acme.cookiepanel.app",
+		hostname: "nimbus.acme.raptorpanel.app",
 		recordType: "A",
 		target: "203.0.113.12",
 		status: "active",
@@ -226,7 +226,7 @@ export const SUBDOMAINS: Subdomain[] = [
 	},
 	{
 		id: "5b000000-0004-4a00-8a00-0000000000d4",
-		hostname: "orion.acme.cookiepanel.app",
+		hostname: "orion.acme.raptorpanel.app",
 		recordType: "A",
 		target: "203.0.113.13",
 		status: "error",
@@ -238,7 +238,7 @@ export const SUBDOMAINS: Subdomain[] = [
 	},
 	{
 		id: "5b000000-0005-4a00-8a00-0000000000d5",
-		hostname: "eu-west-01.northwind.cookiepanel.app",
+		hostname: "eu-west-01.northwind.raptorpanel.app",
 		recordType: "A",
 		target: "198.51.100.20",
 		status: "active",
@@ -250,7 +250,7 @@ export const SUBDOMAINS: Subdomain[] = [
 	},
 	{
 		id: "5b000000-0006-4a00-8a00-0000000000d6",
-		hostname: "pf-1.pixelforge.cookiepanel.app",
+		hostname: "pf-1.pixelforge.raptorpanel.app",
 		recordType: "A",
 		target: "192.0.2.30",
 		status: "active",
@@ -262,7 +262,7 @@ export const SUBDOMAINS: Subdomain[] = [
 	},
 	{
 		id: "5b000000-0007-4a00-8a00-0000000000d7",
-		hostname: "pf-3.pixelforge.cookiepanel.app",
+		hostname: "pf-3.pixelforge.raptorpanel.app",
 		recordType: "A",
 		target: "192.0.2.32",
 		status: "pending",

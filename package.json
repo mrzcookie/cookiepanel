@@ -1,5 +1,5 @@
 {
-	"name": "cookiepanel",
+	"name": "raptorpanel",
 	"private": true,
 	"type": "module",
 	"license": "AGPL-3.0-or-later",
@@ -15,12 +15,12 @@
 		"check": "biome check --write",
 		"check:ci": "biome ci",
 		"knip": "knip",
-		"analyze": "pnpm --filter @cookiepanel/panel analyze",
+		"analyze": "pnpm --filter @raptorpanel/panel analyze",
 		"dev:up": "docker compose -f infra/compose.yaml up -d --wait",
 		"dev:down": "docker compose -f infra/compose.yaml down",
-		"daemon:build": "make -C apps/daemon build",
-		"daemon:run": "make -C apps/daemon run",
-		"daemon:test": "make -C apps/daemon test"
+		"wings:build": "make -C apps/wings build",
+		"wings:run": "make -C apps/wings run",
+		"wings:test": "make -C apps/wings test"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.16",

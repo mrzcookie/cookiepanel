@@ -1,4 +1,4 @@
-# PRODUCT.md — CookiePanel
+# PRODUCT.md — RaptorPanel
 
 Context for design work. Pairs with `DESIGN.md` (the design system) and the
 deep-dive rules in `.claude/rules/`. Read both before any UI task.
@@ -8,20 +8,20 @@ surface, not a marketing artifact; restraint and legibility beat expression.
 
 ## What it is
 
-CookiePanel is a **hosted, multi-tenant control panel for running Docker game
+RaptorPanel is a **hosted, multi-tenant control panel for running Docker game
 servers and apps on your own Linux boxes**. You connect a machine you own, and
-CookiePanel turns it into a managed fleet: spin up a Minecraft (or any) server
-from a **Template**, watch live CPU/memory, and manage files, networks, ports,
+RaptorPanel turns it into a managed fleet: spin up a Minecraft (or any) server
+from a **Egg**, watch live CPU/memory, and manage files, networks, ports,
 firewall, schedules, and backups, without touching a terminal.
 
 Two programs, one product: the hosted **Panel** (this app) owns identity, orgs,
-templates, and desired state; the **daemon** (`cookied`) runs as root on each box
+eggs, and desired state; the **daemon** (`wings`) runs as root on each box
 and does the real work. The panel drives boxes over authenticated HTTPS; the
 daemon heartbeats back.
 
 ## Who it's for
 
-The owner is **not a Linux admin**. They think in "servers" and "templates," not
+The owner is **not a Linux admin**. They think in "servers" and "eggs," not
 images and containers, and should never have to learn the difference. A typical
 moment: a small-community owner glancing at whether their game server is up, on a
 laptop in a normal room, wanting confidence in a beat. They are capable but
@@ -37,7 +37,7 @@ question without a second look.
 ## Voice & tone
 
 - Plain, direct, confident. Short labels; sentences only when they teach.
-- Name things the way the owner thinks (server, node, template, port), never the
+- Name things the way the owner thinks (server, node, egg, port), never the
   way Docker does (container, image, bind mount).
 - Errors are honest and actionable, never blaming. Destructive actions say what
   is lost and ask once.
@@ -51,7 +51,7 @@ question without a second look.
 - **Toy dashboards.** No big-number hero metrics, no confetti, no rounded-pill
   everything.
 - **Generic SaaS-cream.** Not the soft-shadow, lavender-gradient, friendly-blob
-  template. This is an instrument, not a brochure.
+  egg. This is an instrument, not a brochure.
 - **Over-confirmation.** Don't modal every action. Inline and progressive first;
   confirm only what's destructive or irreversible.
 
@@ -64,5 +64,5 @@ question without a second look.
 3. **Mono is structure.** Data, labels, and status read as console readouts.
 4. **Secure by default is visible.** Guard rails (protected ports, system
    drives, install-script acknowledgements) are shown, not hidden.
-5. **Templates over images.** Users pick Templates; raw image strings never
+5. **Eggs over images.** Users pick Eggs; raw image strings never
    surface in the UI.

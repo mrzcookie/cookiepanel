@@ -1,6 +1,6 @@
 # Security — the non-negotiables
 
-CookiePanel runs other people's servers on machines they own, and one panel
+RaptorPanel runs other people's servers on machines they own, and one panel
 serves many tenants. Two properties are non-negotiable: **tenants can never
 reach each other's resources**, and **the root daemon never trusts its input**.
 Treat a violation of either as a bug, not an edge case.
@@ -9,7 +9,7 @@ Treat a violation of either as a bug, not an edge case.
 
 Every operation is scoped to the caller's **active organization**, and that
 scope is **re-verified server-side on every request**. A user must never be able
-to read or act on another org's node, server, network, template, allocation, or
+to read or act on another org's node, server, network, egg, allocation, or
 file by guessing or replaying an id.
 
 Defense in depth — all three tiers, not just one:
@@ -48,7 +48,7 @@ real data lands.
 
 ## 3. The daemon runs as root — validate everything
 
-`cookied` runs as root on the box, so all external input is hostile until proven
+`wings` runs as root on the box, so all external input is hostile until proven
 otherwise (full detail in `daemon.md`):
 
 - **Paths** are sandboxed to a server's volume and re-checked to stay under root
@@ -57,7 +57,7 @@ otherwise (full detail in `daemon.md`):
 - **Names/ids** pass regex allowlists — no shell metacharacters.
 - **No shell injection** — invoke external tools with arg vectors, never a shell
   string.
-- **Untrusted code** (template install scripts) runs in a resource-bounded
+- **Untrusted code** (egg install scripts) runs in a resource-bounded
   throwaway container with a hard timeout, never on the host.
 - **Guard rails that prevent self-lockout / data loss:** the firewall refuses to
   close SSH (22) or the daemon's own port; the OS/system drive can never be
@@ -80,11 +80,11 @@ The panel and daemon don't share a CA or a network (see `architecture.md`):
 - **Browser console** uses a short-lived, narrowly-scoped HS256 JWT (separate
   signing secret), verified by the daemon and bound to one server + node.
 
-## 5. Templates over images (a product+security rule)
+## 5. Eggs over images (a product+security rule)
 
-Users pick **Templates**, never raw Docker image strings. The image string and
+Users pick **Eggs**, never raw Docker image strings. The image string and
 its digest are **server-only**; the client sees a friendly label. Official
-(platform-owned) templates are read-only to tenants. A template's install script
+(platform-owned) eggs are read-only to tenants. A egg's install script
 runs as root on the box, so the daemon isolates it in a resource-bounded
 throwaway container with a hard timeout (see `daemon.md`). This keeps untrusted
 image/script choices behind a curated, auditable boundary.

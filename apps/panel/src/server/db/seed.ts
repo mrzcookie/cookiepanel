@@ -1,29 +1,25 @@
 import { randomUUID } from "node:crypto";
-import { TEMPLATES } from "@/lib/stubs";
+import { EGGS } from "@/lib/stubs";
 import { db } from "@/server/db";
-import {
-	template,
-	templateImage,
-	templateVariable,
-} from "@/server/db/schema/templates";
+import { egg, eggImage, eggVariable } from "@/server/db/schema/eggs";
 
 /**
- * Seed the **official** (platform-owned) template library from the UI-first stub
+ * Seed the **official** (platform-owned) egg library from the UI-first stub
  * records, so the catalog renders the same curated library the panel always
- * showed. Official templates are the null-org rows every organization can deploy
- * from; org-owned stub templates are *not* seeded (they belong to no real org).
+ * showed. Official eggs are the null-org rows every organization can deploy
+ * from; org-owned stub eggs are *not* seeded (they belong to no real org).
  *
- * Idempotent: keyed on the template id (the stub's stable UUID, preserved so any
- * stubbed server's `templateId` still resolves), it inserts a template once and
+ * Idempotent: keyed on the egg id (the stub's stable UUID, preserved so any
+ * stubbed server's `eggId` still resolves), it inserts a egg once and
  * skips it on re-run. Run with `pnpm db:seed` (after `pnpm db:migrate`).
  */
 async function seed() {
-	const official = TEMPLATES.filter((t) => t.official);
+	const official = EGGS.filter((t) => t.official);
 	let created = 0;
 
 	for (const t of official) {
 		const inserted = await db
-			.insert(template)
+			.insert(egg)
 			.values({
 				id: t.id,
 				organizationId: null,
@@ -47,8 +43,8 @@ async function seed() {
 				features: t.features,
 				configFiles: t.configFiles,
 			})
-			.onConflictDoNothing({ target: template.id })
-			.returning({ id: template.id });
+			.onConflictDoNothing({ target: egg.id })
+			.returning({ id: egg.id });
 
 		// Already seeded — leave its children untouched.
 		if (inserted.length === 0) {
@@ -56,10 +52,10 @@ async function seed() {
 		}
 
 		if (t.images.length > 0) {
-			await db.insert(templateImage).values(
+			await db.insert(eggImage).values(
 				t.images.map((image, index) => ({
 					id: randomUUID(),
-					templateId: t.id,
+					eggId: t.id,
 					label: image.label,
 					image: image.image,
 					isDefault: image.isDefault,
@@ -68,10 +64,10 @@ async function seed() {
 			);
 		}
 		if (t.variables.length > 0) {
-			await db.insert(templateVariable).values(
+			await db.insert(eggVariable).values(
 				t.variables.map((variable, index) => ({
 					id: randomUUID(),
-					templateId: t.id,
+					eggId: t.id,
 					name: variable.name,
 					description: variable.description,
 					envVariable: variable.envVariable,
@@ -91,7 +87,7 @@ async function seed() {
 
 	// biome-ignore lint/suspicious/noConsole: summary output for a CLI seed.
 	console.log(
-		`Seeded ${created} new official template${created === 1 ? "" : "s"} (${official.length - created} already present).`
+		`Seeded ${created} new official egg${created === 1 ? "" : "s"} (${official.length - created} already present).`
 	);
 }
 

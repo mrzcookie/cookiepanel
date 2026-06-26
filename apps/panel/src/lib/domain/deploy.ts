@@ -1,10 +1,10 @@
-// Pure, client-safe helpers for deploying a server from a template: node
+// Pure, client-safe helpers for deploying a server from a egg: node
 // capacity readouts, sensible starting limits bounded by a node's allocatable
 // caps, and a conventional starting port. No React, no stores — the wizard and
-// the use-template dialog share these so a deploy reads the same everywhere.
+// the use-egg dialog share these so a deploy reads the same everywhere.
 
+import type { Egg } from "@/lib/domain/eggs";
 import type { NodeRow } from "@/lib/domain/nodes";
-import type { Template } from "@/lib/domain/templates";
 import { formatBytes } from "@/lib/format";
 
 export const GiB = 1024 ** 3;
@@ -55,7 +55,7 @@ export function clampInt(value: number, min: number, max: number): number {
 	return Math.min(max, Math.max(min, Math.round(value)));
 }
 
-// A conventional starting port by template category. The wizard scans upward
+// A conventional starting port by egg category. The wizard scans upward
 // from here for the first free slot on the chosen node.
 const CATEGORY_PORT: Record<string, number> = {
 	Minecraft: 25565,
@@ -63,6 +63,6 @@ const CATEGORY_PORT: Record<string, number> = {
 	Voice: 9987,
 };
 
-export function basePortFor(template: Template): number {
-	return CATEGORY_PORT[template.category] ?? 27015;
+export function basePortFor(egg: Egg): number {
+	return CATEGORY_PORT[egg.category] ?? 27015;
 }

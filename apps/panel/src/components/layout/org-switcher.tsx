@@ -182,7 +182,7 @@ function CreateOrgDialog({
 						<DialogTitle>Create organization</DialogTitle>
 						<DialogDescription>
 							A separate tenant for a team or project. Its nodes, servers, and
-							templates stay isolated from your other orgs.
+							eggs stay isolated from your other orgs.
 						</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-2 py-4">

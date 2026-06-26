@@ -2,7 +2,7 @@
 # Bring up with `pnpm dev:up` (or `docker compose up -d`); stop with `pnpm dev:down`.
 # Defaults match apps/panel/.env.example (DATABASE_URL / REDIS_URL / S3_*).
 # MinIO console: http://localhost:9001 (login minioadmin / minioadmin).
-name: cookiepanel
+name: raptorpanel
 
 services:
   postgres:
@@ -11,13 +11,13 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: cookiepanel
+      POSTGRES_DB: raptorpanel
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d cookiepanel"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d raptorpanel"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -35,7 +35,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # MinIO — S3-compatible object storage for testing uploads (template icons,
+  # MinIO — S3-compatible object storage for testing uploads (egg icons,
   # avatars, public assets). Console at http://localhost:9001, S3 API at :9000.
   minio:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
@@ -59,11 +59,11 @@ services:
       retries: 10
 
   # One-shot provisioner: waits for MinIO to be healthy, then creates the
-  # "cookiepanel" bucket and opens it to anonymous downloads so public-asset URLs
+  # "raptorpanel" bucket and opens it to anonymous downloads so public-asset URLs
   # (e.g. avatars) resolve in the browser. Idempotent — safe to re-run; exits 0.
   # NOTE: anonymous (public) read on the whole bucket is a DEV convenience.
   # In production, scope public read to public prefixes only (e.g. set the
-  # download policy on `cookiepanel/public/*`), not the entire bucket.
+  # download policy on `raptorpanel/public/*`), not the entire bucket.
   minio-setup:
     image: minio/mc:RELEASE.2025-04-16T18-13-26Z
     depends_on:
@@ -75,9 +75,9 @@ services:
       - |
         set -e
         mc alias set local http://minio:9000 minioadmin minioadmin
-        mc mb --ignore-existing local/cookiepanel
-        mc anonymous set download local/cookiepanel
-        echo "minio-setup: bucket 'cookiepanel' ready (anonymous download)"
+        mc mb --ignore-existing local/raptorpanel
+        mc anonymous set download local/raptorpanel
+        echo "minio-setup: bucket 'raptorpanel' ready (anonymous download)"
 
 volumes:
   postgres-data:

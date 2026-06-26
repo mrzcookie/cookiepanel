@@ -18,7 +18,7 @@
 			"!**/.nitro",
 			"!**/.tanstack",
 			"!**/dist",
-			"!apps/daemon",
+			"!apps/wings",
 			"!packages/contract/gen",
 			"!**/src/server/db/migrations"
 		],

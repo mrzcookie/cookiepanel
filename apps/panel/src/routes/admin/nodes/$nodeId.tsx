@@ -109,7 +109,7 @@ function NodeView({ node }: { node: AdminNode }) {
 				<Card>
 					<CardHeader>
 						<CardTitle>Daemon</CardTitle>
-						<CardDescription>The cookied agent on this node.</CardDescription>
+						<CardDescription>The wings agent on this node.</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-3">
 						<DetailList>

@@ -112,7 +112,7 @@ function NodeCard({ node }: { node: NodeRow }) {
 					<span className="flex min-w-0 items-center gap-2">
 						{node.daemonVersion ? (
 							<span className="truncate font-mono">
-								cookied {node.daemonVersion}
+								wings {node.daemonVersion}
 							</span>
 						) : null}
 						{node.updateAvailable ? (

@@ -130,7 +130,7 @@ export type SubdomainRecordType = "A" | "AAAA" | "CNAME";
 /** A panel-minted DNS record for a managed node (the platform owns the zone). */
 export type Subdomain = {
 	id: string;
-	/** Full hostname, e.g. `atlas.acme.cookiepanel.app`. */
+	/** Full hostname, e.g. `atlas.acme.raptorpanel.app`. */
 	hostname: string;
 	recordType: SubdomainRecordType;
 	/** The record's target: an IP (A/AAAA) or a hostname (CNAME). */

@@ -3,7 +3,7 @@
 # types are the wire contract its types are asserted to conform to). Emitted into
 # the daemon module so it imports `.../internal/contract`.
 package: contract
-output: ../../apps/daemon/internal/contract/contract.gen.go
+output: ../../apps/wings/internal/contract/contract.gen.go
 generate:
   models: true
 output-options:

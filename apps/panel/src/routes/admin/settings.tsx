@@ -20,7 +20,7 @@ function AdminSettings() {
 	return (
 		<>
 			<PageHeader
-				description="Global feature flags for CookiePanel itself."
+				description="Global feature flags for RaptorPanel itself."
 				eyebrow="system"
 				title="Settings"
 			/>
@@ -52,9 +52,9 @@ const FLAGS: Flag[] = [
 		enabled: true,
 	},
 	{
-		key: "template-imports",
-		label: "Template imports",
-		description: "Allow organizations to import templates from a URL or file.",
+		key: "egg-imports",
+		label: "Egg imports",
+		description: "Allow organizations to import eggs from a URL or file.",
 		enabled: true,
 	},
 	{

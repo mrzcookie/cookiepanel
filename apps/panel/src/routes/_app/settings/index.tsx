@@ -292,8 +292,8 @@ function OrgExitCard({
 				</CardTitle>
 				<CardDescription>
 					{isDelete
-						? "Permanently delete this organization, its nodes, servers, and templates for everyone. This can't be undone."
-						: "Remove yourself from this organization. You'll lose access to its nodes, servers, and templates until someone invites you back."}
+						? "Permanently delete this organization, its nodes, servers, and eggs for everyone. This can't be undone."
+						: "Remove yourself from this organization. You'll lose access to its nodes, servers, and eggs until someone invites you back."}
 				</CardDescription>
 			</CardHeader>
 			<CardFooter>
@@ -316,8 +316,8 @@ function OrgExitCard({
 						</DialogTitle>
 						<DialogDescription>
 							{isDelete
-								? `This permanently deletes “${org?.name}” along with its nodes, servers, and templates, for every member. This can't be undone.`
-								: `You'll be removed from “${org?.name}” and lose access to its nodes, servers, and templates until someone invites you back.`}
+								? `This permanently deletes “${org?.name}” along with its nodes, servers, and eggs, for every member. This can't be undone.`
+								: `You'll be removed from “${org?.name}” and lose access to its nodes, servers, and eggs until someone invites you back.`}
 						</DialogDescription>
 					</DialogHeader>
 					<DialogFooter>

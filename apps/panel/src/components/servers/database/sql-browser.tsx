@@ -89,7 +89,7 @@ function errorMessage(error: unknown, fallback: string) {
 // MySQL/MariaDB). Databases drill down to tables and table structure; Users manage
 // access. Everything is fetched live from the running instance, lazily per level.
 export function SqlBrowser({ server }: { server: ServerRow }) {
-	const engine = sqlEngine(server.templateName);
+	const engine = sqlEngine(server.eggName);
 	const [view, setView] = useState<View>("databases");
 	const [database, setDatabase] = useState<string | null>(null);
 	const [table, setTable] = useState<string | null>(null);

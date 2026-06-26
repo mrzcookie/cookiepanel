@@ -14,7 +14,7 @@ export const Route = createFileRoute("/home")({
 	component: Landing,
 });
 
-const INSTALL = "curl -sSL https://get.cookiepanel.app | sh";
+const INSTALL = "curl -sSL https://get.raptorpanel.app | sh";
 
 const FEATURES: {
 	icon: LucideIcon;
@@ -25,8 +25,8 @@ const FEATURES: {
 	{
 		icon: Boxes,
 		label: "deploy",
-		title: "Templates, not images",
-		body: "Pick a Template and fill in a few friendly fields. Raw Docker image strings stay hidden.",
+		title: "Eggs, not images",
+		body: "Pick a Egg and fill in a few friendly fields. Raw Docker image strings stay hidden.",
 	},
 	{
 		icon: Gauge,
@@ -49,7 +49,7 @@ function Landing() {
 				<span className="flex items-center gap-2">
 					<Cookie className="size-5 text-primary" strokeWidth={2} />
 					<span className="font-bold text-base tracking-tight">
-						CookiePanel
+						RaptorPanel
 					</span>
 				</span>
 				<nav className="flex items-center gap-2">
@@ -72,9 +72,9 @@ function Landing() {
 						<span className="text-primary">No terminal required.</span>
 					</h1>
 					<p className="max-w-xl text-balance text-base text-muted-foreground">
-						Connect a Linux box and CookiePanel turns it into a managed fleet:
-						spin up a Minecraft or any server from a Template, then handle
-						files, ports, schedules, and backups from one calm control surface.
+						Connect a Linux box and RaptorPanel turns it into a managed fleet:
+						spin up a Minecraft or any server from a Egg, then handle files,
+						ports, schedules, and backups from one calm control surface.
 					</p>
 					<div className="flex flex-wrap items-center gap-3 pt-1">
 						<Button asChild>
@@ -111,7 +111,7 @@ function Landing() {
 					<ShieldCheck className="size-3.5" />
 					Secure by default
 				</span>
-				<span>© CookiePanel</span>
+				<span>© RaptorPanel</span>
 			</footer>
 		</div>
 	);

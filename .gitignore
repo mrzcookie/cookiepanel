@@ -13,8 +13,8 @@ dist-ssr
 .turbo
 
 # Go
-apps/daemon/bin
-apps/daemon/dist
+apps/wings/bin
+apps/wings/dist
 *.test
 *.out
 

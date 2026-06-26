@@ -1,23 +1,23 @@
 // Placeholder data for the UI-first phase. What remains here are the *official*
-// (platform-owned) template authoring records, which also seed the database (see
+// (platform-owned) egg authoring records, which also seed the database (see
 // server/db/seed.ts). The nodes/servers/drives/networks/allocations/firewall
 // stubs were all retired as those features moved onto the real data layer. Every
-// row is client-safe: no secrets, and never a raw Docker image string (templates
+// row is client-safe: no secrets, and never a raw Docker image string (eggs
 // expose only a friendly label).
 //
 // Ids are UUIDs, matching the real schema (the panel mints UUID primary keys).
 
-import type { Template } from "@/lib/domain/templates";
+import type { Egg } from "@/lib/domain/eggs";
 
-// — Templates —————————————————————————————————————————————————————————————————
+// — Eggs —————————————————————————————————————————————————————————————————
 // Full authoring records (the panel's "eggs"). Domain types + helpers live in
-// lib/domain/templates.ts. These now seed the *official* (platform-owned)
-// templates in the database — see server/db/seed.ts — so the catalog renders the
+// lib/domain/eggs.ts. These now seed the *official* (platform-owned)
+// eggs in the database — see server/db/seed.ts — so the catalog renders the
 // same library the UI-first phase showed. Image strings appear here because the
 // *author* sees them in the editor; they're never surfaced on the catalog, the
 // detail page, or a server.
 
-export const TEMPLATES: Template[] = [
+export const EGGS: Egg[] = [
 	{
 		id: "c4d5e6f7-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
 		name: "Minecraft: Java Edition",
@@ -76,7 +76,7 @@ export const TEMPLATES: Template[] = [
 				name: "Message of the day",
 				description: "Shown in the server list.",
 				envVariable: "SERVER_MOTD",
-				defaultValue: "A CookiePanel server",
+				defaultValue: "A RaptorPanel server",
 				type: "text",
 				required: false,
 				options: [],
@@ -336,7 +336,7 @@ export const TEMPLATES: Template[] = [
 		iconUrl: null,
 		summary: "Forked Rust build with our plugin pack and weekly wipe schedule.",
 		description:
-			"Our internal Rust build for staff events: the oxide plugin pack baked in and a weekly wipe. Customized from the official Rust template.",
+			"Our internal Rust build for staff events: the oxide plugin pack baked in and a weekly wipe. Customized from the official Rust egg.",
 		category: "Survival",
 		official: false,
 		origin: "fork",
@@ -407,7 +407,7 @@ export const TEMPLATES: Template[] = [
 		iconUrl: null,
 		summary: "Forge loader sized for large modpacks; community-curated pack.",
 		description:
-			"A Forge server tuned for heavy modpacks, with extra heap headroom and a longer startup window. Imported from a community template; still in review before it's published.",
+			"A Forge server tuned for heavy modpacks, with extra heap headroom and a longer startup window. Imported from a community egg; still in review before it's published.",
 		category: "Minecraft",
 		official: false,
 		origin: "import",
@@ -524,9 +524,9 @@ export const TEMPLATES: Template[] = [
 		name: "CS:GO Competitive",
 		slug: "csgo-competitive",
 		iconUrl: null,
-		summary: "Legacy competitive config; superseded by our CS2 template.",
+		summary: "Legacy competitive config; superseded by our CS2 egg.",
 		description:
-			"The old competitive CS:GO config. Archived now that CS2 has replaced it; kept so existing servers still resolve their template.",
+			"The old competitive CS:GO config. Archived now that CS2 has replaced it; kept so existing servers still resolve their egg.",
 		category: "FPS",
 		official: false,
 		origin: "scratch",

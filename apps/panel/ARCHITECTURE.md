@@ -44,7 +44,7 @@ shared/     cross-cutting presentational parts a route composes (used by 3+ area
             shared/list/  the list-page composite (list-page + toolbar + view-toggle).
 wizard/     the wizard kit (wizard-frame, wizard-stepper, terminal-block) shared by
             the connect-node / create-server / schedule wizards.
-nodes/  servers/  networks/  templates/  schedules/  auth/
+nodes/  servers/  networks/  eggs/  schedules/  auth/
             domain folders, mirroring the route nouns. Components used by one domain.
             (servers/database/ holds the SQL/Redis/Mongo browsers.)
 ```
@@ -57,7 +57,7 @@ knows about routing/session/theme) → `layout/`. A shadcn primitive → `ui/`.
 
 ```
 domain/   client-safe domain TYPES + pure helpers, by entity (nodes, servers,
-          networks, templates, deploy, files, schedules, backups, sftp, billing,
+          networks, eggs, deploy, files, schedules, backups, sftp, billing,
           admin, *-browser, ...). No state. This is the durable layer: the typed
           boundary src/server and the UI share. NEVER put mutable state or stub
           data here.
@@ -67,16 +67,16 @@ stores/   UI-first stub stores — mutable useSyncExternalStore state on the sha
           remains is presentational/placeholder scaffolding (e.g. notifications,
           the live activity feed). Treat any new one as temporary.
 stubs/    seed DATA only — no type declarations (those live in domain/). index.ts
-          holds the TEMPLATES seed (also fed to db:seed), imported as @/lib/stubs;
+          holds the EGGS seed (also fed to db:seed), imported as @/lib/stubs;
           surface-specific seed files sit alongside it, e.g. admin.ts (the platform
           /admin cross-org dataset), deep-imported as @/lib/stubs/admin.
 store.ts  createStore<T>(seed) — the tiny factory every store uses (get/set/use, plus
           a useWith selector hook for subscribing to a slice).
 utils.ts status.ts format.ts slug.ts list-view.ts nav.ts admin-nav.ts
-          templates-scope.ts
+          eggs-scope.ts
           cross-cutting pure leaf helpers — kept flat at the root (high fan-out; no
           domain coupling). nav.ts/admin-nav.ts are the app vs admin nav config;
-          templates-scope.ts is a UI-surface descriptor (org vs admin templates).
+          eggs-scope.ts is a UI-surface descriptor (org vs admin eggs).
           utils.ts (cn) is the shadcn convention; don't move it.
 ```
 
@@ -121,13 +121,13 @@ out of `stubs/` is what makes this boundary enforceable.
 
 `src/server/db/schema/` is the Drizzle schema — one file per concern, re-exported
 from `index.ts` (what the db client and drizzle-kit read). `auth.ts` is generated
-by Better Auth; regenerate with `pnpm --filter @cookiepanel/panel auth:generate`
+by Better Auth; regenerate with `pnpm --filter @raptorpanel/panel auth:generate`
 after changing the auth config.
 
 **Name every migration.** Generate with an explicit `--name`:
 
 ```
-pnpm --filter @cookiepanel/panel exec drizzle-kit generate --name <change>
+pnpm --filter @raptorpanel/panel exec drizzle-kit generate --name <change>
 ```
 
 That writes `src/server/db/migrations/NNNN_<change>.sql` (e.g. `0000_init_auth.sql`);
@@ -138,9 +138,9 @@ the panel needs in dev live in `infra/compose.yaml` (`pnpm dev:up`).
 
 `src/server/storage/` is the server-only object-storage module: it wraps
 S3-compatible storage (`@aws-sdk/client-s3`, so it works with MinIO / Cloudflare
-R2 / AWS S3) for template icons and uploads. It's **optional** — gated by
+R2 / AWS S3) for egg icons and uploads. It's **optional** — gated by
 `isStorageConfigured()`, so the panel runs without it and features that need it
-degrade gracefully. For dev, a MinIO server (plus a provisioned `cookiepanel`
+degrade gracefully. For dev, a MinIO server (plus a provisioned `raptorpanel`
 bucket) runs in `infra/compose.yaml` (`pnpm dev:up`); the matching `S3_*` env
 defaults live in `.env.example`.
 
@@ -158,9 +158,9 @@ _app/                            the signed-in app surface (pathless layout —
   route.tsx                        no URL segment). route.tsx is the folder's
   index.tsx                        layout/guard; index.tsx is its index route.
   nodes/  servers/  settings/      one subfolder per section; $param/ for a
-  account/ networks/ templates_/   dynamic segment with its own children.
+  account/ networks/ eggs_/   dynamic segment with its own children.
 admin/                           the cross-org admin surface, same shape.
-  route.tsx  index.tsx  nodes/ orgs/ users/ templates/ ...
+  route.tsx  index.tsx  nodes/ orgs/ users/ eggs/ ...
 ```
 
 Rules that matter:
@@ -174,7 +174,7 @@ Rules that matter:
   same id) — but never change the *path*, it's the public URL.
 - **Trailing-underscore escapes nesting** while keeping the URL: a `$id_/` folder
   or `name_` segment opts a detail/edit route out of its list's layout (e.g.
-  `_app/templates_/$templateId_/edit.tsx`). See `.claude/rules/panel.md` for the
+  `_app/eggs_/$eggId_/edit.tsx`). See `.claude/rules/panel.md` for the
   URL conventions (pathless `_app`, tabbed sub-pages, `$param`).
 
 ## Conventions

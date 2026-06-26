@@ -34,7 +34,7 @@ export function ConnectionHeader({
 					{`// ${label.toLowerCase()}`}
 				</p>
 				<span className="font-mono text-muted-foreground text-xs">
-					{server.templateName} · {server.nodeAddress}:{server.port ?? "—"}
+					{server.eggName} · {server.nodeAddress}:{server.port ?? "—"}
 				</span>
 				<StatusIndicator
 					live={running}

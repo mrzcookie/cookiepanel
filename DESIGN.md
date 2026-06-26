@@ -1,4 +1,4 @@
-# DESIGN.md — CookiePanel "The Console"
+# DESIGN.md — RaptorPanel "The Console"
 
 The panel's design system. **"The Console"** (dark) is the default; **"Daylight"**
 (light) is a faithful inversion. Source of truth for tokens is
@@ -79,7 +79,7 @@ surface is `--color-terminal` (`#0a0c11`), shared with the xterm theme.
    uppercase + `tabular-nums`, colored by a `StatusTone` from `lib/status.ts`
    (`online|pending|error|muted` → `text-ok|text-warn|text-destructive|
    text-muted-foreground`), optional `live` pulse. THE way state is shown across
-   nodes, servers, drives, templates. No dot-pills.
+   nodes, servers, drives, eggs. No dot-pills.
 2. **`// section` eyebrows** — `font-mono text-[0.7rem] uppercase
    tracking-[0.18em]`, rendered as `// label`. A categorical kicker, never a
    restatement of the title. On the `page-header.tsx` `eyebrow` prop (list pages:
@@ -109,7 +109,7 @@ disabled/loading/error). Vocabulary stays identical screen to screen.
   bg-transparent (`dark:bg-input/30`); labels mono uppercase `tracking-wide`.
 - **Empty states** (`empty-state.tsx`): dashed-border panel, a *bare* muted glyph
   (no filled bubble), title + description.
-- **Sidebar** (`app-sidebar.tsx`, shadcn collapsible-to-icon): azure Cookie brand
+- **Sidebar** (`app-sidebar.tsx`, shadcn collapsible-to-icon): azure Raptor brand
   + wordmark, the `// manage` nav, the node status readout in the footer,
   `SidebarRail` for the edge handle. The collapse trigger lives in the top bar.
 
@@ -124,5 +124,5 @@ disabled/loading/error). Vocabulary stays identical screen to screen.
 
 - Eyebrows are wired on the four list pages only; detail headers rely on the
   back-link for context (intentional, to avoid redundant kickers).
-- The semantic washes (`*-wash`) are defined and used on the template install-risk
+- The semantic washes (`*-wash`) are defined and used on the egg install-risk
   banner; extend them to other state banners as they appear.

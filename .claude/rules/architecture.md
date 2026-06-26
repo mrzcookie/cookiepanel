@@ -2,11 +2,11 @@
 
 > **Status: built.** The panel↔daemon protocol below is implemented on both
 > sides — enrollment + heartbeat, the pinned HTTPS control channel, and the full
-> per-subsystem surface. The panel's auth + data layer is mature; `apps/daemon`
+> per-subsystem surface. The panel's auth + data layer is mature; `apps/wings`
 > implements every subsystem. What remains is end-to-end testing on real boxes,
 > not building the wire. This describes how it works today.
 
-CookiePanel is one product split into two programs that run in different places
+RaptorPanel is one product split into two programs that run in different places
 and trust each other over the network.
 
 ## Panel (control plane)
@@ -15,14 +15,14 @@ The hosted SaaS we run. A TanStack Start app (SSR + API) backed by Postgres. It
 owns:
 
 - **Identity & tenancy** — users, organizations, members, invitations.
-- **Templates** — the recipes users deploy from (the panel's "egg" library).
+- **Eggs** — the recipes users deploy from (the panel's "egg" library).
 - **Desired state** — the registry of nodes, port allocations, and what *should*
   be running where. The panel records intent; the daemon makes it real.
 
 The panel never touches a box's OS directly. It expresses intent by calling that
 box's daemon, and it reads live state from what the daemon reports.
 
-## Daemon — `cookied` (the box)
+## Daemon — `wings` (the box)
 
 A single Go binary on each managed Linux box, running **as root**. It owns the
 box's *actual* state: Docker containers, networks, firewall, disks, files,
@@ -75,7 +75,7 @@ per node and then pinned.
 1. The operator creates a Node in the panel and gets a one-line install command
    carrying a **single-use bootstrap token** (the panel stores only its hash +
    an expiry).
-2. They run that command on the box. `cookied` installs and calls the panel's
+2. They run that command on the box. `wings` installs and calls the panel's
    enrollment endpoint with the token.
 3. The panel validates the token, **mints the durable node key + signing secret**,
    returns them **once**, and marks the node active. The box persists them and
@@ -88,11 +88,11 @@ per node and then pinned.
 ## The shared contract (so the halves never drift)
 
 The panel↔daemon API is defined **once** as an OpenAPI spec in the
-`@cookiepanel/contract` package (`packages/contract/openapi.yaml`). Code
+`@raptorpanel/contract` package (`packages/contract/openapi.yaml`). Code
 generation produces typed bindings for **both** sides:
 
 - **TypeScript types** (`openapi-typescript`) the panel imports as
-  `@cookiepanel/contract`.
+  `@raptorpanel/contract`.
 - **Go types** (`oapi-codegen`, models-only) the daemon imports as
   `internal/contract`.
 
@@ -115,7 +115,7 @@ differently, by their role:
 
 So the loop is: daemon struct ⟷ spec (conformance) ⟷ generated types ⟷ panel
 (direct consumption) — drift anywhere fails a build. The workflow to evolve the
-API: edit `openapi.yaml`, run `pnpm --filter @cookiepanel/contract generate`,
+API: edit `openapi.yaml`, run `pnpm --filter @raptorpanel/contract generate`,
 reconcile the daemon structs until conformance passes (the panel just recompiles),
 and commit the spec **and** the regenerated output.
 

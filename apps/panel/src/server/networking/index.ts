@@ -40,8 +40,8 @@ function toNetworkRow(
 		: "bridge";
 	return {
 		id: n.networkId,
-		// The daemon names the docker network `cookied-<name>`; show the friendly name.
-		name: n.name.replace(/^cookied-/, ""),
+		// The daemon names the docker network `wings-<name>`; show the friendly name.
+		name: n.name.replace(/^wings-/, ""),
 		nodeId,
 		nodeName,
 		driver,

@@ -7,7 +7,7 @@ import {
 	type TLSSocket,
 	connect as tlsConnect,
 } from "node:tls";
-import type { components } from "@cookiepanel/contract";
+import type { components } from "@raptorpanel/contract";
 import { eq } from "drizzle-orm";
 import type { NodeHostInfo, NodeLiveStats } from "@/lib/domain/nodes";
 import { unseal } from "@/server/crypto";
@@ -407,7 +407,7 @@ export async function pruneNode(
 	})) as { imagesDeleted: number; spaceReclaimedBytes: number };
 }
 
-/** POST /api/v1/system/restart-daemon — restart the cookied agent (via systemd). */
+/** POST /api/v1/system/restart-daemon — restart the wings agent (via systemd). */
 export async function restartNodeDaemon(nodeId: string): Promise<void> {
 	const { node: ref, nodeKey } = await loadDialer(nodeId);
 	await daemonFetch(nodeKey, ref, {

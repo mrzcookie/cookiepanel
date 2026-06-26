@@ -22,7 +22,7 @@ import {
 } from "@/server/servers";
 
 // Query factories + read hooks + mutation wrappers for servers — the registry
-// half (name/template/node/limits/variables/state) plus the daemon-driven
+// half (name/egg/node/limits/variables/state) plus the daemon-driven
 // lifecycle. The list reads stored state (fast); a server's detail reconciles its
 // live container state with the daemon on each poll (`syncServer`).
 //
@@ -81,7 +81,7 @@ export function useServersForNode(nodeId: string): ServerRow[] {
 
 export type NewServer = {
 	nodeId: string;
-	templateId: string;
+	eggId: string;
 	name: string;
 	runtimeLabel?: string;
 	port: number;

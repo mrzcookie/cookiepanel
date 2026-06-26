@@ -133,7 +133,7 @@ export function useNodeCounts(): NodeCounts {
 
 // ─── mutations ───────────────────────────────────────────────────────────────
 // Thin wrappers over the server fns with friendlier call shapes. Consumers call
-// these, then invalidate via `invalidateNodes` (mirrors the templates flow).
+// these, then invalidate via `invalidateNodes` (mirrors the eggs flow).
 
 export type NewNode = {
 	name: string;
@@ -179,7 +179,7 @@ export function pruneNode(id: string) {
 	return pruneNodeFn({ data: { id } });
 }
 
-/** Restart the cookied agent (servers keep running). */
+/** Restart the wings agent (servers keep running). */
 export function restartDaemon(id: string) {
 	return restartDaemonFn({ data: { id } });
 }

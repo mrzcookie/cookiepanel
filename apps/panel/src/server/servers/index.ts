@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { EggConfigFile } from "@/lib/domain/eggs";
 import type { ServerRow, ServerState } from "@/lib/domain/servers";
-import type { TemplateConfigFile } from "@/lib/domain/templates";
 import { formatRelativeTime } from "@/lib/format";
 import { recordActivity } from "@/server/activity/record";
 import {
@@ -11,6 +11,12 @@ import {
 } from "@/server/allocations/service";
 import { requireOrg } from "@/server/auth/guards";
 import { seal, unseal } from "@/server/crypto";
+import {
+	type EggImageRecord,
+	type EggRecord,
+	type EggVariableRecord,
+	eggsRepository,
+} from "@/server/eggs/repository";
 import { signBrowserToken } from "@/server/jwt";
 import {
 	controlServerOnNode,
@@ -23,12 +29,6 @@ import {
 import { signingSecretAad } from "@/server/nodes/enrollment";
 import { type NodeRecord, nodesRepository } from "@/server/nodes/repository";
 import { serverSecretAad } from "@/server/servers/secrets";
-import {
-	type TemplateImageRecord,
-	type TemplateRecord,
-	type TemplateVariableRecord,
-	templatesRepository,
-} from "@/server/templates/repository";
 import { type ServerRecord, serversRepository } from "./repository";
 
 /**
@@ -75,8 +75,8 @@ function toServerRow(record: ServerRecord, node: NodeRecord): ServerRow {
 	return {
 		id: record.id,
 		name: record.name,
-		templateName: record.templateName,
-		templateId: record.templateId,
+		eggName: record.eggName,
+		eggId: record.eggId,
 		imageLabel: record.imageLabel,
 		updateAvailable: false,
 		state: record.state as ServerState,
@@ -98,34 +98,28 @@ function toServerRow(record: ServerRecord, node: NodeRecord): ServerRow {
 	};
 }
 
-type TemplateSnapshot = {
-	template: TemplateRecord;
-	images: TemplateImageRecord[];
-	variables: TemplateVariableRecord[];
+type EggSnapshot = {
+	egg: EggRecord;
+	images: EggImageRecord[];
+	variables: EggVariableRecord[];
 };
 
-/** Load a template the org can deploy (its own, or a published official one). */
-async function loadTemplate(
-	orgId: string,
-	templateId: string
-): Promise<TemplateSnapshot> {
-	const template = await templatesRepository.findVisible(
-		{ kind: "org", orgId },
-		templateId
-	);
-	if (!template) {
-		throw new Error("Template not found");
+/** Load a egg the org can deploy (its own, or a published official one). */
+async function loadEgg(orgId: string, eggId: string): Promise<EggSnapshot> {
+	const egg = await eggsRepository.findVisible({ kind: "org", orgId }, eggId);
+	if (!egg) {
+		throw new Error("Egg not found");
 	}
 	const [images, variables] = await Promise.all([
-		templatesRepository.imagesFor([templateId]),
-		templatesRepository.variablesFor([templateId]),
+		eggsRepository.imagesFor([eggId]),
+		eggsRepository.variablesFor([eggId]),
 	]);
-	return { template, images, variables };
+	return { egg, images, variables };
 }
 
 /** Resolve a runtime label to its server-only image string (default / first). */
 function resolveImage(
-	images: TemplateImageRecord[],
+	images: EggImageRecord[],
 	label: string | undefined
 ): { image: string; label: string } {
 	const chosen =
@@ -133,26 +127,26 @@ function resolveImage(
 		images.find((i) => i.isDefault) ||
 		images.at(0);
 	if (!chosen) {
-		throw new Error("Template has no runtime image");
+		throw new Error("Egg has no runtime image");
 	}
 	return { image: chosen.image, label: chosen.label };
 }
 
 /**
- * Split the player-set values across the template's variable schema: build the
+ * Split the player-set values across the egg's variable schema: build the
  * full env to dispatch, the non-secret snapshot to store, and the sealed secret
  * values. Hidden/read-only vars fall back to their defaults.
  */
 function buildVariables(
 	orgId: string,
 	serverId: string,
-	templateVars: TemplateVariableRecord[],
+	eggVars: EggVariableRecord[],
 	provided: Record<string, string>
 ) {
 	const env: Record<string, string> = {};
 	const variables: Record<string, string> = {};
 	const secretVariables: Record<string, string> = {};
-	for (const v of templateVars) {
+	for (const v of eggVars) {
 		const value = provided[v.envVariable] ?? v.defaultValue ?? "";
 		env[v.envVariable] = value;
 		if (v.access === "secret") {
@@ -179,9 +173,9 @@ function resolveTokens(text: string, env: Record<string, string>): string {
 	return out;
 }
 
-/** Resolve `{{token}}` values in the template's config files for the daemon. */
+/** Resolve `{{token}}` values in the egg's config files for the daemon. */
 function resolveConfigFiles(
-	files: TemplateConfigFile[],
+	files: EggConfigFile[],
 	env: Record<string, string>
 ): DaemonServerSpec["configFiles"] {
 	if (files.length === 0) {
@@ -199,21 +193,21 @@ function resolveConfigFiles(
 	}));
 }
 
-/** The egg install step for a template, or undefined when it has no script. */
+/** The egg install step for a egg, or undefined when it has no script. */
 function installSpec(
-	template: TemplateRecord,
+	egg: EggRecord,
 	runtimeImage: string,
 	env: Record<string, string>
 ): DaemonServerSpec["install"] {
-	if (template.installScript.trim() === "") {
+	if (egg.installScript.trim() === "") {
 		return undefined;
 	}
 	return {
-		// A template with a script but no install image is misconfigured; fall back
+		// A egg with a script but no install image is misconfigured; fall back
 		// to the runtime image (the daemon does the same, but be explicit).
-		image: template.installContainerImage || runtimeImage,
-		entrypoint: template.installEntrypoint,
-		script: template.installScript,
+		image: egg.installContainerImage || runtimeImage,
+		entrypoint: egg.installEntrypoint,
+		script: egg.installScript,
 		env,
 	};
 }
@@ -222,9 +216,9 @@ function daemonSpec(
 	record: ServerRecord,
 	env: Record<string, string>,
 	install?: DaemonServerSpec["install"],
-	configFiles: TemplateConfigFile[] = []
+	configFiles: EggConfigFile[] = []
 ): DaemonServerSpec {
-	// Token resolution sees the template vars plus the daemon's standard SERVER_*
+	// Token resolution sees the egg vars plus the daemon's standard SERVER_*
 	// values (so `{{SERVER_PORT}}` in a startup command or config file resolves).
 	const resolveEnv: Record<string, string> = {
 		...env,
@@ -338,7 +332,7 @@ export const syncServer = createServerFn({ method: "GET" })
 
 const createInput = z.object({
 	nodeId: z.uuid(),
-	templateId: z.uuid(),
+	eggId: z.uuid(),
 	name: z.string().trim().min(1).max(100),
 	runtimeLabel: z.string().optional(),
 	port: z.number().int().min(1).max(65535),
@@ -357,17 +351,17 @@ export const createServer = createServerFn({ method: "POST" })
 			throw new Error("Not found");
 		}
 		const {
-			template,
+			egg,
 			images,
-			variables: templateVars,
-		} = await loadTemplate(orgId, data.templateId);
+			variables: eggVars,
+		} = await loadEgg(orgId, data.eggId);
 
 		const serverId = randomUUID();
 		const { image, label } = resolveImage(images, data.runtimeLabel);
 		const { env, variables, secretVariables } = buildVariables(
 			orgId,
 			serverId,
-			templateVars,
+			eggVars,
 			data.variables
 		);
 
@@ -377,19 +371,17 @@ export const createServer = createServerFn({ method: "POST" })
 			id: serverId,
 			nodeId: data.nodeId,
 			name: data.name.trim(),
-			templateId: template.id,
-			templateName: template.name,
-			templateVersion: template.version,
+			eggId: egg.id,
+			eggName: egg.name,
+			eggVersion: egg.version,
 			imageLabel: label,
 			image,
-			startupCommand: template.startupCommand,
+			startupCommand: egg.startupCommand,
 			// A "signal" stop maps straight to docker's StopSignal; "command"
 			// (send a console command, then stop) and "native" keep the default —
 			// the command-based graceful stop is the console/stop slice's job.
 			stopSignal:
-				template.stopType === "signal" && template.stopValue
-					? template.stopValue
-					: null,
+				egg.stopType === "signal" && egg.stopValue ? egg.stopValue : null,
 			state: "installing",
 			port: data.port,
 			cpuLimitMillicores: Math.round(data.cpuLimitCores * 1000),
@@ -419,11 +411,11 @@ export const createServer = createServerFn({ method: "POST" })
 		}
 
 		if (portReserved) {
-			const install = installSpec(template, image, env);
+			const install = installSpec(egg, image, env);
 			try {
 				const live = await createServerOnNode(
 					data.nodeId,
-					daemonSpec(record, env, install, template.configFiles)
+					daemonSpec(record, env, install, egg.configFiles)
 				);
 				record =
 					(await serversRepository.update(orgId, serverId, {
@@ -564,18 +556,14 @@ export const updateServerVariables = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const { orgId } = await requireOrg();
 		const { record, node } = await requireServer(orgId, data.id);
-		const templateVars = await templatesRepository.variablesFor([
-			record.templateId,
-		]);
+		const eggVars = await eggsRepository.variablesFor([record.eggId]);
 		const secretEnv = new Set(
-			templateVars
-				.filter((v) => v.access === "secret")
-				.map((v) => v.envVariable)
+			eggVars.filter((v) => v.access === "secret").map((v) => v.envVariable)
 		);
 		// Only touch what this request provides: re-seal secrets explicitly given (an
 		// empty value means "keep current"), and merge non-secret values over the
 		// stored snapshot. Untouched secrets keep their existing ciphertext — they're
-		// never reset to a template default.
+		// never reset to a egg default.
 		const variables = { ...record.variables };
 		const secretVariables = { ...record.secretVariables };
 		for (const [key, value] of Object.entries(data.variables)) {
@@ -602,7 +590,7 @@ export const updateServerRuntime = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const { orgId } = await requireOrg();
 		const { record, node } = await requireServer(orgId, data.id);
-		const images = await templatesRepository.imagesFor([record.templateId]);
+		const images = await eggsRepository.imagesFor([record.eggId]);
 		const { image, label } = resolveImage(images, data.imageLabel);
 		const updated = await serversRepository.update(orgId, data.id, {
 			image,

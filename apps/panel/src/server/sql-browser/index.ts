@@ -52,7 +52,7 @@ async function requireSqlConn(serverId: string): Promise<{
 	if (!record) {
 		throw new Error("Not found");
 	}
-	const engine = sqlEngine(record.templateName);
+	const engine = sqlEngine(record.eggName);
 	const username = sqlAdminUser(engine);
 	let password = "";
 	if (engine === "postgres") {

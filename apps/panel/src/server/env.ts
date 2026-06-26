@@ -60,7 +60,7 @@ export const env = createEnv({
 		POLAR_SERVER: z.enum(["sandbox", "production"]).default("sandbox"),
 		POLAR_NODE_PRODUCT_ID: z.string().optional(),
 
-		// --- Managed-node DNS — Cloudflare (optional; the CookiePanel-subdomain path) ---
+		// --- Managed-node DNS — Cloudflare (optional; the RaptorPanel-subdomain path) ---
 		// When both are set, the panel auto-manages each managed node's subdomain
 		// A record (created at enrollment, when the node's public IP is first
 		// observed; removed when the node is). Absent = auto-DNS is a no-op and the
@@ -72,15 +72,15 @@ export const env = createEnv({
 		CLOUDFLARE_ZONE_ID: z.string().optional(),
 
 		// --- Daemon releases (optional; powers the "Update daemon" action) ---
-		// The latest published cookied version and the base URL its release
+		// The latest published wings version and the base URL its release
 		// binaries live under. When DAEMON_LATEST_VERSION is set, a node running an
 		// older version shows `updateAvailable`, and Update dispatches a download of
-		// `${DAEMON_RELEASE_BASE_URL}/v<version>/cookied-linux-<arch>` (verified
+		// `${DAEMON_RELEASE_BASE_URL}/v<version>/wings-linux-<arch>` (verified
 		// against its sibling `.sha256`). Absent = no update is ever offered.
 		DAEMON_LATEST_VERSION: z.string().optional(),
 		DAEMON_RELEASE_BASE_URL: z.url().optional(),
 
-		// --- Object storage — S3-compatible (optional; template icons + uploads) ---
+		// --- Object storage — S3-compatible (optional; egg icons + uploads) ---
 		// Works with Cloudflare R2 / AWS S3 / MinIO. Omit S3_ENDPOINT for AWS S3.
 		S3_ENDPOINT: z.url().optional(),
 		S3_REGION: z.string().optional(),

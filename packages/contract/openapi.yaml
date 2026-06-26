@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
-  title: CookiePanel panel↔daemon API
+  title: RaptorPanel panel↔daemon API
   version: 1.0.0
   description: >
-    The HTTPS API the panel calls on each box's `cookied`. This spec is the single
+    The HTTPS API the panel calls on each box's `wings`. This spec is the single
     source of truth for the wire format: TypeScript types (panel) and Go types
     (daemon) are generated from it, and each side asserts its hand-written types
     conform. Auth is `Authorization: Bearer <node_key>` over TLS on every route.

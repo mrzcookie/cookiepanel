@@ -44,7 +44,7 @@ const ICON_BY_CATEGORY: Record<ActivityCategory, LucideIcon> = {
 	node: Server,
 	server: Box,
 	network: Network,
-	template: LayoutTemplate,
+	egg: LayoutTemplate,
 	billing: CreditCard,
 };
 
@@ -80,38 +80,32 @@ function describe(entry: ActivityEntry): string {
 			return entry.target
 				? `removed the node ${entry.target}`
 				: "removed a node";
-		case "template.created":
+		case "egg.created":
+			return entry.target ? `created the egg ${entry.target}` : "created a egg";
+		case "egg.updated":
+			return entry.target ? `edited the egg ${entry.target}` : "edited a egg";
+		case "egg.published":
 			return entry.target
-				? `created the template ${entry.target}`
-				: "created a template";
-		case "template.updated":
+				? `published the egg ${entry.target}`
+				: "published a egg";
+		case "egg.unpublished":
 			return entry.target
-				? `edited the template ${entry.target}`
-				: "edited a template";
-		case "template.published":
+				? `moved the egg ${entry.target} back to draft`
+				: "unpublished a egg";
+		case "egg.archived":
 			return entry.target
-				? `published the template ${entry.target}`
-				: "published a template";
-		case "template.unpublished":
+				? `archived the egg ${entry.target}`
+				: "archived a egg";
+		case "egg.forked":
 			return entry.target
-				? `moved the template ${entry.target} back to draft`
-				: "unpublished a template";
-		case "template.archived":
+				? `customized the egg ${entry.target}`
+				: "customized a egg";
+		case "egg.imported":
 			return entry.target
-				? `archived the template ${entry.target}`
-				: "archived a template";
-		case "template.forked":
-			return entry.target
-				? `customized the template ${entry.target}`
-				: "customized a template";
-		case "template.imported":
-			return entry.target
-				? `imported the template ${entry.target}`
-				: "imported a template";
-		case "template.deleted":
-			return entry.target
-				? `deleted the template ${entry.target}`
-				: "deleted a template";
+				? `imported the egg ${entry.target}`
+				: "imported a egg";
+		case "egg.deleted":
+			return entry.target ? `deleted the egg ${entry.target}` : "deleted a egg";
 		default: {
 			const phrase = entry.action.replace(/[._]/g, " ");
 			return entry.target ? `${phrase}: ${entry.target}` : phrase;

@@ -402,7 +402,7 @@ function DangerSection({
 						<AlertDialogTitle>Delete this organization?</AlertDialogTitle>
 						<AlertDialogDescription>
 							This permanently deletes “{org.name}” along with its members,
-							nodes, servers, and templates, for everyone. This can't be undone.
+							nodes, servers, and eggs, for everyone. This can't be undone.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<div className="grid gap-2">

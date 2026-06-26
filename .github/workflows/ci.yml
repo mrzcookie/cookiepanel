@@ -28,17 +28,17 @@ jobs:
           cache: pnpm
       - uses: actions/setup-go@v5
         with:
-          go-version-file: apps/daemon/go.mod
-          cache-dependency-path: apps/daemon/go.sum
+          go-version-file: apps/wings/go.mod
+          cache-dependency-path: apps/wings/go.sum
       - run: pnpm install --frozen-lockfile
       # Regenerate from openapi.yaml; the committed bindings must match. (The
       # conformance assertions themselves run in the panel typecheck + daemon
       # `go test` jobs.)
-      - run: pnpm --filter @cookiepanel/contract generate
+      - run: pnpm --filter @raptorpanel/contract generate
       - name: committed bindings match the spec
         run: |
-          if ! git diff --exit-code -- packages/contract/gen apps/daemon/internal/contract/contract.gen.go; then
-            echo "::error::Generated contract bindings are stale. Run: pnpm --filter @cookiepanel/contract generate"
+          if ! git diff --exit-code -- packages/contract/gen apps/wings/internal/contract/contract.gen.go; then
+            echo "::error::Generated contract bindings are stale. Run: pnpm --filter @raptorpanel/contract generate"
             exit 1
           fi
 
@@ -60,8 +60,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:ci
-      - run: pnpm --filter @cookiepanel/panel typecheck
-      - run: pnpm --filter @cookiepanel/panel build
+      - run: pnpm --filter @raptorpanel/panel typecheck
+      - run: pnpm --filter @raptorpanel/panel build
 
   daemon:
     name: Daemon — fmt, vet, test, build
@@ -72,13 +72,13 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: apps/daemon
+        working-directory: apps/wings
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: apps/daemon/go.mod
-          cache-dependency-path: apps/daemon/go.sum
+          go-version-file: apps/wings/go.mod
+          cache-dependency-path: apps/wings/go.sum
       - name: gofmt
         run: |
           files=$(gofmt -l .)

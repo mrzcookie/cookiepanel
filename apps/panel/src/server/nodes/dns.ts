@@ -1,7 +1,7 @@
 import { env } from "@/server/env";
 
 /**
- * Cloudflare DNS for managed nodes — the auto-DNS behind the "CookiePanel
+ * Cloudflare DNS for managed nodes — the auto-DNS behind the "RaptorPanel
  * subdomain" enrollment path. A managed node is reachable at
  * `<slug>.<NODES_DOMAIN>`; this module points that hostname's A record at the
  * node's public IP via the Cloudflare API (v4).

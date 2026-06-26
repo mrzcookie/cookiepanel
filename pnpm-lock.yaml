@@ -29,9 +29,6 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.1070.0
         version: 3.1070.0
-      '@cookiepanel/contract':
-        specifier: workspace:*
-        version: link:../../packages/contract
       '@fontsource-variable/hanken-grotesk':
         specifier: ^5.2.8
         version: 5.2.8
@@ -47,6 +44,9 @@ importers:
       '@polar-sh/sdk':
         specifier: ^0.47.1
         version: 0.47.1
+      '@raptorpanel/contract':
+        specifier: workspace:*
+        version: link:../../packages/contract
       '@t3-oss/env-core':
         specifier: ^0.13.11
         version: 0.13.11(typescript@6.0.3)(zod@4.4.3)

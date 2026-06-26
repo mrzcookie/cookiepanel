@@ -10,8 +10,8 @@ Everything is scoped to an **Organization**. The model splits cleanly into two
 halves, and that split is the important, durable part:
 
 - **Panel-owned (DB-backed, Postgres):** Organization, User, Member, Invitation,
-  Node *registry*, Server *registry* (template snapshot + sealed secret vars),
-  Template (+ images + variables), Port allocations, Activity log. These are
+  Node *registry*, Server *registry* (egg snapshot + sealed secret vars),
+  Egg (+ images + variables), Port allocations, Activity log. These are
   *desired state* and identity — the panel's source of truth.
 - **Daemon-derived (live, from the box):** a Server's *live* state (running/
   stopped, cpu/mem), Network, Drive, Firewall, and a Node's *live* fields
@@ -24,7 +24,7 @@ halves, and that split is the important, durable part:
 ### Organization — the tenant
 The unit of multi-tenancy; every other noun lives under one. Key fields: `name`,
 `slug` (unique), `logo`. Owns members, invitations, nodes, and org-owned
-templates. **Org-scoping is the central invariant** — re-verified server-side on
+eggs. **Org-scoping is the central invariant** — re-verified server-side on
 every operation, never trusted from the session alone. See `security.md`.
 
 ### User
@@ -45,7 +45,7 @@ inviter. Accepting it creates a Member.
 
 ## Fleet
 
-### Node — a managed Linux box running `cookied`
+### Node — a managed Linux box running `wings`
 The panel keeps a durable **registry row**; **live state is not stored** — it
 comes from heartbeats and is merged in on read.
 - Registry (panel-owned): `id` (stable across renames), `name` (display),
@@ -59,13 +59,13 @@ comes from heartbeats and is merged in on read.
 - Actions: update daemon, restart daemon, prune, reboot, remove.
 
 ### Server — a Docker container (a game/app instance) on a Node
-Created from a Template. A panel **registry row** (org/node, the template id +
+Created from a Egg. A panel **registry row** (org/node, the egg id +
 version snapshotted at creation, the server-only image string, and sealed secret
 variables) carrying **daemon-derived live state** (state, cpu/mem) merged in at
 read time.
-- Fields: `nodeId`, `name`, `templateName` (friendly — **never a raw image
-  string**), the `templateId` + version **snapshotted at creation**,
-  `updateAvailable` (the source template has a newer published version), `state`
+- Fields: `nodeId`, `name`, `eggName` (friendly — **never a raw image
+  string**), the `eggId` + version **snapshotted at creation**,
+  `updateAvailable` (the source egg has a newer published version), `state`
   (running / stopped / starting / installing / failed), primary published
   `port`, live `cpuPercent` / `memUsedBytes`, `memLimitBytes`, and `networkIds`
   (the **source of truth** for server↔network membership — a network's server
@@ -97,19 +97,19 @@ No panel table. `backend` (ufw / iptables / none), `active`, and a list of
 `{port, protocol}` rules. **Guard:** SSH (22) and the daemon's own port can't be
 closed, so a click can't lock the operator out.
 
-## Templates — "templates over images"
+## Eggs — "eggs over images"
 
-### Template — the panel's "egg"
+### Egg — the panel's "egg"
 A reusable, deployable recipe for a server/app, and the embodiment of the
-**templates-over-images** rule. Equivalent to a Pterodactyl/Pelican *egg*. This
+**eggs-over-images** rule. Equivalent to a Pterodactyl/Pelican *egg*. This
 is the panel's first and richest DB-backed entity.
 - Ownership: `organizationId` **NULL = official/platform-owned** (read-only to
   every org); non-null = org-owned and editable. That null check is the *only*
-  switch marking a template "official."
+  switch marking a egg "official."
 - Shape: `name` / `slug` / `summary` / `description`, `category`, an icon
   reference (S3 key), `origin` (official / scratch / import / fork), `status`
   (draft → published → archived), and a `version` that bumps on re-publish.
-- Lineage: a template can be **forked** from an official/org one (single-level).
+- Lineage: a egg can be **forked** from an official/org one (single-level).
 - Runtime config: a `startupCommand` with `{{VAR}}` tokens, stop signal, "done"
   markers, config-file templates.
 - Install spec: an optional `installScript` (+ container image + entrypoint).
@@ -117,11 +117,11 @@ is the panel's first and richest DB-backed entity.
   in a resource-bounded throwaway container with a hard timeout, never on the
   host (see `daemon.md`).
 
-Two child collections hang off a Template:
+Two child collections hang off a Egg:
 
 - **Images** — a `label` → Docker `image` mapping. **The image string and its
   digest are server-only**; the client only ever sees the friendly label. This
-  *is* the templates-over-images promise, enforced in the data model.
+  *is* the eggs-over-images promise, enforced in the data model.
 - **Variables** — friendly env-vars the user fills in: `name`, `description`,
   the underlying `envVariable`, a default, view/edit flags, a **`secret`** flag
   (write-only, per-server, never returned), and validation `rules` (required /
@@ -157,7 +157,7 @@ degrading to `{ ok: false }` when a box is unreachable.
 
 The panel↔daemon split *is* a desired-vs-actual state machine:
 
-- The **panel owns desired state** (registry rows: nodes, templates,
+- The **panel owns desired state** (registry rows: nodes, eggs,
   allocations) and issues **intent** (provision this server, open this port).
 - The **daemon owns actual state** and **converges** to the intent, then reports
   back. A server goes `installing → running` (or `failed`); the panel reflects

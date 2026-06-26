@@ -1,6 +1,6 @@
 # Panel conventions
 
-`apps/panel` is `@cookiepanel/panel`: **TanStack Start (SSR) + React 19 +
+`apps/panel` is `@raptorpanel/panel`: **TanStack Start (SSR) + React 19 +
 Tailwind v4**, file-based routing, server functions for the API. This file has
 two parts: the **UI patterns** the panel is built on and the **data/server
 layer** behind them. The data layer is now wired for essentially everything; only
@@ -27,7 +27,7 @@ their backend exists:
   `design.md` / `DESIGN.md`.
 
 When in doubt, model a page on its eventual job (a fleet view, a server detail,
-a template editor) but implement only the view with fake data.
+a egg editor) but implement only the view with fake data.
 
 **Folder layout.** Where components and lib modules go (the `ui`/`layout`/`shared`/
 domain split, the `lib/domain` vs `stores` vs `stubs` split, the server import
@@ -60,8 +60,8 @@ The backend is **three layers, strictly separated**:
    the org + resource scope, delegate to a service, and return. **No SQL, no
    business logic** in this layer.
 
-> The prior rewrite often **collapsed service + server-fn into one file** per
-> domain (e.g. `server/templates/index.ts`) — guards/projections as private
+> Service + server-fn are often **collapsed into one file** per
+> domain (e.g. `server/eggs/index.ts`) — guards/projections as private
 > functions, `createServerFn` wrappers as the public surface. The layering is
 > *conceptual*; it needn't be three separate files, but the data layer must stay
 > isolated in the repository.
@@ -74,7 +74,7 @@ alone**:
 - A `requireOrg`-style guard reads the active org from the session **and
   re-queries membership in the DB** before any org-scoped op — the active-org id
   rides a cookie cache and can go stale.
-- A resource guard (`requireNode`, `requireTemplate`, …) then loads the target
+- A resource guard (`requireNode`, `requireEgg`, …) then loads the target
   **scoped to that org** and throws a generic not-found if absent — so
   cross-org ids look identical to missing ones.
 - The repository layer ANDs `organizationId` into every predicate as a backstop.
@@ -83,7 +83,7 @@ Full rationale and the secrets discipline: `security.md`.
 
 ### Reaching the daemon
 
-The panel's server layer makes authenticated HTTPS calls to each box's `cookied`
+The panel's server layer makes authenticated HTTPS calls to each box's `wings`
 (node key + cert pin + the shared contract — see `architecture.md`). This is
 funnelled through **one client module**, `src/server/nodes/daemon-client.ts`:
 `loadDialer(nodeId)` unseals the node key, the pinning agent verifies the cert

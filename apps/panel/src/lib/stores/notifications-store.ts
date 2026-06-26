@@ -42,7 +42,7 @@ const SEED: Notification[] = [
 		icon: RefreshCw,
 		tone: "info",
 		title: "Server update available",
-		description: "A newer template version is published for “survival”.",
+		description: "A newer egg version is published for “survival”.",
 		time: "1 hour ago",
 		read: false,
 	},

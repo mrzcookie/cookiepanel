@@ -27,6 +27,6 @@ export const NAV = [
 	{ title: "Nodes", to: "/nodes", icon: HardDrive },
 	{ title: "Servers", to: "/servers", icon: Server },
 	{ title: "Networks", to: "/networks", icon: Network },
-	{ title: "Templates", to: "/templates", icon: LayoutTemplate },
+	{ title: "Eggs", to: "/eggs", icon: LayoutTemplate },
 	{ title: "Settings", to: "/settings", icon: Settings },
 ] as const;

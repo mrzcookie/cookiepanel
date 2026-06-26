@@ -34,7 +34,7 @@ const SERVER_STATUS: Record<string, StatusMeta> = {
 	failed: { label: "Failed", tone: "error" },
 };
 
-const TEMPLATE_STATUS: Record<string, StatusMeta> = {
+const EGG_STATUS: Record<string, StatusMeta> = {
 	published: { label: "Published", tone: "online" },
 	draft: { label: "Draft", tone: "pending" },
 	archived: { label: "Archived", tone: "muted" },
@@ -68,8 +68,8 @@ export const nodeStatus = (status: string): StatusMeta =>
 	NODE_STATUS[status] ?? FALLBACK;
 export const serverStatus = (status: string): StatusMeta =>
 	SERVER_STATUS[status] ?? FALLBACK;
-export const templateStatus = (status: string): StatusMeta =>
-	TEMPLATE_STATUS[status] ?? FALLBACK;
+export const eggStatus = (status: string): StatusMeta =>
+	EGG_STATUS[status] ?? FALLBACK;
 export const billingStatus = (status: string): StatusMeta =>
 	BILLING_STATUS[status] ?? FALLBACK;
 export const invoiceStatus = (status: string): StatusMeta =>

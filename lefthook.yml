@@ -6,6 +6,6 @@ pre-commit:
       run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
     - name: check-go
-      glob: "apps/daemon/**/*.go"
-      run: cd apps/daemon && gofmt -w . && go vet ./...
+      glob: "apps/wings/**/*.go"
+      run: cd apps/wings && gofmt -w . && go vet ./...
       stage_fixed: true

@@ -48,7 +48,7 @@ function Onboarding() {
 					to="/home"
 				>
 					<Cookie className="size-5 text-primary" strokeWidth={2} />
-					CookiePanel
+					RaptorPanel
 				</Link>
 
 				{signedIn ? (
@@ -216,8 +216,8 @@ function CreateFirstOrg() {
 					Name your organization
 				</h1>
 				<p className="text-muted-foreground text-sm">
-					A workspace for your nodes, servers, and templates. You can rename it
-					or add more later.
+					A workspace for your nodes, servers, and eggs. You can rename it or
+					add more later.
 				</p>
 			</div>
 

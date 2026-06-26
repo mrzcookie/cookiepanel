@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ChangeTemplateButton } from "@/components/servers/template-switcher";
+import { ChangeEggButton } from "@/components/servers/egg-switcher";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -22,20 +22,20 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import type { ServerRow } from "@/lib/domain/servers";
 import {
 	controlForVariable,
+	type Egg,
+	type EggVariable,
 	shownVariables,
-	type Template,
-	type TemplateVariable,
-} from "@/lib/domain/templates";
+} from "@/lib/domain/eggs";
+import type { ServerRow } from "@/lib/domain/servers";
+import { useEgg } from "@/lib/eggs-queries";
 import {
 	invalidateServers,
 	updateServerRuntime,
 	updateServerVariables,
 	useServer,
 } from "@/lib/server-queries";
-import { useTemplate } from "@/lib/templates-queries";
 
 export const Route = createFileRoute("/_app/servers/$serverId/startup")({
 	component: ServerStartupTab,
@@ -44,7 +44,7 @@ export const Route = createFileRoute("/_app/servers/$serverId/startup")({
 function ServerStartupTab() {
 	const { serverId } = Route.useParams();
 	const server = useServer(serverId);
-	const template = useTemplate(server?.templateId ?? "");
+	const egg = useEgg(server?.eggId ?? "");
 
 	if (!server) {
 		return null;
@@ -52,19 +52,19 @@ function ServerStartupTab() {
 
 	return (
 		<div className="space-y-6">
-			<RuntimeCard server={server} template={template} />
-			{template ? (
+			<RuntimeCard server={server} egg={egg} />
+			{egg ? (
 				<>
-					<VariablesCard server={server} template={template} />
-					<StartupCommandCard template={template} />
+					<VariablesCard server={server} egg={egg} />
+					<StartupCommandCard egg={egg} />
 				</>
 			) : (
 				<Card>
 					<CardHeader>
 						<CardTitle>Variables</CardTitle>
 						<CardDescription>
-							The source template is no longer available, so its variables can't
-							be shown.
+							The source egg is no longer available, so its variables can't be
+							shown.
 						</CardDescription>
 					</CardHeader>
 				</Card>
@@ -75,13 +75,13 @@ function ServerStartupTab() {
 
 function RuntimeCard({
 	server,
-	template,
+	egg,
 }: {
 	server: ServerRow;
-	template: Template | undefined;
+	egg: Egg | undefined;
 }) {
 	const queryClient = useQueryClient();
-	const runtimes = template?.images ?? [];
+	const runtimes = egg?.images ?? [];
 	const switchable = runtimes.length > 1;
 	const [runtime, setRuntime] = useState(server.imageLabel);
 
@@ -110,18 +110,18 @@ function RuntimeCard({
 			<CardHeader>
 				<CardTitle>Runtime</CardTitle>
 				<CardDescription>
-					The template and runtime this server runs on.
+					The egg and runtime this server runs on.
 					{switchable
 						? " Switching runtime takes effect on the next restart."
 						: ""}
 				</CardDescription>
 				<CardAction>
-					<ChangeTemplateButton server={server} />
+					<ChangeEggButton server={server} />
 				</CardAction>
 			</CardHeader>
 			<CardContent className={switchable ? "space-y-5" : undefined}>
 				<div className="grid gap-4 sm:grid-cols-3">
-					<Field label="Template" value={server.templateName} />
+					<Field label="Egg" value={server.eggName} />
 					{switchable ? (
 						<div className="space-y-1.5">
 							<Label className="text-muted-foreground" htmlFor="server-runtime">
@@ -144,9 +144,9 @@ function RuntimeCard({
 						<Field label="Runtime" mono value={server.imageLabel} />
 					)}
 					<Field
-						label="Template version"
+						label="Egg version"
 						mono
-						value={template ? `v${template.version}` : "—"}
+						value={egg ? `v${egg.version}` : "—"}
 					/>
 				</div>
 				{switchable ? (
@@ -187,12 +187,12 @@ function Field({
 }
 
 // The shown (editable + read-only) variables' values, seeded from the server's
-// stored snapshot (falling back to the template default). Read-only vars are
+// stored snapshot (falling back to the egg default). Read-only vars are
 // seeded so they display their value; secrets are write-only and never seeded.
 // Top-level + pure so the effect below can key off the stored values directly.
-function seedValues(template: Template, stored: Record<string, string>) {
+function seedValues(egg: Egg, stored: Record<string, string>) {
 	const next: Record<string, string> = {};
-	for (const variable of template.variables) {
+	for (const variable of egg.variables) {
 		if (variable.access === "editable" || variable.access === "read-only") {
 			next[variable.envVariable] =
 				stored[variable.envVariable] ?? variable.defaultValue ?? "";
@@ -201,31 +201,25 @@ function seedValues(template: Template, stored: Record<string, string>) {
 	return next;
 }
 
-function VariablesCard({
-	server,
-	template,
-}: {
-	server: ServerRow;
-	template: Template;
-}) {
+function VariablesCard({ server, egg }: { server: ServerRow; egg: Egg }) {
 	const queryClient = useQueryClient();
-	const fields = shownVariables(template);
+	const fields = shownVariables(egg);
 	const [values, setValues] = useState<Record<string, string>>(() =>
-		seedValues(template, server.variables)
+		seedValues(egg, server.variables)
 	);
 	// Secret edits are local-only and write-only — never folded into the readable
 	// snapshot. Empty = "keep current"; cleared after a save.
 	const [secrets, setSecrets] = useState<Record<string, string>>({});
 
 	// Re-seed only when the *stored* values change (e.g. after a save) or the
-	// template is swapped. Keyed on `server.variables` rather than the whole row,
+	// egg is swapped. Keyed on `server.variables` rather than the whole row,
 	// so a power transition — which leaves `variables` untouched — can't wipe an
 	// in-progress edit.
 	useEffect(() => {
-		setValues(seedValues(template, server.variables));
-	}, [template, server.variables]);
+		setValues(seedValues(egg, server.variables));
+	}, [egg, server.variables]);
 
-	const editableChanged = template.variables.some(
+	const editableChanged = egg.variables.some(
 		(v) =>
 			v.access === "editable" &&
 			values[v.envVariable] !==
@@ -234,13 +228,13 @@ function VariablesCard({
 	const secretsChanged = Object.values(secrets).some((v) => v.trim() !== "");
 	const changed = editableChanged || secretsChanged;
 
-	function valueFor(variable: TemplateVariable) {
+	function valueFor(variable: EggVariable) {
 		return variable.access === "secret"
 			? (secrets[variable.envVariable] ?? "")
 			: values[variable.envVariable];
 	}
 
-	function setValueFor(variable: TemplateVariable, value: string) {
+	function setValueFor(variable: EggVariable, value: string) {
 		if (variable.access === "secret") {
 			setSecrets((current) => ({ ...current, [variable.envVariable]: value }));
 		} else {
@@ -252,7 +246,7 @@ function VariablesCard({
 		// Send editable values + any secret edits; the server re-seals secrets
 		// (write-only) and stores the non-secret snapshot.
 		const provided: Record<string, string> = {};
-		for (const variable of template.variables) {
+		for (const variable of egg.variables) {
 			if (variable.access === "editable") {
 				provided[variable.envVariable] = values[variable.envVariable] ?? "";
 			}
@@ -317,7 +311,7 @@ function VariableField({
 }: {
 	onChange: (value: string) => void;
 	value: string | undefined;
-	variable: TemplateVariable;
+	variable: EggVariable;
 }) {
 	const control = controlForVariable(variable);
 	const id = `var-${variable.id}`;
@@ -400,7 +394,7 @@ function VariableField({
 	);
 }
 
-function StartupCommandCard({ template }: { template: Template }) {
+function StartupCommandCard({ egg }: { egg: Egg }) {
 	return (
 		<Card>
 			<CardHeader>
@@ -412,7 +406,7 @@ function StartupCommandCard({ template }: { template: Template }) {
 			</CardHeader>
 			<CardContent>
 				<pre className="overflow-x-auto rounded-lg bg-muted/50 p-3 font-mono text-xs">
-					{template.startupCommand}
+					{egg.startupCommand}
 				</pre>
 			</CardContent>
 		</Card>

@@ -1,7 +1,7 @@
-import type { components } from "@cookiepanel/contract";
+import type { components } from "@raptorpanel/contract";
 
 // SQL Browser domain: a lightweight phpMyAdmin for the two SQL engine families
-// CookiePanel ships (PostgreSQL + MySQL/MariaDB). The panel-facing types are the
+// RaptorPanel ships (PostgreSQL + MySQL/MariaDB). The panel-facing types are the
 // generated contract schemas (the daemon's wire shapes); the rest are pure,
 // client-safe helpers. The SQL face of the single `database:browser` add-on
 // (engine resolved via databaseEngine()).
@@ -15,7 +15,7 @@ export type SqlUser = S["SqlUser"];
 /** The finer SQL engine — `databaseEngine()` only resolves to "sql". */
 export type SqlEngine = "postgres" | "mysql";
 
-// Detect Postgres vs MySQL/MariaDB from a template's friendly name. The daemon
+// Detect Postgres vs MySQL/MariaDB from a egg's friendly name. The daemon
 // needs this to pick the driver, container port, and dialect; everything that
 // isn't Postgres uses the MySQL driver (MariaDB shares its wire protocol).
 export function sqlEngine(text: string): SqlEngine {
@@ -35,7 +35,7 @@ export function isValidIdentifier(value: string): boolean {
 	return SQL_IDENTIFIER.test(value.trim());
 }
 
-// CREATE DATABASE character sets (MySQL only; Postgres inherits the template
+// CREATE DATABASE character sets (MySQL only; Postgres inherits the egg
 // encoding). Mirrors the daemon's allowlist.
 export const SQL_CHARSETS = ["utf8mb4", "utf8", "latin1", "ascii"] as const;
 

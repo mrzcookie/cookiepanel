@@ -431,7 +431,7 @@ function DangerZone({ node }: { node: NodeRow }) {
 								Update
 							</Button>
 						}
-						description={`Install the latest daemon. cookied ${node.daemonVersion} is behind.`}
+						description={`Install the latest daemon. wings ${node.daemonVersion} is behind.`}
 						title="Update daemon"
 					/>
 				) : null}
@@ -497,7 +497,7 @@ function DangerZone({ node }: { node: NodeRow }) {
 					<DialogHeader>
 						<DialogTitle>Update the daemon?</DialogTitle>
 						<DialogDescription>
-							Download the latest cookied and replace the agent (cookied{" "}
+							Download the latest wings and replace the agent (wings{" "}
 							{node.daemonVersion} is behind). The agent restarts to finish;
 							your servers keep running.
 						</DialogDescription>

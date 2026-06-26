@@ -1,4 +1,4 @@
-import type { components } from "@cookiepanel/contract";
+import type { components } from "@raptorpanel/contract";
 
 // MongoDB "Browser" domain: the panel-facing types are the generated contract
 // schemas (the daemon's wire shapes), plus a name validator. The Mongo face of

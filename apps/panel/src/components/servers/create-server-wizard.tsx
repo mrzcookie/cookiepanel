@@ -4,8 +4,8 @@ import { LayoutTemplate, Plus, Server, SlidersHorizontal } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { DeployVariableField } from "@/components/servers/deploy-variable-field";
+import { EggPicker } from "@/components/servers/egg-picker";
 import { NodePicker } from "@/components/servers/node-picker";
-import { TemplatePicker } from "@/components/servers/template-picker";
 import { DetailList, DetailRow } from "@/components/shared/detail-list";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -29,21 +29,21 @@ import {
 	isDeployTarget,
 	serverCaps,
 } from "@/lib/domain/deploy";
-import type { AllocationProtocol, AllocationRow } from "@/lib/domain/networks";
-import type { NodeRow } from "@/lib/domain/nodes";
 import {
 	defaultRuntimeLabel,
 	deployVariables,
+	type Egg,
 	isDeployable,
-	type Template,
-} from "@/lib/domain/templates";
+} from "@/lib/domain/eggs";
+import type { AllocationProtocol, AllocationRow } from "@/lib/domain/networks";
+import type { NodeRow } from "@/lib/domain/nodes";
+import { bumpEggServerCount, useEggs } from "@/lib/eggs-queries";
 import { formatBytes } from "@/lib/format";
 import { useNodes } from "@/lib/node-queries";
 import { createServer, invalidateServers } from "@/lib/server-queries";
-import { bumpTemplateServerCount, useTemplates } from "@/lib/templates-queries";
 
 const STEPS: WizardStep[] = [
-	{ id: "template", label: "Template" },
+	{ id: "egg", label: "Egg" },
 	{ id: "placement", label: "Placement" },
 	{ id: "settings", label: "Settings" },
 	{ id: "resources", label: "Resources" },
@@ -54,7 +54,7 @@ const HEADINGS = [
 	{
 		description:
 			"Pick what you want to run. We'll handle the runtime, install, and setup.",
-		title: "Choose a template",
+		title: "Choose a egg",
 	},
 	{
 		description:
@@ -62,8 +62,7 @@ const HEADINGS = [
 		title: "Where should it run?",
 	},
 	{
-		description:
-			"Give your server a name, then fill in the template's settings.",
+		description: "Give your server a name, then fill in the egg's settings.",
 		title: "Name it and set it up",
 	},
 	{
@@ -77,7 +76,7 @@ const HEADINGS = [
 ] as const;
 
 type Draft = {
-	templateId: string | null;
+	eggId: string | null;
 	nodeId: string | null;
 	name: string;
 	runtimeLabel: string;
@@ -90,9 +89,9 @@ type Draft = {
 	protocol: AllocationProtocol;
 };
 
-function seedValues(template: Template): Record<string, string> {
+function seedValues(egg: Egg): Record<string, string> {
 	const seed: Record<string, string> = {};
-	for (const variable of deployVariables(template)) {
+	for (const variable of deployVariables(egg)) {
 		seed[variable.envVariable] = variable.defaultValue ?? "";
 	}
 	return seed;
@@ -112,21 +111,21 @@ function nextFreePort(
 	return Math.min(port, 65535);
 }
 
-// The create-a-server wizard: Template → Placement → Settings → Resources →
+// The create-a-server wizard: Egg → Placement → Settings → Resources →
 // Review, then deploy. Local state until deploy; only then does it create the
-// server (installing → running), reserve the port, and bump the template's
+// server (installing → running), reserve the port, and bump the egg's
 // server count. A raw image string is never shown — runtimes are friendly
-// labels. `preselectId` (from ?template=) jumps a deployable template straight to
+// labels. `preselectId` (from ?egg=) jumps a deployable egg straight to
 // Placement.
 export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const templates = useTemplates();
+	const eggs = useEggs();
 	const nodes = useNodes();
 
-	const deployableTemplates = templates.filter(isDeployable);
+	const deployableEggs = eggs.filter(isDeployable);
 	const preselect = preselectId
-		? templates.find((template) => template.id === preselectId)
+		? eggs.find((egg) => egg.id === preselectId)
 		: undefined;
 	const preselectDeployable = Boolean(preselect && isDeployable(preselect));
 
@@ -141,22 +140,22 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 			port: "",
 			protocol: "tcp",
 			runtimeLabel: "",
-			templateId: null,
+			eggId: null,
 			values: {},
 		};
 		if (preselect && isDeployable(preselect)) {
 			return {
 				...base,
 				runtimeLabel: defaultRuntimeLabel(preselect),
-				templateId: preselect.id,
+				eggId: preselect.id,
 				values: seedValues(preselect),
 			};
 		}
 		return base;
 	});
 
-	const template = draft.templateId
-		? templates.find((item) => item.id === draft.templateId)
+	const egg = draft.eggId
+		? eggs.find((item) => item.id === draft.eggId)
 		: undefined;
 	const node = draft.nodeId
 		? nodes.find((item) => item.id === draft.nodeId)
@@ -171,22 +170,22 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 	const portUsed = (port: number, protocol: AllocationProtocol) =>
 		nodeAllocations.some((a) => a.port === port && a.protocol === protocol);
 
-	function selectTemplate(id: string) {
-		const next = templates.find((item) => item.id === id);
+	function selectEgg(id: string) {
+		const next = eggs.find((item) => item.id === id);
 		if (!next || !isDeployable(next)) {
 			return;
 		}
 		setDraft((current) => ({
 			...current,
 			runtimeLabel: defaultRuntimeLabel(next),
-			templateId: id,
+			eggId: id,
 			values: seedValues(next),
 		}));
 	}
 
 	function selectNode(id: string) {
 		const next = nodes.find((item) => item.id === id);
-		if (!next || !isDeployTarget(next) || !template) {
+		if (!next || !isDeployTarget(next) || !egg) {
 			return;
 		}
 		setDraft((current) => {
@@ -203,18 +202,18 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 				diskGb: clampInt(current.diskGb, 1, caps.diskGb),
 				memGb: clampInt(current.memGb, 1, caps.memGb),
 				nodeId: id,
-				// The new node's allocations load async; default to the template's base
+				// The new node's allocations load async; default to the egg's base
 				// port and let the user adjust / Suggest.
-				port: keepPort ? current.port : String(basePortFor(template)),
+				port: keepPort ? current.port : String(basePortFor(egg)),
 			};
 		});
 	}
 
 	function suggestPort() {
-		if (!(node && template)) {
+		if (!(node && egg)) {
 			return;
 		}
-		const base = Number(draft.port) || basePortFor(template);
+		const base = Number(draft.port) || basePortFor(egg);
 		setDraft((current) => ({
 			...current,
 			port: String(nextFreePort(base, current.protocol, nodeAllocations)),
@@ -222,8 +221,8 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 	}
 
 	const caps = node ? serverCaps(node) : null;
-	const requiredVariables = template
-		? deployVariables(template).filter((variable) => variable.required)
+	const requiredVariables = egg
+		? deployVariables(egg).filter((variable) => variable.required)
 		: [];
 	const settingsValid =
 		draft.name.trim() !== "" &&
@@ -248,7 +247,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 
 	const canNext =
 		step === 0
-			? Boolean(template)
+			? Boolean(egg)
 			: step === 1
 				? Boolean(node && isDeployTarget(node))
 				: step === 2
@@ -258,12 +257,8 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 						: true;
 
 	async function deploy() {
-		if (
-			!(template && node) ||
-			!isDeployable(template) ||
-			!isDeployTarget(node)
-		) {
-			toast.error("Pick a template and a connected node.");
+		if (!(egg && node) || !isDeployable(egg) || !isDeployTarget(node)) {
+			toast.error("Pick a egg and a connected node.");
 			return;
 		}
 		if (!portInRange) {
@@ -279,14 +274,14 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 		// Pass every deploy-variable value (incl. secrets); the server seals secrets
 		// at rest and stores only the non-secret snapshot.
 		const variables: Record<string, string> = {};
-		for (const variable of deployVariables(template)) {
+		for (const variable of deployVariables(egg)) {
 			variables[variable.envVariable] =
 				draft.values[variable.envVariable] ?? "";
 		}
 		try {
 			const server = await createServer({
 				nodeId: node.id,
-				templateId: template.id,
+				eggId: egg.id,
 				name: draft.name,
 				runtimeLabel: draft.runtimeLabel,
 				port: portNum,
@@ -296,8 +291,8 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 				variables,
 			});
 			// createServer reserved the primary port allocation server-side; just
-			// bump the template's server count.
-			bumpTemplateServerCount(queryClient, template.id, 1);
+			// bump the egg's server count.
+			bumpEggServerCount(queryClient, egg.id, 1);
 			await invalidateServers(queryClient);
 			toast.success(`Deploying “${draft.name.trim()}” on ${node.name}.`);
 			navigate({ params: { serverId: server.id }, to: "/servers/$serverId" });
@@ -325,17 +320,17 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 				title="Connect a node first"
 			/>
 		);
-	} else if (deployableTemplates.length === 0) {
+	} else if (deployableEggs.length === 0) {
 		gate = (
 			<EmptyState
 				action={
 					<Button asChild variant="outline">
-						<Link to="/templates">Go to templates</Link>
+						<Link to="/eggs">Go to eggs</Link>
 					</Button>
 				}
-				description="A template has to be published before you can launch a server from it. Publish one, or browse the catalog."
+				description="A egg has to be published before you can launch a server from it. Publish one, or browse the catalog."
 				icon={LayoutTemplate}
-				title="No templates to deploy"
+				title="No eggs to deploy"
 			/>
 		);
 	}
@@ -381,7 +376,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 		<>
 			<PageHeader
 				back={{ label: "Servers", to: "/servers" }}
-				description="Pick a template, choose where it runs, and we'll install and start it for you."
+				description="Pick a egg, choose where it runs, and we'll install and start it for you."
 				title="Create a server"
 			/>
 
@@ -403,10 +398,10 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 									“{preselect.name}” isn't ready to deploy. Pick another below.
 								</div>
 							) : null}
-							<TemplatePicker
-								onSelect={selectTemplate}
-								selectedId={draft.templateId}
-								templates={templates}
+							<EggPicker
+								onSelect={selectEgg}
+								selectedId={draft.eggId}
+								eggs={eggs}
 							/>
 						</div>
 					) : null}
@@ -433,7 +428,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 						</div>
 					) : null}
 
-					{step === 2 && template ? (
+					{step === 2 && egg ? (
 						<SettingsStep
 							name={draft.name}
 							onName={(value) =>
@@ -449,7 +444,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 								}))
 							}
 							runtimeLabel={draft.runtimeLabel}
-							template={template}
+							egg={egg}
 							values={draft.values}
 						/>
 					) : null}
@@ -480,8 +475,8 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 						/>
 					) : null}
 
-					{step === 4 && template && node ? (
-						<ReviewStep draft={draft} node={node} template={template} />
+					{step === 4 && egg && node ? (
+						<ReviewStep draft={draft} node={node} egg={egg} />
 					) : null}
 				</WizardFrame>
 			)}
@@ -503,7 +498,7 @@ function SettingsStep({
 	onRuntime,
 	onValue,
 	runtimeLabel,
-	template,
+	egg,
 	values,
 }: {
 	name: string;
@@ -511,10 +506,10 @@ function SettingsStep({
 	onRuntime: (value: string) => void;
 	onValue: (env: string, value: string) => void;
 	runtimeLabel: string;
-	template: Template;
+	egg: Egg;
 	values: Record<string, string>;
 }) {
-	const variables = deployVariables(template);
+	const variables = deployVariables(egg);
 	const requiredMissing =
 		name.trim() === "" ||
 		variables.some(
@@ -537,7 +532,7 @@ function SettingsStep({
 				</p>
 			</div>
 
-			{template.images.length > 1 ? (
+			{egg.images.length > 1 ? (
 				<div className="grid gap-2">
 					<Label htmlFor="srv-runtime">Runtime</Label>
 					<Select onValueChange={onRuntime} value={runtimeLabel}>
@@ -545,7 +540,7 @@ function SettingsStep({
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
-							{template.images.map((image) => (
+							{egg.images.map((image) => (
 								<SelectItem key={image.id} value={image.label}>
 									{image.label}
 								</SelectItem>
@@ -557,7 +552,7 @@ function SettingsStep({
 
 			{variables.length > 0 ? (
 				<div className="space-y-4">
-					<Eyebrow>{"// template settings"}</Eyebrow>
+					<Eyebrow>{"// egg settings"}</Eyebrow>
 					{variables.map((variable) => (
 						<DeployVariableField
 							key={variable.id}
@@ -569,7 +564,7 @@ function SettingsStep({
 				</div>
 			) : (
 				<EmptyState
-					description="This template runs with sensible defaults. Nothing to fill in here."
+					description="This egg runs with sensible defaults. Nothing to fill in here."
 					icon={SlidersHorizontal}
 					title="No settings needed"
 				/>
@@ -753,17 +748,17 @@ function LimitField({
 function ReviewStep({
 	draft,
 	node,
-	template,
+	egg,
 }: {
 	draft: Draft;
 	node: NodeRow;
-	template: Template;
+	egg: Egg;
 }) {
-	const variables = deployVariables(template);
+	const variables = deployVariables(egg);
 	return (
 		<div className="max-w-xl space-y-5">
 			<DetailList>
-				<DetailRow label="Template" value={template.name} />
+				<DetailRow label="Egg" value={egg.name} />
 				<DetailRow label="Runtime" value={draft.runtimeLabel || "—"} />
 				<DetailRow label="Server name" value={draft.name.trim() || "—"} />
 				<DetailRow label="Node" value={node.name} />
@@ -781,7 +776,7 @@ function ReviewStep({
 
 			{variables.length > 0 ? (
 				<div className="space-y-2">
-					<Eyebrow>{"// template settings"}</Eyebrow>
+					<Eyebrow>{"// egg settings"}</Eyebrow>
 					<DetailList>
 						{variables.map((variable) => (
 							<DetailRow

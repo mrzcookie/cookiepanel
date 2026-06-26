@@ -17,14 +17,14 @@ export type SealedVariables = Record<string, string>;
 
 /**
  * Server registry — the panel's *desired* state for a Docker container deployed
- * from a Template. The container itself (and its live cpu/mem/uptime) is
- * daemon-owned; this row holds intent: which node, the template snapshot, the
+ * from a Egg. The container itself (and its live cpu/mem/uptime) is
+ * daemon-owned; this row holds intent: which node, the egg snapshot, the
  * resolved image (server-only), limits, and the variable values. `state` is the
  * last-observed lifecycle the daemon reconciles onto.
  *
  * Two FKs: `organizationId` (the repository's IDOR backstop, cascades with the
  * org) and `nodeId` (placement; cascades with the node). The image string lives
- * here server-only — the client never sees it (templates-over-images).
+ * here server-only — the client never sees it (eggs-over-images).
  */
 export const server = pgTable(
 	"server",
@@ -37,11 +37,11 @@ export const server = pgTable(
 			.notNull()
 			.references(() => node.id, { onDelete: "cascade" }),
 		name: text("name").notNull(),
-		// Template snapshot at creation — friendly labels for the UI; the source
-		// template can change or be deleted without affecting a running server.
-		templateId: text("template_id").notNull(),
-		templateName: text("template_name").notNull(),
-		templateVersion: integer("template_version").notNull().default(1),
+		// Egg snapshot at creation — friendly labels for the UI; the source
+		// egg can change or be deleted without affecting a running server.
+		eggId: text("egg_id").notNull(),
+		eggName: text("egg_name").notNull(),
+		eggVersion: integer("egg_version").notNull().default(1),
 		imageLabel: text("image_label").notNull(),
 		// SERVER-ONLY: the resolved Docker image string. Never projected to the client.
 		image: text("image").notNull(),

@@ -67,7 +67,7 @@ function Login() {
 					to="/home"
 				>
 					<Cookie className="size-5 text-primary" strokeWidth={2} />
-					CookiePanel
+					RaptorPanel
 				</Link>
 
 				<div className="space-y-1.5 text-center">

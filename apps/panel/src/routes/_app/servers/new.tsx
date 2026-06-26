@@ -1,16 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CreateServerWizard } from "@/components/servers/create-server-wizard";
-import { templatesListQueryOptions } from "@/lib/templates-queries";
+import { eggsListQueryOptions } from "@/lib/eggs-queries";
 
 export const Route = createFileRoute("/_app/servers/new")({
 	loader: ({ context }) =>
-		context.queryClient.ensureQueryData(templatesListQueryOptions()),
+		context.queryClient.ensureQueryData(eggsListQueryOptions()),
 	component: NewServer,
-	validateSearch: (search: Record<string, unknown>): { template?: string } =>
-		typeof search.template === "string" ? { template: search.template } : {},
+	validateSearch: (search: Record<string, unknown>): { egg?: string } =>
+		typeof search.egg === "string" ? { egg: search.egg } : {},
 });
 
 function NewServer() {
-	const { template } = Route.useSearch();
-	return <CreateServerWizard preselectId={template} />;
+	const { egg } = Route.useSearch();
+	return <CreateServerWizard preselectId={egg} />;
 }

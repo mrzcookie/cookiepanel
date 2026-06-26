@@ -28,7 +28,7 @@ import { unsealServerSecret } from "@/server/servers/secrets";
  * over the pinned channel — never returned to the client. Index-only.
  */
 
-// The redis template's admin-password variable (sets requirepass).
+// The redis egg's admin-password variable (sets requirepass).
 const REDIS_PASSWORD_VAR = "REDIS_PASSWORD";
 
 /** Establish org scope, load the server, recover its Redis admin password. */

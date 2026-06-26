@@ -6,7 +6,7 @@ import { env } from "@/server/env";
  * else in `server/billing` calls these typed helpers, so the rest of the layer
  * never imports the SDK or knows about products/seats wire shapes.
  *
- * **Org-as-customer.** CookiePanel bills the *organization*, not the user, so we
+ * **Org-as-customer.** RaptorPanel bills the *organization*, not the user, so we
  * drive checkout/portal/seats through the SDK with `externalCustomerId = orgId`
  * (Polar creates/links the customer on first checkout). That's why we use the
  * Better Auth Polar plugin for *webhooks only* (see server/auth) — its built-in

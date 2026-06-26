@@ -7,13 +7,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import {
-	controlForVariable,
-	type TemplateVariable,
-} from "@/lib/domain/templates";
+import { controlForVariable, type EggVariable } from "@/lib/domain/eggs";
 
-// One player-facing template variable, rendered by its derived control. Shared
-// by the use-template dialog and the create-server wizard so a variable looks
+// One player-facing egg variable, rendered by its derived control. Shared
+// by the use-egg dialog and the create-server wizard so a variable looks
 // and behaves identically in both. Secrets render as a write-only password
 // field; the value is never read back.
 export function DeployVariableField({
@@ -23,7 +20,7 @@ export function DeployVariableField({
 }: {
 	onChange: (value: string) => void;
 	value: string;
-	variable: TemplateVariable;
+	variable: EggVariable;
 }) {
 	const id = `var-${variable.id}`;
 	const descriptionId = variable.description ? `${id}-desc` : undefined;

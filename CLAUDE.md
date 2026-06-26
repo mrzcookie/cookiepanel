@@ -1,39 +1,39 @@
-# CookiePanel — project guide
+# RaptorPanel — project guide
 
-CookiePanel is a **hosted, multi-tenant control panel for running Docker game
+RaptorPanel is a **hosted, multi-tenant control panel for running Docker game
 servers and apps on your own Linux boxes**. You connect a machine you own, and
-CookiePanel turns it into a managed fleet: spin up a Minecraft (or any) server
-from a **Template**, watch live CPU/memory, and manage files, networks, ports,
+RaptorPanel turns it into a managed fleet: spin up a Minecraft (or any) server
+from a **Egg**, watch live CPU/memory, and manage files, networks, ports,
 firewall, schedules, and backups — without touching a terminal.
 
 The user we build for is **not a Linux admin**. They think in "servers" and
-"templates," not images and containers, and they should never have to learn the
+"eggs," not images and containers, and they should never have to learn the
 difference. Product north star: **easy + secure** — hide the jargon, be secure
 by default.
 
 ## The two halves
 
-CookiePanel is one product made of two programs:
+RaptorPanel is one product made of two programs:
 
 - **Panel** — the hosted web app (the SaaS we run). It owns identity,
-  organizations, templates, and the *desired* state of the fleet. Multi-tenant:
+  organizations, eggs, and the *desired* state of the fleet. Multi-tenant:
   everything is scoped to an organization.
-- **Daemon (`cookied`)** — a small Go agent that runs on each managed box, as
+- **Daemon (`wings`)** — a small Go agent that runs on each managed box, as
   root. It owns the box: Docker containers, host networking, firewall, disk,
   files, schedules, and backups. It keeps working even when the panel is
   unreachable.
 
 The panel drives each box by making **authenticated HTTPS calls** to its
-`cookied`; the daemon **heartbeats** back to the panel with live status. The
+`wings`; the daemon **heartbeats** back to the panel with live status. The
 wire format is pinned by a **shared API contract** so the two never drift. See
 `.claude/rules/architecture.md` for how that connection actually works.
 
 ## Monorepo layout
 
-- `apps/panel` — `@cookiepanel/panel`: TanStack Start (SSR) + React 19 +
+- `apps/panel` — `@raptorpanel/panel`: TanStack Start (SSR) + React 19 +
   Tailwind v4 web app & API. Server-only code lives under `src/server`.
-- `apps/daemon` — `cookied`: the Go agent for each managed box (an active,
-  phased build — it enrolls + heartbeats today; the rest lands slice by slice).
+- `apps/wings` — `wings`: the Go agent for each managed box (all subsystems
+  built; in testing + hardening).
 - Tooling: pnpm workspaces + Turborepo + Go workspace (`go.work`) + Biome +
   lefthook.
 
@@ -41,10 +41,10 @@ wire format is pinned by a **shared API contract** so the two never drift. See
 
 - **Organization** — the tenant. Everything is scoped to the active org.
 - **Member / Invitation** — users belong to orgs with a role (owner/admin/…).
-- **Node** — a managed Linux box running `cookied`.
+- **Node** — a managed Linux box running `wings`.
 - **Server** — a Docker container (a game/app instance) running on a node.
-- **Template** — a reusable recipe for a server (image, variable schema,
-  startup, install script). Users pick Templates; raw image strings stay hidden.
+- **Egg** — a reusable recipe for a server (image, variable schema,
+  startup, install script). Users pick Eggs; raw image strings stay hidden.
 - **Network / Allocation (port)** — Docker networks and the port slots servers
   bind to on a node.
 - **Drive** — a physical disk on a node (format / mount / store server data).
@@ -59,15 +59,15 @@ Full glossary, fields, and relationships: `.claude/rules/domain.md`.
 
 Both halves are built and wired end-to-end. The panel's data/server layer is
 complete — every panel-owned entity (organizations, members, users, activity, the
-node registry, templates, billing, the admin surface) runs through the real
-repository → service → server-function layers. And **every planned `cookied`
+node registry, eggs, billing, the admin surface) runs through the real
+repository → service → server-function layers. And **every planned `wings`
 subsystem is implemented** and connected to the panel over the pinned HTTPS
 contract: enrollment + heartbeat, Docker servers (lifecycle + console + stats),
 networks/firewall/ports, the sandboxed file manager + SFTP, the egg install
 pipeline + config templating, the cron scheduler + borg backups, host maintenance
 + physical drives, the offline IPC socket + TUI, ACME TLS, disk quotas, and the
 Redis/Mongo/SQL database browsers. Releases ship via a tag-driven pipeline
-(`cookied` self-updates; new boxes install via the panel's `/install.sh`).
+(`wings` self-updates; new boxes install via the panel's `/install.sh`).
 
 So the work now is **testing and hardening, not building features**:
 
@@ -91,7 +91,7 @@ So the work now is **testing and hardening, not building features**:
 - **Secure by default.** Encrypt secrets at rest, never return secrets to the
   client, never log them. The daemon runs as root — validate all external input
   (paths, ports, names) and never shell-inject.
-- **Templates over images.** Users see Templates, never raw Docker image strings.
+- **Eggs over images.** Users see Eggs, never raw Docker image strings.
 
 Details and rationale: `.claude/rules/security.md`.
 
@@ -100,7 +100,7 @@ Details and rationale: `.claude/rules/security.md`.
 - `pnpm dev` — run the panel (Vite dev, :3000)
 - `pnpm build` / `pnpm typecheck` — build / type-check TS workspaces
 - `pnpm check` — Biome lint + format (write)
-- `pnpm daemon:build` / `pnpm daemon:run` — build / run the daemon
+- `pnpm wings:build` / `pnpm wings:run` — build / run the daemon
 
 ## Code style
 
@@ -125,21 +125,10 @@ area — they hold the detail this file deliberately leaves out.
 - `domain.md` — every domain noun, its fields, relationships, and lifecycle.
 - `panel.md` — panel conventions: the UI patterns and the data-layer shape
   (layering / routing / data-fetching / auth) behind them.
-- `daemon.md` — what `cookied` owns, subsystem by subsystem, and its on-box
+- `daemon.md` — what `wings` owns, subsystem by subsystem, and its on-box
   security posture.
 - `security.md` — the non-negotiables in full: tenant isolation, secrets,
   validating untrusted input on a root daemon.
 - `design.md` — design language orientation: "The Console" (dark) / "Daylight"
   is live; the full spec lives in `DESIGN.md` and the `impeccable` skill drives
   further design work.
-
-## Reference projects (read-only — never edit)
-
-Two earlier versions sit beside this repo. They are kept **for reference only;
-never edit them**, and you should not need them — this guide and the rules files
-are meant to be self-contained.
-
-- `../cookiepanel-old` — the most *complete* version: a full `cookied` daemon
-  and the API contract package.
-- `../cookiepanel-oldv2` — the cleanest *panel* structure (layering, auth,
-  templates, routing).

@@ -486,7 +486,7 @@ function FirewallBody({
 
 			{firewall.backend === "none" ? (
 				<p className="text-muted-foreground text-sm">
-					No managed firewall on this node (no ufw or iptables). CookiePanel
+					No managed firewall on this node (no ufw or iptables). RaptorPanel
 					isn't filtering inbound traffic here.
 				</p>
 			) : (

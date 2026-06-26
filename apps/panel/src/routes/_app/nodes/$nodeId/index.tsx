@@ -285,9 +285,7 @@ function DaemonCard({ node }: { node: NodeRow }) {
 		<Card>
 			<CardHeader>
 				<CardTitle>Daemon</CardTitle>
-				<CardDescription>
-					The cookied agent running on this node.
-				</CardDescription>
+				<CardDescription>The wings agent running on this node.</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-3">
 				<DetailList>
@@ -355,7 +353,7 @@ function ServersCard({
 										{server.name}
 									</div>
 									<div className="truncate text-muted-foreground text-xs">
-										{server.templateName}
+										{server.eggName}
 									</div>
 								</div>
 								<StatusIndicator status={serverStatus(server.state)} />

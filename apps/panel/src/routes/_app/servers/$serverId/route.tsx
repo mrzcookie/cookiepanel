@@ -8,11 +8,9 @@ import { RouteTabs, routeTabClassName } from "@/components/shared/route-tabs";
 import { StatusIndicator } from "@/components/shared/status-indicator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DATABASE_BROWSER_LABEL, hasDatabaseBrowser } from "@/lib/domain/eggs";
 import type { ServerRow } from "@/lib/domain/servers";
-import {
-	DATABASE_BROWSER_LABEL,
-	hasDatabaseBrowser,
-} from "@/lib/domain/templates";
+import { eggsListQueryOptions, useEgg } from "@/lib/eggs-queries";
 import {
 	invalidateServers,
 	restartServer,
@@ -21,16 +19,12 @@ import {
 	stopServer,
 } from "@/lib/server-queries";
 import { serverStatus } from "@/lib/status";
-import {
-	templatesListQueryOptions,
-	useTemplate,
-} from "@/lib/templates-queries";
 
 export const Route = createFileRoute("/_app/servers/$serverId")({
-	// Warm the templates cache so the per-tab template reads (startup, database)
+	// Warm the eggs cache so the per-tab egg reads (startup, database)
 	// resolve without a flash.
 	loader: ({ context }) =>
-		context.queryClient.ensureQueryData(templatesListQueryOptions()),
+		context.queryClient.ensureQueryData(eggsListQueryOptions()),
 	component: ServerDetailLayout,
 	notFoundComponent: () => (
 		<ErrorScreen
@@ -151,8 +145,8 @@ function PowerControls({ server }: { server: ServerRow }) {
 }
 
 function ServerChrome({ server }: { server: ServerRow }) {
-	const template = useTemplate(server.templateId);
-	const showBrowser = template ? hasDatabaseBrowser(template.features) : false;
+	const egg = useEgg(server.eggId);
+	const showBrowser = egg ? hasDatabaseBrowser(egg.features) : false;
 
 	return (
 		<>
@@ -161,7 +155,7 @@ function ServerChrome({ server }: { server: ServerRow }) {
 					actions={<PowerControls server={server} />}
 					back={{ label: "Servers", to: "/servers" }}
 					border={false}
-					description={`${server.templateName} · ${server.nodeName}`}
+					description={`${server.eggName} · ${server.nodeName}`}
 					title={
 						<span className="flex items-center gap-2.5">
 							{server.name}

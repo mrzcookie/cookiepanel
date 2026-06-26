@@ -1,1 +1,0 @@
-ALTER TABLE "template" ADD COLUMN "config_files" jsonb DEFAULT '[]'::jsonb NOT NULL;

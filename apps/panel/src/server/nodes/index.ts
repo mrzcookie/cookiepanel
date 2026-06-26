@@ -401,7 +401,7 @@ async function resolveDaemonRelease(
 		throw new Error("No daemon release is configured.");
 	}
 	const goarch = arch === "arm64" ? "arm64" : "amd64";
-	const url = `${base.replace(/\/$/, "")}/v${version.replace(/^v/, "")}/cookied-linux-${goarch}`;
+	const url = `${base.replace(/\/$/, "")}/v${version.replace(/^v/, "")}/wings-linux-${goarch}`;
 	const res = await fetch(`${url}.sha256`);
 	if (!res.ok) {
 		throw new Error(

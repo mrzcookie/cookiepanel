@@ -19,7 +19,7 @@ export const ADMIN_NAV = [
 	{ title: "Users", to: "/admin/users", icon: Users },
 	{ title: "Nodes", to: "/admin/nodes", icon: HardDrive },
 	{ title: "Subdomains", to: "/admin/subdomains", icon: Globe },
-	{ title: "Templates", to: "/admin/templates", icon: LayoutTemplate },
+	{ title: "Eggs", to: "/admin/eggs", icon: LayoutTemplate },
 	{ title: "Billing", to: "/admin/billing", icon: CreditCard },
 	{ title: "Activity", to: "/admin/activity", icon: Activity },
 	{ title: "Settings", to: "/admin/settings", icon: Settings },
