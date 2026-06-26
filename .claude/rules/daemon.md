@@ -89,6 +89,18 @@ Because the daemon is root, validation is consistent and up front:
 - `pnpm daemon:build` / `pnpm daemon:run` (Make targets). `make cross` builds
   linux amd64/arm64.
 - `gofmt` + `go vet` are enforced by the lefthook pre-commit hook and CI.
+- **Releasing.** Push a SemVer tag (`git tag v1.2.3 && git push --tags`) → the
+  `Release` workflow cross-builds the amd64/arm64 binaries (version stamped from
+  the tag), writes their `.sha256` sidecars, and publishes a GitHub Release. The
+  asset URLs match the panel's expected layout
+  (`<DAEMON_RELEASE_BASE_URL>/v<version>/cookied-linux-<arch>`), so point
+  `DAEMON_RELEASE_BASE_URL` at the repo's `releases/download` base, then bump
+  `DAEMON_LATEST_VERSION` on the panel to promote the build (a node's heartbeat
+  version is compared to it → per-node Update; `cookied`'s self-update verifies
+  the sha256 + atomically swaps the binary, then restarts via systemd). A fresh
+  box installs the pinned latest via the panel-served `/install.sh` (the
+  enrollment one-liner) — it arch-detects, downloads + verifies, runs
+  `configure`, and brings up the systemd unit.
 - Current subcommands: `configure` (exchange a bootstrap token for durable
   credentials), `run` (serve everything + heartbeat loop), `status` (print live
   status via the local socket), `tui` (offline operator console), `diagnostics`,

@@ -1,0 +1,53 @@
+name: Release
+
+# Cut a daemon release by pushing a SemVer tag, e.g. `git tag v1.2.3 && git push --tags`.
+# Builds the linux amd64/arm64 cookied binaries (version stamped from the tag),
+# writes their sha256 sidecars, and publishes a GitHub Release with all four
+# assets. The release-asset URLs match the panel's expected layout:
+#   <DAEMON_RELEASE_BASE_URL>/v<version>/cookied-linux-<arch>(.sha256)
+# so set DAEMON_RELEASE_BASE_URL to this repo's `releases/download` base, then
+# bump DAEMON_LATEST_VERSION on the panel to promote the build to the fleet.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # create the release + upload assets
+
+jobs:
+  release:
+    name: Build + publish cookied
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/daemon/go.mod
+          cache-dependency-path: apps/daemon/go.sum
+
+      - name: Cross-build (version stamped from the tag)
+        working-directory: apps/daemon
+        run: |
+          go vet ./...
+          make cross VERSION=${{ github.ref_name }}
+
+      - name: Checksums
+        working-directory: apps/daemon/bin
+        run: |
+          for f in cookied-linux-amd64 cookied-linux-arm64; do
+            sha256sum "$f" > "$f.sha256"
+          done
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          files: |
+            apps/daemon/bin/cookied-linux-amd64
+            apps/daemon/bin/cookied-linux-amd64.sha256
+            apps/daemon/bin/cookied-linux-arm64
+            apps/daemon/bin/cookied-linux-arm64.sha256

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as InstallDotshRouteImport } from './routes/install[.]sh'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
@@ -76,6 +77,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InstallDotshRoute = InstallDotshRouteImport.update({
+  id: '/install.sh',
+  path: '/install.sh',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomeRoute = HomeRouteImport.update({
@@ -375,6 +381,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/admin': typeof AdminRouteRouteWithChildren
   '/home': typeof HomeRoute
+  '/install.sh': typeof InstallDotshRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/account': typeof AppAccountRouteRouteWithChildren
@@ -432,6 +439,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/home': typeof HomeRoute
+  '/install.sh': typeof InstallDotshRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/templates': typeof AppTemplatesRoute
@@ -489,6 +497,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteRouteWithChildren
   '/admin': typeof AdminRouteRouteWithChildren
   '/home': typeof HomeRoute
+  '/install.sh': typeof InstallDotshRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/_app/account': typeof AppAccountRouteRouteWithChildren
@@ -551,6 +560,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/home'
+    | '/install.sh'
     | '/login'
     | '/onboarding'
     | '/account'
@@ -608,6 +618,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/home'
+    | '/install.sh'
     | '/login'
     | '/onboarding'
     | '/templates'
@@ -664,6 +675,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/admin'
     | '/home'
+    | '/install.sh'
     | '/login'
     | '/onboarding'
     | '/_app/account'
@@ -725,6 +737,7 @@ export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
   HomeRoute: typeof HomeRoute
+  InstallDotshRoute: typeof InstallDotshRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
   AcceptInvitationInvitationIdRoute: typeof AcceptInvitationInvitationIdRoute
@@ -749,6 +762,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/install.sh': {
+      id: '/install.sh'
+      path: '/install.sh'
+      fullPath: '/install.sh'
+      preLoaderRoute: typeof InstallDotshRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/home': {
@@ -1304,6 +1324,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
   AdminRouteRoute: AdminRouteRouteWithChildren,
   HomeRoute: HomeRoute,
+  InstallDotshRoute: InstallDotshRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
   AcceptInvitationInvitationIdRoute: AcceptInvitationInvitationIdRoute,
