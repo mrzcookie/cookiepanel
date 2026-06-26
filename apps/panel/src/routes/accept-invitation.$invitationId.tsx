@@ -5,9 +5,10 @@ import {
 	redirect,
 	useNavigate,
 } from "@tanstack/react-router";
-import { Cookie, Loader2, MailCheck, OctagonAlert } from "lucide-react";
+import { Loader2, MailCheck, OctagonAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { BrandMark } from "@/components/layout/brand-mark";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { fetchSession } from "@/server/auth/session";
@@ -106,7 +107,7 @@ function AcceptInvitation() {
 					className="flex items-center justify-center gap-2 font-bold text-base tracking-tight"
 					to="/home"
 				>
-					<Cookie className="size-5 text-primary" strokeWidth={2} />
+					<BrandMark />
 					Raptor Panel
 				</Link>
 

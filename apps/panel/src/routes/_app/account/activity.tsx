@@ -78,31 +78,35 @@ function describe(entry: ActivityEntry): string {
 				? `Removed the node ${entry.target}`
 				: "Removed a node";
 		case "egg.created":
-			return entry.target ? `Created the egg ${entry.target}` : "Created a egg";
+			return entry.target
+				? `Created the egg ${entry.target}`
+				: "Created an egg";
 		case "egg.updated":
-			return entry.target ? `Edited the egg ${entry.target}` : "Edited a egg";
+			return entry.target ? `Edited the egg ${entry.target}` : "Edited an egg";
 		case "egg.published":
 			return entry.target
 				? `Published the egg ${entry.target}`
-				: "Published a egg";
+				: "Published an egg";
 		case "egg.unpublished":
 			return entry.target
 				? `Moved the egg ${entry.target} back to draft`
-				: "Unpublished a egg";
+				: "Unpublished an egg";
 		case "egg.archived":
 			return entry.target
 				? `Archived the egg ${entry.target}`
-				: "Archived a egg";
+				: "Archived an egg";
 		case "egg.forked":
 			return entry.target
 				? `Customized the egg ${entry.target}`
-				: "Customized a egg";
+				: "Customized an egg";
 		case "egg.imported":
 			return entry.target
 				? `Imported the egg ${entry.target}`
-				: "Imported a egg";
+				: "Imported an egg";
 		case "egg.deleted":
-			return entry.target ? `Deleted the egg ${entry.target}` : "Deleted a egg";
+			return entry.target
+				? `Deleted the egg ${entry.target}`
+				: "Deleted an egg";
 		default: {
 			const phrase = entry.action.replace(/[._]/g, " ");
 			const base = phrase.charAt(0).toUpperCase() + phrase.slice(1);

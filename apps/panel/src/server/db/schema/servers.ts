@@ -17,7 +17,7 @@ export type SealedVariables = Record<string, string>;
 
 /**
  * Server registry — the panel's *desired* state for a Docker container deployed
- * from a Egg. The container itself (and its live cpu/mem/uptime) is
+ * from an Egg. The container itself (and its live cpu/mem/uptime) is
  * daemon-owned; this row holds intent: which node, the egg snapshot, the
  * resolved image (server-only), limits, and the variable values. `state` is the
  * last-observed lifecycle the daemon reconciles onto.

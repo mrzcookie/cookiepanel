@@ -4,7 +4,7 @@ A hosted, multi-tenant control panel for running Docker game servers and apps on
 **your own Linux boxes** — plus the per-box daemon that does the work.
 
 Connect a machine you own and Raptor turns it into a managed fleet: deploy a
-server from a **Egg**, watch live resource usage, and manage files,
+server from an **Egg**, watch live resource usage, and manage files,
 networks, ports, firewall, schedules, and backups — no terminal required. It's
 built for people who aren't Linux admins: you think in *servers* and *eggs*,
 not images and containers. The goal is **easy + secure** by default.
@@ -28,7 +28,7 @@ status. A shared API contract keeps the two in sync. (See
 ```
 apps/
   panel/    TanStack Start web app + API (the hosted panel)
-  daemon/   wings — the Go agent that runs on each managed box
+  wings/    the Go agent that runs on each managed box
 ```
 
 > **Status: feature-complete; now in testing/hardening.** The panel's data layer

@@ -84,7 +84,7 @@ The panel and daemon don't share a CA or a network (see `architecture.md`):
 
 Users pick **Eggs**, never raw Docker image strings. The image string and
 its digest are **server-only**; the client sees a friendly label. Official
-(platform-owned) eggs are read-only to tenants. A egg's install script
+(platform-owned) eggs are read-only to tenants. An egg's install script
 runs as root on the box, so the daemon isolates it in a resource-bounded
 throwaway container with a hard timeout (see `daemon.md`). This keeps untrusted
 image/script choices behind a curated, auditable boundary.

@@ -16,7 +16,7 @@ import {
 import { type EggInputParsed, isValidEnvName } from "./validation";
 
 /**
- * Bring a egg in from an export. Two shapes are accepted, detected per
+ * Bring an egg in from an export. Two shapes are accepted, detected per
  * field rather than by a format flag:
  *  - a Pterodactyl / Pelican egg (`docker_images`, `env_variable`, Laravel-style
  *    rule strings), the dominant interchange format; and

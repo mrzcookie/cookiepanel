@@ -33,7 +33,7 @@ export const ORG_EGG_SCOPE: EggScope = {
 	viewKey: "eggs",
 	listDescription: "Reusable recipes for deploying servers.",
 	emptyTitle: "No eggs yet",
-	emptyDescription: "Create or import a egg to deploy servers from it.",
+	emptyDescription: "Create or import an egg to deploy servers from it.",
 };
 
 /** The admin library: the official eggs every organization deploys from. */

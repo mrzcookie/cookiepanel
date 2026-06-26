@@ -1,8 +1,9 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { Cookie, Loader2, MailCheck } from "lucide-react";
+import { Loader2, MailCheck } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { toast } from "sonner";
 import { AuthDivider, SocialSignIn } from "@/components/auth/social-sign-in";
+import { BrandMark } from "@/components/layout/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,7 +67,7 @@ function Login() {
 					className="flex items-center justify-center gap-2 font-bold text-base tracking-tight"
 					to="/home"
 				>
-					<Cookie className="size-5 text-primary" strokeWidth={2} />
+					<BrandMark />
 					Raptor Panel
 				</Link>
 

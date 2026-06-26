@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 // Monaco is browser-only and heavy, so it's lazy-loaded and gated behind a
 // client mount: on SSR (and first paint) we render a placeholder, and the real
 // editor swaps in on the client. The chunk only loads when this component
-// mounts (e.g. when a egg's Install tab or a server file is opened).
+// mounts (e.g. when an egg's Install tab or a server file is opened).
 //
 // We bundle Monaco from node_modules instead of fetching it from a CDN: load
 // the editor core + the shell grammar, wire MonacoEnvironment so the worker

@@ -2,7 +2,7 @@ import { Archive, FilePen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { type Egg, knownFeatures, shownVariables } from "@/lib/domain/eggs";
 
-// The read-only body of a egg detail page — status notice, lineage, copy,
+// The read-only body of an egg detail page — status notice, lineage, copy,
 // features, runtimes, and settings. Shared by the org detail (/eggs/$id)
 // and the admin official detail (/admin/eggs/$id); each route supplies its
 // own PageHeader + actions. `canEdit` only tunes the draft-notice wording (an

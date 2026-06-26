@@ -93,7 +93,7 @@ const configFileSchema = z.object({
 	replace: z.record(z.string().max(500), z.string().max(4000)).default({}),
 });
 
-/** The author-editable slice of a egg — what create/update accept. */
+/** The author-editable slice of an egg — what create/update accept. */
 export const eggInputSchema = z.object({
 	name: z.string().trim().min(1).max(120),
 	summary: z.string().max(300).default(""),

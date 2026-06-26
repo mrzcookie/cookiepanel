@@ -103,7 +103,7 @@ export function ImportEggDialog({
 		>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Import a egg</DialogTitle>
+					<DialogTitle>Import an egg</DialogTitle>
 					<DialogDescription>
 						Bring in a Pterodactyl or Pelican egg export (.json). It lands as a
 						draft you can review and publish.

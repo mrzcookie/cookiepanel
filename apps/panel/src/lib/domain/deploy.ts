@@ -1,4 +1,4 @@
-// Pure, client-safe helpers for deploying a server from a egg: node
+// Pure, client-safe helpers for deploying a server from an egg: node
 // capacity readouts, sensible starting limits bounded by a node's allocatable
 // caps, and a conventional starting port. No React, no stores — the wizard and
 // the use-egg dialog share these so a deploy reads the same everywhere.

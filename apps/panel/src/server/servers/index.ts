@@ -104,7 +104,7 @@ type EggSnapshot = {
 	variables: EggVariableRecord[];
 };
 
-/** Load a egg the org can deploy (its own, or a published official one). */
+/** Load an egg the org can deploy (its own, or a published official one). */
 async function loadEgg(orgId: string, eggId: string): Promise<EggSnapshot> {
 	const egg = await eggsRepository.findVisible({ kind: "org", orgId }, eggId);
 	if (!egg) {
@@ -193,7 +193,7 @@ function resolveConfigFiles(
 	}));
 }
 
-/** The egg install step for a egg, or undefined when it has no script. */
+/** The egg install step for an egg, or undefined when it has no script. */
 function installSpec(
 	egg: EggRecord,
 	runtimeImage: string,
@@ -203,7 +203,7 @@ function installSpec(
 		return undefined;
 	}
 	return {
-		// A egg with a script but no install image is misconfigured; fall back
+		// An egg with a script but no install image is misconfigured; fall back
 		// to the runtime image (the daemon does the same, but be explicit).
 		image: egg.installContainerImage || runtimeImage,
 		entrypoint: egg.installEntrypoint,
@@ -563,7 +563,7 @@ export const updateServerVariables = createServerFn({ method: "POST" })
 		// Only touch what this request provides: re-seal secrets explicitly given (an
 		// empty value means "keep current"), and merge non-secret values over the
 		// stored snapshot. Untouched secrets keep their existing ciphertext — they're
-		// never reset to a egg default.
+		// never reset to an egg default.
 		const variables = { ...record.variables };
 		const secretVariables = { ...record.secretVariables };
 		for (const [key, value] of Object.entries(data.variables)) {

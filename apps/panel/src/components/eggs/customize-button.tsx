@@ -8,7 +8,7 @@ import { invalidateEggs } from "@/lib/eggs-queries";
 import { forkEgg } from "@/server/eggs";
 
 /**
- * Make an editable copy of a egg in the active org. "Customize" rather than
+ * Make an editable copy of an egg in the active org. "Customize" rather than
  * "fork" in user-facing copy; lineage is recorded as "Based on X". Always an
  * org-side action — it copies an official (or own) egg into the active org.
  */

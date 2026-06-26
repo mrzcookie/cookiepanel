@@ -54,7 +54,7 @@ const HEADINGS = [
 	{
 		description:
 			"Pick what you want to run. We'll handle the runtime, install, and setup.",
-		title: "Choose a egg",
+		title: "Choose an egg",
 	},
 	{
 		description:
@@ -258,7 +258,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 
 	async function deploy() {
 		if (!(egg && node) || !isDeployable(egg) || !isDeployTarget(node)) {
-			toast.error("Pick a egg and a connected node.");
+			toast.error("Pick an egg and a connected node.");
 			return;
 		}
 		if (!portInRange) {
@@ -328,7 +328,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 						<Link to="/eggs">Go to eggs</Link>
 					</Button>
 				}
-				description="A egg has to be published before you can launch a server from it. Publish one, or browse the catalog."
+				description="An egg has to be published before you can launch a server from it. Publish one, or browse the catalog."
 				icon={LayoutTemplate}
 				title="No eggs to deploy"
 			/>
@@ -376,7 +376,7 @@ export function CreateServerWizard({ preselectId }: { preselectId?: string }) {
 		<>
 			<PageHeader
 				back={{ label: "Servers", to: "/servers" }}
-				description="Pick a egg, choose where it runs, and we'll install and start it for you."
+				description="Pick an egg, choose where it runs, and we'll install and start it for you."
 				title="Create a server"
 			/>
 

@@ -25,7 +25,7 @@ import { organization } from "./auth";
 
 /**
  * Eggs — the panel's "eggs": reusable, deployable recipes for a server.
- * Panel-owned *desired* state, the first richly-relational entity. A egg
+ * Panel-owned *desired* state, the first richly-relational entity. An egg
  * fans out into two child tables (runtimes + variables) so each is indexed and
  * the security boundary is explicit.
  *
@@ -40,7 +40,7 @@ import { organization } from "./auth";
  * client only ever receives the friendly `label` outside the write-gated editor
  * (the eggs-over-images promise). The consumer projection blanks `image`.
  *
- * Live linkage (a egg's deployed-server count) is *derived* from servers,
+ * Live linkage (an egg's deployed-server count) is *derived* from servers,
  * which are daemon-owned and don't exist yet — so it isn't stored here; the
  * projection reports 0 until servers are wired.
  */

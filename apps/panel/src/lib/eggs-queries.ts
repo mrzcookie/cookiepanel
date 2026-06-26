@@ -156,7 +156,7 @@ export function invalidateEggs(queryClient: QueryClient): Promise<void> {
 }
 
 /**
- * Optimistically nudge a egg's deployed-server count in the catalog cache.
+ * Optimistically nudge an egg's deployed-server count in the catalog cache.
  * A bridge for the still-stubbed deploy flow (servers are daemon-owned and
  * unwired, so the backend count is 0); drops out once servers report for real.
  */

@@ -174,7 +174,7 @@ function toVariableValues(input: EggInputParsed) {
 		name: variable.name,
 		description: variable.description,
 		envVariable: variable.envVariable,
-		// Secrets are write-only per-server; a egg never stores a value.
+		// Secrets are write-only per-server; an egg never stores a value.
 		defaultValue: variable.access === "secret" ? null : variable.defaultValue,
 		type: variable.type,
 		required: variable.required,
@@ -287,7 +287,7 @@ export async function updateEgg(
 	return { ok: true };
 }
 
-/** Plain-language reasons a egg can't be published — the server backstop. */
+/** Plain-language reasons an egg can't be published — the server backstop. */
 async function publishBlockers(record: EggRecord): Promise<string[]> {
 	const blockers: string[] = [];
 	if (!record.name.trim()) {
@@ -324,7 +324,7 @@ export async function publishEgg(
 	return { ok: true, version };
 }
 
-/** Move a egg back to draft (from published or archived). */
+/** Move an egg back to draft (from published or archived). */
 export async function unpublishEgg(
 	scope: OwnerScope,
 	actor: Actor,
@@ -339,7 +339,7 @@ export async function unpublishEgg(
 	return { ok: true };
 }
 
-/** Take a egg out of the catalog (existing servers unaffected). */
+/** Take an egg out of the catalog (existing servers unaffected). */
 export async function archiveEgg(
 	scope: OwnerScope,
 	actor: Actor,
@@ -420,7 +420,7 @@ export async function importEggFromUrl(
 }
 
 /**
- * Delete a egg. Refused while servers still reference it (archive instead).
+ * Delete an egg. Refused while servers still reference it (archive instead).
  * Servers are daemon-owned and unwired, so the count is 0 today — the guard is
  * kept so the contract is right when they land.
  */

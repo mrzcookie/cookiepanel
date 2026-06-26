@@ -59,7 +59,7 @@ comes from heartbeats and is merged in on read.
 - Actions: update daemon, restart daemon, prune, reboot, remove.
 
 ### Server — a Docker container (a game/app instance) on a Node
-Created from a Egg. A panel **registry row** (org/node, the egg id +
+Created from an Egg. A panel **registry row** (org/node, the egg id +
 version snapshotted at creation, the server-only image string, and sealed secret
 variables) carrying **daemon-derived live state** (state, cpu/mem) merged in at
 read time.
@@ -105,11 +105,11 @@ A reusable, deployable recipe for a server/app, and the embodiment of the
 is the panel's first and richest DB-backed entity.
 - Ownership: `organizationId` **NULL = official/platform-owned** (read-only to
   every org); non-null = org-owned and editable. That null check is the *only*
-  switch marking a egg "official."
+  switch marking an egg "official."
 - Shape: `name` / `slug` / `summary` / `description`, `category`, an icon
   reference (S3 key), `origin` (official / scratch / import / fork), `status`
   (draft → published → archived), and a `version` that bumps on re-publish.
-- Lineage: a egg can be **forked** from an official/org one (single-level).
+- Lineage: an egg can be **forked** from an official/org one (single-level).
 - Runtime config: a `startupCommand` with `{{VAR}}` tokens, stop signal, "done"
   markers, config-file templates.
 - Install spec: an optional `installScript` (+ container image + entrypoint).
@@ -117,7 +117,7 @@ is the panel's first and richest DB-backed entity.
   in a resource-bounded throwaway container with a hard timeout, never on the
   host (see `daemon.md`).
 
-Two child collections hang off a Egg:
+Two child collections hang off an Egg:
 
 - **Images** — a `label` → Docker `image` mapping. **The image string and its
   digest are server-only**; the client only ever sees the friendly label. This

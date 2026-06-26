@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	Boxes,
-	Cookie,
 	FolderTree,
 	Gauge,
 	type LucideIcon,
 	ShieldCheck,
 } from "lucide-react";
+import { BrandMark } from "@/components/layout/brand-mark";
 import { CopyButton } from "@/components/shared/detail-list";
 import { Button } from "@/components/ui/button";
 
@@ -26,7 +26,7 @@ const FEATURES: {
 		icon: Boxes,
 		label: "deploy",
 		title: "Eggs, not images",
-		body: "Pick a Egg and fill in a few friendly fields. Raw Docker image strings stay hidden.",
+		body: "Pick an Egg and fill in a few friendly fields. Raw Docker image strings stay hidden.",
 	},
 	{
 		icon: Gauge,
@@ -47,7 +47,7 @@ function Landing() {
 		<div className="flex min-h-svh flex-col bg-background text-foreground">
 			<header className="flex h-14 shrink-0 items-center justify-between border-b px-6">
 				<span className="flex items-center gap-2">
-					<Cookie className="size-5 text-primary" strokeWidth={2} />
+					<BrandMark />
 					<span className="font-bold text-base tracking-tight">
 						Raptor Panel
 					</span>
@@ -73,7 +73,7 @@ function Landing() {
 					</h1>
 					<p className="max-w-xl text-balance text-base text-muted-foreground">
 						Connect a Linux box and Raptor turns it into a managed fleet: spin
-						up a Minecraft or any server from a Egg, then handle files, ports,
+						up a Minecraft or any server from an Egg, then handle files, ports,
 						schedules, and backups from one calm control surface.
 					</p>
 					<div className="flex flex-wrap items-center gap-3 pt-1">

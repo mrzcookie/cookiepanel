@@ -10,7 +10,7 @@ import { egg, eggImage, eggVariable } from "@/server/db/schema/eggs";
  * from; org-owned stub eggs are *not* seeded (they belong to no real org).
  *
  * Idempotent: keyed on the egg id (the stub's stable UUID, preserved so any
- * stubbed server's `eggId` still resolves), it inserts a egg once and
+ * stubbed server's `eggId` still resolves), it inserts an egg once and
  * skips it on re-run. Run with `pnpm db:seed` (after `pnpm db:migrate`).
  */
 async function seed() {

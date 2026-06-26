@@ -3,7 +3,7 @@
 Raptor is a **hosted, multi-tenant control panel for running Docker game
 servers and apps on your own Linux boxes**. You connect a machine you own, and
 Raptor turns it into a managed fleet: spin up a Minecraft (or any) server
-from a **Egg**, watch live CPU/memory, and manage files, networks, ports,
+from an **Egg**, watch live CPU/memory, and manage files, networks, ports,
 firewall, schedules, and backups — without touching a terminal.
 
 The user we build for is **not a Linux admin**. They think in "servers" and

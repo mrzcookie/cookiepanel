@@ -27,7 +27,7 @@ their backend exists:
   `design.md` / `DESIGN.md`.
 
 When in doubt, model a page on its eventual job (a fleet view, a server detail,
-a egg editor) but implement only the view with fake data.
+an egg editor) but implement only the view with fake data.
 
 **Folder layout.** Where components and lib modules go (the `ui`/`layout`/`shared`/
 domain split, the `lib/domain` vs `stores` vs `stubs` split, the server import

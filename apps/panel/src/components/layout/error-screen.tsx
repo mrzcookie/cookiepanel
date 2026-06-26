@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { Cookie } from "lucide-react";
 import type { ReactNode } from "react";
+import { BrandMark } from "@/components/layout/brand-mark";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +33,7 @@ export function ErrorScreen({
 			)}
 		>
 			<div className="w-full max-w-md space-y-5 text-center">
-				<Cookie
+				<BrandMark
 					className="mx-auto size-7 text-muted-foreground"
 					strokeWidth={1.75}
 				/>

@@ -74,14 +74,14 @@ function visibleWhere(scope: OwnerScope) {
  * The only module that touches the egg tables. The service resolves a
  * verified `OwnerScope` (from the session, never the client) and this layer
  * trusts and scopes by it. Writes mint their own ids and run their child
- * rewrites in a transaction so a egg never half-updates.
+ * rewrites in a transaction so an egg never half-updates.
  */
 export const eggsRepository = {
 	/** Eggs visible to a scope, alphabetical by name (the catalog re-sorts). */
 	list: (scope: OwnerScope): Promise<EggRecord[]> =>
 		db.select().from(egg).where(visibleWhere(scope)).orderBy(asc(egg.name)),
 
-	/** A egg visible to a scope (own, or published official) — for fork. */
+	/** An egg visible to a scope (own, or published official) — for fork. */
 	findVisible: (
 		scope: OwnerScope,
 		id: string
@@ -93,7 +93,7 @@ export const eggsRepository = {
 			.limit(1)
 			.then((rows) => rows.at(0)),
 
-	/** A egg *owned* by a scope — the gate for edit / publish / delete. */
+	/** An egg *owned* by a scope — the gate for edit / publish / delete. */
 	findOwned: (scope: OwnerScope, id: string): Promise<EggRecord | undefined> =>
 		db
 			.select()
@@ -130,7 +130,7 @@ export const eggsRepository = {
 					.where(inArray(eggVariable.eggId, eggIds))
 					.orderBy(asc(eggVariable.sortOrder)),
 
-	/** Create a egg with its runtimes + variables atomically. */
+	/** Create an egg with its runtimes + variables atomically. */
 	create: (
 		scope: OwnerScope,
 		values: EggValues,
@@ -172,7 +172,7 @@ export const eggsRepository = {
 			return row;
 		}),
 
-	/** Patch a egg's own fields, scoped to its owner. */
+	/** Patch an egg's own fields, scoped to its owner. */
 	update: (
 		scope: OwnerScope,
 		id: string,
@@ -233,7 +233,7 @@ export const eggsRepository = {
 			return row;
 		}),
 
-	/** Delete a egg (children cascade), scoped to its owner. */
+	/** Delete an egg (children cascade), scoped to its owner. */
 	remove: (
 		scope: OwnerScope,
 		id: string

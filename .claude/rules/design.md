@@ -8,7 +8,7 @@
 
 ## Now
 
-- The theme is applied: azure-on-ink, mono-as-chassis, `[ LABEL ]` bracket status
+- The theme is applied: signal-red-on-ink, mono-as-chassis, `[ LABEL ]` bracket status
   chips, `// section` eyebrows, hairlines not shadows, sharp `0.25rem` corners.
   Read **`DESIGN.md`** before touching UI.
 - Use the **semantic tokens** (`text-ok`/`text-warn`/`bg-warn-wash`/…), never

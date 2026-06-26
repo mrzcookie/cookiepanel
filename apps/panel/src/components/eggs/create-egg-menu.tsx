@@ -30,7 +30,7 @@ export function CreateEggMenu({ scope }: { scope: EggScope }) {
 						</Link>
 					</DropdownMenuItem>
 					<DropdownMenuItem onSelect={() => setImportOpen(true)}>
-						<FileUp className="size-4" /> Import a egg
+						<FileUp className="size-4" /> Import an egg
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>

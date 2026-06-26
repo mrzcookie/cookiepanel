@@ -1,6 +1,6 @@
 // Egg domain types + pure, client-safe helpers.
 //
-// A Egg is Raptor's "egg": a deployable recipe for a game server or
+// An Egg is Raptor's "egg": a deployable recipe for a game server or
 // app — friendly variables, one or more runtime images, a startup command, and
 // an optional install script. Users pick Eggs, never raw Docker image
 // strings: an image lives on a *runtime* and is an authoring detail, surfaced
@@ -23,7 +23,7 @@ export const EGG_CATEGORIES = [
 ] as const;
 export type EggCategory = (typeof EGG_CATEGORIES)[number];
 
-/** How a egg came to exist (provenance, for the UI). */
+/** How an egg came to exist (provenance, for the UI). */
 export type EggOrigin = "official" | "scratch" | "import" | "fork";
 
 export type EggStatus = "draft" | "published" | "archived";
@@ -182,7 +182,7 @@ export const DATABASE_BROWSER_FEATURE = "database:browser";
 
 export type DatabaseEngine = "sql" | "redis" | "mongo";
 
-/** Whether a egg enables the Browser add-on. */
+/** Whether an egg enables the Browser add-on. */
 export function hasDatabaseBrowser(features: EggFeature[]): boolean {
 	return features.some((feature) => feature.key === DATABASE_BROWSER_FEATURE);
 }
@@ -273,7 +273,7 @@ export type Egg = {
 };
 
 /**
- * The author-editable slice of a egg — what the editor produces and the
+ * The author-editable slice of an egg — what the editor produces and the
  * store applies on create/update. Everything else (id, slug, status, version,
  * official, lineage, ack) is managed by the store.
  */
@@ -304,7 +304,7 @@ export function isEditable(egg: Egg): boolean {
 }
 
 /**
- * Plain-language reasons a egg can't yet be published/deployed. An empty
+ * Plain-language reasons an egg can't yet be published/deployed. An empty
  * list means it's ready. Mirrors the eventual server-side publish guard.
  */
 export function deployBlockers(egg: Egg): string[] {

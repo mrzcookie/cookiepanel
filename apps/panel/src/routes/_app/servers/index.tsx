@@ -48,7 +48,7 @@ function Servers() {
 			createLabel="Deploy server"
 			description="Game and app instances you're running."
 			eyebrow="fleet"
-			emptyDescription="Servers you deploy from a egg will appear here."
+			emptyDescription="Servers you deploy from an egg will appear here."
 			emptyTitle="No servers yet"
 			filter={(server, q) =>
 				server.name.toLowerCase().includes(q) ||

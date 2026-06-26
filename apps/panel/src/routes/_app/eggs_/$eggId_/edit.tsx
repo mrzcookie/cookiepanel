@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_app/eggs_/$eggId_/edit")({
 
 function EditEgg() {
 	const { eggId } = Route.useParams();
-	// The edit view carries raw image strings and resolves only for a egg
+	// The edit view carries raw image strings and resolves only for an egg
 	// this org owns; a missing or official (read-only) one comes back null, and
 	// resolves to the same friendly screen so the two are indistinguishable.
 	const { data: egg } = useSuspenseQuery(eggEditQueryOptions(eggId));

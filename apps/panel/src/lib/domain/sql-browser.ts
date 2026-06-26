@@ -15,7 +15,7 @@ export type SqlUser = S["SqlUser"];
 /** The finer SQL engine — `databaseEngine()` only resolves to "sql". */
 export type SqlEngine = "postgres" | "mysql";
 
-// Detect Postgres vs MySQL/MariaDB from a egg's friendly name. The daemon
+// Detect Postgres vs MySQL/MariaDB from an egg's friendly name. The daemon
 // needs this to pick the driver, container port, and dialect; everything that
 // isn't Postgres uses the MySQL driver (MariaDB shares its wire protocol).
 export function sqlEngine(text: string): SqlEngine {

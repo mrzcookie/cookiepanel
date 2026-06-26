@@ -142,31 +142,35 @@ function describe(entry: ActivityEntry): string {
 				? `deleted the account ${entry.target}`
 				: "deleted an account";
 		case "egg.created":
-			return entry.target ? `created the egg ${entry.target}` : "created a egg";
+			return entry.target
+				? `created the egg ${entry.target}`
+				: "created an egg";
 		case "egg.updated":
-			return entry.target ? `edited the egg ${entry.target}` : "edited a egg";
+			return entry.target ? `edited the egg ${entry.target}` : "edited an egg";
 		case "egg.published":
 			return entry.target
 				? `published the egg ${entry.target}`
-				: "published a egg";
+				: "published an egg";
 		case "egg.unpublished":
 			return entry.target
 				? `moved the egg ${entry.target} back to draft`
-				: "unpublished a egg";
+				: "unpublished an egg";
 		case "egg.archived":
 			return entry.target
 				? `archived the egg ${entry.target}`
-				: "archived a egg";
+				: "archived an egg";
 		case "egg.forked":
 			return entry.target
 				? `customized the egg ${entry.target}`
-				: "customized a egg";
+				: "customized an egg";
 		case "egg.imported":
 			return entry.target
 				? `imported the egg ${entry.target}`
-				: "imported a egg";
+				: "imported an egg";
 		case "egg.deleted":
-			return entry.target ? `deleted the egg ${entry.target}` : "deleted a egg";
+			return entry.target
+				? `deleted the egg ${entry.target}`
+				: "deleted an egg";
 		default: {
 			const phrase = entry.action.replace(/[._]/g, " ");
 			return entry.target ? `${phrase}: ${entry.target}` : phrase;
