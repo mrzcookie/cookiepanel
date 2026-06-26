@@ -1,24 +1,23 @@
 # Domain model
 
-> **Status.** This is the product's *conceptual* model — what the nouns are and
-> how they relate. The panel-owned entities (below) are **now real Postgres
-> tables**; the daemon-derived ones are being brought to life as the daemon is
-> built, slice by slice — until a given slice lands they stay stubbed. Field lists
-> are the intended shape, drawn from the prior rewrite; treat exact field names as
-> a strong starting point, not a frozen schema.
+> **Status: built.** This is the product's *conceptual* model — what the nouns
+> are and how they relate. The panel-owned entities (below) are real Postgres
+> tables; the daemon-derived ones are live from the box (reported over the
+> contract, merged onto the registry at read time). All of it is implemented;
+> field names here are descriptive, not a frozen schema.
 
 Everything is scoped to an **Organization**. The model splits cleanly into two
 halves, and that split is the important, durable part:
 
 - **Panel-owned (DB-backed, Postgres):** Organization, User, Member, Invitation,
-  Node *registry*, Template (+ images + variables), Port allocations, SSH key,
-  Activity log. These are *desired state* and identity — the panel's source of
-  truth.
-- **Daemon-derived (live, from the box):** Server (container), Network, Drive,
-  Firewall, and a node's *live* fields (status, hardware, usage, heartbeats).
-  These are *actual state* — the daemon reports them; the panel layers them onto
-  the registry at read time. Until the daemon exists these come from in-memory
-  stubs.
+  Node *registry*, Server *registry* (template snapshot + sealed secret vars),
+  Template (+ images + variables), Port allocations, Activity log. These are
+  *desired state* and identity — the panel's source of truth.
+- **Daemon-derived (live, from the box):** a Server's *live* state (running/
+  stopped, cpu/mem), Network, Drive, Firewall, and a Node's *live* fields
+  (status, hardware, usage, heartbeats). These are *actual state* — the daemon
+  reports them and the panel layers them onto the registry at read time; when a
+  box is unreachable they read as `{ ok: false }` and the UI degrades.
 
 ## Tenancy & identity
 
@@ -29,8 +28,10 @@ templates. **Org-scoping is the central invariant** — re-verified server-side 
 every operation, never trusted from the session alone. See `security.md`.
 
 ### User
-An account, managed by the auth layer. Owns **SSH keys** (account-level, not
-org-level) and a theme preference. Belongs to orgs via Member.
+An account, managed by the auth layer. Holds a theme preference (also persisted
+to the row so it follows the account). Belongs to orgs via Member. (File access
+is per-server SFTP with daemon-minted credentials — there are no account-level
+SSH keys.)
 
 ### Member
 The join between a User and an Organization, with a `role` (owner / admin /
@@ -58,8 +59,10 @@ comes from heartbeats and is merged in on read.
 - Actions: update daemon, restart daemon, prune, reboot, remove.
 
 ### Server — a Docker container (a game/app instance) on a Node
-Created from a Template. **Daemon-derived live state** (no panel table; a stub
-store today).
+Created from a Template. A panel **registry row** (org/node, the template id +
+version snapshotted at creation, the server-only image string, and sealed secret
+variables) carrying **daemon-derived live state** (state, cpu/mem) merged in at
+read time.
 - Fields: `nodeId`, `name`, `templateName` (friendly — **never a raw image
   string**), the `templateId` + version **snapshotted at creation**,
   `updateAvailable` (the source template has a newer published version), `state`
@@ -132,27 +135,23 @@ rule syntax or raw image strings.
 
 ## Access & audit
 
-### SSH key
-Account-level (belongs to the **User**, not the org): name, type, public key,
-fingerprint. Used for file-management access.
-
 ### Activity log
 Audit trail of meaningful actions: who, which org, category, action, target, IP.
 
-## Planned but not yet modeled
+## Daemon-owned automation & access
 
-These are real product nouns from the north star but had **no schema in the
-panel reference** — they are **daemon-owned** and land in a later phase. The full
-`../cookiepanel-old` daemon has working implementations to draw from.
+These nouns have **no panel table** — they live on the box (so they keep working
+while the panel is offline) and the panel reads/edits them over the contract,
+degrading to `{ ok: false }` when a box is unreachable.
 
-- **Schedule** — daemon-side cron automation for a server. Typed steps:
-  command / wait / power (start/stop/restart) / backup. Lives on the box so it
-  fires while the panel is offline.
-- **Backup** — snapshot/restore of a server's data volume (deduplicated, with
-  retention). Runs on the box.
-- **SFTP session** — file-manager access to a server, via either a per-session
-  generated username/password *or* the account's SSH keys. (The file-manager UI
-  is a later phase.)
+- **Schedule** — cron automation for a server. Typed steps: command / wait /
+  power (start/stop/restart) / backup. Defined in the daemon's local store so it
+  fires across restarts and while the panel is down; the panel is the editor.
+- **Backup** — snapshot/restore of a server's data volume, deduplicated borg
+  archives with a shared per-node repo. Runs in a throwaway container.
+- **SFTP session** — per-server file access via a daemon-minted, short-lived
+  username/password (one active per server). The file manager (browse/edit/
+  upload/download/archive) is built on top.
 
 ## Desired vs. actual state (the reconciliation idea)
 

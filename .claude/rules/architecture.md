@@ -1,11 +1,10 @@
 # Architecture — the two halves and how they talk
 
-> **Status.** The panel↔daemon connection below is the **target protocol, now
-> being built** in vertical slices. The panel side (auth + data layer) is mature;
-> `apps/daemon` has moved from a stub into an active build. Enrollment + heartbeat
-> land first (a box pairs and flips `pending → online`), then the HTTPS control
-> channel + cert pinning, then the per-subsystem surface. Where a piece isn't
-> built yet, this is the spec it's converging on.
+> **Status: built.** The panel↔daemon protocol below is implemented on both
+> sides — enrollment + heartbeat, the pinned HTTPS control channel, and the full
+> per-subsystem surface. The panel's auth + data layer is mature; `apps/daemon`
+> implements every subsystem. What remains is end-to-end testing on real boxes,
+> not building the wire. This describes how it works today.
 
 CookiePanel is one product split into two programs that run in different places
 and trust each other over the network.
@@ -133,18 +132,18 @@ intentionally **not** modelled — it isn't request/response shaped.
 
 ## Panel-side note
 
-How the panel's server layer actually reaches the daemon — a dedicated client
-module, a fake-vs-real split for dev, where timeouts and the pinning agent live
-— is an **open design choice for this rewrite, not yet decided**. The prior
-version routed everything through one client abstraction; we may or may not do
-the same. What's fixed is the *protocol above* (HTTPS + node key + cert pin +
-contract), not the panel's internal plumbing for it. Don't enshrine a particular
-client shape in code or docs until we choose one.
+The panel reaches each box through **one client module** —
+`src/server/nodes/daemon-client.ts`. It owns the whole seam: `loadDialer(nodeId)`
+unseals the node key, the cert-pinning agent verifies `sha256(leaf)` against the
+pin (or trust-store for ACME) before any byte is written, per-op timeouts apply,
+and `DaemonError` carries failures. Panel business logic depends on the typed
+wrappers there (and on `DaemonRead<T>` for reads that degrade when a box is
+offline) — never on raw daemon HTTP scattered through the codebase.
 
 ## Phasing
 
-The product is built **panel-first**: mature the panel against static/stubbed
-data (done), **build the data layer** (in progress), then the real daemon. The
-panel must always be runnable without a daemon binary — on stub data now, later
-with a stub/fake for the box. See `panel.md` for what that means in the panel
-codebase.
+The product was built **panel-first**: the panel matured against stubbed data,
+then its data layer landed, then the real daemon. Both are now built. The panel
+stays runnable without a reachable box — daemon-derived reads return
+`DaemonRead<T>` (`{ ok: false }` when offline) and the UI degrades gracefully
+rather than erroring. See `panel.md`.

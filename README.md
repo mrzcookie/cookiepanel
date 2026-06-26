@@ -31,14 +31,18 @@ apps/
   daemon/   cookied — the Go agent that runs on each managed box
 ```
 
-> **Status: structural rewrite in progress.** The panel's data layer (auth,
-> persistence, server functions) is essentially complete for every panel-owned
-> entity. We're now **building the daemon and the panel↔daemon connection** in
-> vertical slices. `cookied` already enrolls + heartbeats, serves a pinned HTTPS
-> control API, and manages Docker servers (lifecycle + console), networks,
-> firewall/ports, and a sandboxed per-server **file manager** (browse/edit/upload/
-> download, pull-from-URL, recycle bin). Schedules, backups, host maintenance, and
-> SFTP land slice by slice; their panel features stay on stub data until wired.
+> **Status: feature-complete; now in testing/hardening.** The panel's data layer
+> and every planned `cookied` subsystem are built and wired end-to-end:
+> enrollment + heartbeat, the pinned HTTPS control API, Docker servers (lifecycle
+> + console + stats), networks/firewall/ports, the sandboxed file manager + SFTP,
+> the egg-style install pipeline + config templating, the cron scheduler + borg
+> backups, host maintenance + physical-drive management, the offline IPC socket +
+> TUI, ACME TLS, disk quotas, the Redis/Mongo/SQL database browsers, and a
+> tag-driven release pipeline (`cookied` self-updates; new boxes install via
+> `/install.sh`). What's left is **real-world testing on managed Linux boxes**
+> (several privileged paths only run for real on a node) plus a few intentional
+> deferrals (a live activity/notification feed, some cross-org admin views, the
+> signed-in `/` overview dashboard).
 
 ## Prerequisites
 

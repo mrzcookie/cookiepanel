@@ -57,20 +57,19 @@ knows about routing/session/theme) → `layout/`. A shadcn primitive → `ui/`.
 
 ```
 domain/   client-safe domain TYPES + pure helpers, by entity (nodes, servers,
-          networks, templates, deploy, files, schedules, backups, file-jobs, sftp,
-          billing, admin, *-browser, ...). No state. This is the durable layer: it
-          survives the data-layer rewrite and is what src/server imports as it's
-          built. NEVER put mutable state or stub data here.
-stores/   the UI-first stub stores (one per entity). Mutable useSyncExternalStore
-          state built on the shared createStore factory. THROWN AWAY as the real
-          data layer replaces each one — treat them as scaffolding. Durable record types
-          live in domain/ (the store imports them); a store keeps an inline type only
-          when it's presentational (icon-bearing, e.g. notifications) or an auth-layer
-          placeholder (orgs).
-stubs/    seed DATA only — no type declarations (those live in domain/). The shared
-          org/fleet dataset is index.ts (NODES, SERVERS, TEMPLATES, ...; imported as
-          @/lib/stubs); surface-specific seed files sit alongside it, e.g. admin.ts
-          (the platform /admin dataset), deep-imported as @/lib/stubs/admin.
+          networks, templates, deploy, files, schedules, backups, sftp, billing,
+          admin, *-browser, ...). No state. This is the durable layer: the typed
+          boundary src/server and the UI share. NEVER put mutable state or stub
+          data here.
+stores/   UI-first stub stores — mutable useSyncExternalStore state on the shared
+          createStore factory, used by features whose backend doesn't exist yet.
+          Most have been thrown away as the real data layer replaced them; what
+          remains is presentational/placeholder scaffolding (e.g. notifications,
+          the live activity feed). Treat any new one as temporary.
+stubs/    seed DATA only — no type declarations (those live in domain/). index.ts
+          holds the TEMPLATES seed (also fed to db:seed), imported as @/lib/stubs;
+          surface-specific seed files sit alongside it, e.g. admin.ts (the platform
+          /admin cross-org dataset), deep-imported as @/lib/stubs/admin.
 store.ts  createStore<T>(seed) — the tiny factory every store uses (get/set/use, plus
           a useWith selector hook for subscribing to a slice).
 utils.ts status.ts format.ts slug.ts list-view.ts nav.ts admin-nav.ts

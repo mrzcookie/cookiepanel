@@ -1,13 +1,13 @@
 # The daemon — `cookied`
 
-> **Status.** `apps/daemon` has moved from a stdlib-only stub into an **active,
-> phased build** (the panel's data layer is now mature). The target runtime is
-> below, drawn from the complete prior daemon in `../cookiepanel-old`; it's being
-> ported subsystem-by-subsystem in vertical slices — enrollment/heartbeat → HTTPS
-> API + cert pinning → Docker/servers → console WebSocket → networks/firewall/
-> ports → files/SFTP → schedules/backups → host maintenance → offline TUI. Treat
-> the **design** as the durable signal; exact deps, ports, paths, and route
-> prefixes are incidental.
+> **Status: built.** `apps/daemon` implements every subsystem below —
+> enrollment/heartbeat, the pinned HTTPS API, Docker/servers, the console
+> WebSocket, networks/firewall/ports, files/SFTP, the install pipeline + config
+> templating, the scheduler + borg backups, host maintenance + drives, the
+> offline IPC socket + TUI, ACME TLS, disk quotas, and the DB browsers. What's
+> left is end-to-end testing on real Linux boxes (the privileged paths only run
+> for real on a node). Treat the **design** as the durable signal; exact deps,
+> ports, paths, and route prefixes are incidental.
 
 `cookied` is a single Go binary that runs on each managed Linux box, **as root**.
 It is the thing that does real work: Docker containers, host networking,

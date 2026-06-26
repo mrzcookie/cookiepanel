@@ -2,14 +2,17 @@
 
 `apps/panel` is `@cookiepanel/panel`: **TanStack Start (SSR) + React 19 +
 Tailwind v4**, file-based routing, server functions for the API. This file has
-two parts: the **UI/stub patterns** the panel is built on, and the **data/server
-layer** we're now building behind it. Most of the panel still runs on stubs; wire
-the data layer **feature by feature**, not all at once.
+two parts: the **UI patterns** the panel is built on and the **data/server
+layer** behind them. The data layer is now wired for essentially everything; only
+a few intentional features still run on stubs (a live activity/notification feed,
+some cross-org admin views, the `/` overview) — keep *those* presentational and
+don't half-wire them.
 
 ## The UI / stub layer
 
-The panel's surface is presentational and fed by stub stores; a feature stays
-this way until its backend is wired:
+The panel's surface is presentational; most of it is fed by the real data layer
+(below), and the handful of not-yet-built features render from a stub store until
+their backend exists:
 
 - **shadcn components + presentational React components.** Add shadcn primitives
   via the CLI/MCP; build domain components on top of them. Keep components
@@ -31,7 +34,7 @@ domain split, the `lib/domain` vs `stores` vs `stubs` split, the server import
 boundary, the no-barrels rule) is documented in **`apps/panel/ARCHITECTURE.md`**.
 Read it before adding files so the tree stays sorted.
 
-## The data/server layer (now building)
+## The data/server layer
 
 Server code lives under **`src/server/**`, which is server-only** — it must never
 reach the client bundle. That means `node:crypto`,
@@ -80,12 +83,16 @@ Full rationale and the secrets discipline: `security.md`.
 
 ### Reaching the daemon
 
-The panel's server layer will make authenticated HTTPS calls to each box's
-`cookied` (node key + cert pin + the shared contract — see `architecture.md`).
-**How that's structured inside the panel is an open question** — whether it's one
-client abstraction, where the fake-vs-real split lives, etc. Don't commit to a
-particular shape yet. Whatever it is, panel business logic should depend on a
-typed boundary, not scatter raw daemon HTTP calls through the codebase.
+The panel's server layer makes authenticated HTTPS calls to each box's `cookied`
+(node key + cert pin + the shared contract — see `architecture.md`). This is
+funnelled through **one client module**, `src/server/nodes/daemon-client.ts`:
+`loadDialer(nodeId)` unseals the node key, the pinning agent verifies the cert
+before any byte is written, per-op timeouts apply, and typed wrappers return the
+contract shapes (reads as `DaemonRead<T>`, degrading to `{ ok: false }` when the
+box is unreachable). Panel business logic depends on those typed wrappers — never
+on raw daemon HTTP scattered through the codebase. A daemon-derived feature is
+org-scoped at its server-fn boundary first (re-verify the node/server belongs to
+the caller's org), then reaches the box via this client.
 
 ## Data fetching
 
@@ -120,8 +127,8 @@ File-based routing under `src/routes/`. Conventions that matter:
   `onboarding`, invitation-accept, auth-error. Each bounces already-signed-in
   users away.
 - **Tabbed sub-pages** = a parent layout route holding a tab bar + `<Outlet />`,
-  with one child route per tab (e.g. account → general / SSH keys / activity;
-  node detail → overview / networking / storage / settings).
+  with one child route per tab (e.g. account → general / activity; node detail →
+  overview / networking / storage / settings).
 - Trailing-underscore segments escape layout nesting while keeping the URL (a
   detail route opts out of its list's layout). `$param` = dynamic segment.
 

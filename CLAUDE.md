@@ -49,38 +49,38 @@ wire format is pinned by a **shared API contract** so the two never drift. See
   bind to on a node.
 - **Drive** — a physical disk on a node (format / mount / store server data).
 - **Schedule / Backup** — daemon-side cron automation and snapshot/restore.
-- **SSH key / SFTP session** — account-level access for file management.
+- **SFTP session** — per-server file access via daemon-minted, short-lived
+  credentials (no account-level SSH keys).
 - **Activity log** — an audit trail of meaningful actions, scoped to an org.
 
 Full glossary, fields, and relationships: `.claude/rules/domain.md`.
 
-## Current phase: building the daemon + the panel↔daemon connection
+## Current phase: testing + hardening (build essentially complete)
 
-The panel's data/server layer is **essentially complete** — every panel-owned,
-DB-backed entity (organizations, members, users, activity, the node registry,
-templates, billing, the admin surface) is wired through the real
-repository → service → server-function layers. What's left in the panel are the
-**daemon-derived** features (servers, networks, drives, firewall, files, SFTP,
-schedules, backups), which by design can't be real until `cookied` exists.
+Both halves are built and wired end-to-end. The panel's data/server layer is
+complete — every panel-owned entity (organizations, members, users, activity, the
+node registry, templates, billing, the admin surface) runs through the real
+repository → service → server-function layers. And **every planned `cookied`
+subsystem is implemented** and connected to the panel over the pinned HTTPS
+contract: enrollment + heartbeat, Docker servers (lifecycle + console + stats),
+networks/firewall/ports, the sandboxed file manager + SFTP, the egg install
+pipeline + config templating, the cron scheduler + borg backups, host maintenance
++ physical drives, the offline IPC socket + TUI, ACME TLS, disk quotas, and the
+Redis/Mongo/SQL database browsers. Releases ship via a tag-driven pipeline
+(`cookied` self-updates; new boxes install via the panel's `/install.sh`).
 
-So the current phase is **the daemon and the wire to it**, built in vertical
-slices — each slice ships one capability end-to-end (a daemon subsystem + its
-panel-side connection + the UI swapped off its stub) and is independently
-committable:
+So the work now is **testing and hardening, not building features**:
 
-- **Slices 0–1** — scaffolding + enrollment/heartbeat: a box pairs with the panel
-  and flips `pending → online` with real hardware/Docker info.
-- **Slice 2** — the panel→daemon control channel (the daemon's HTTPS API + the
-  panel's node-client seam, with cert pinning).
-- **Slices 3+** — Docker/servers, the console WebSocket, networks/firewall/ports,
-  files/SFTP, schedules/backups, host maintenance — each swapping its
-  `lib/stores/*` stub for real daemon-backed data.
-
-Until a feature's slice lands it **stays on its stub store** — keep it
-presentational, don't half-wire it. When it's unclear whether a request means the
-UI or a daemon capability that isn't built yet, assume the UI and ask. `apps/daemon`
-is now an active build (no longer a stub); the rules files describe the *target*
-architecture it's converging on.
+- **End-to-end testing on real managed Linux boxes.** Many privileged daemon
+  paths (mkfs/mount, firewall, systemd, self-update, disk quota, the openat2
+  filesystem ops) only run for real on a node — they're unit-tested for logic but
+  need on-box verification. The macOS dev box exercises the fallbacks.
+- **A few intentional deferrals stay on stubs** — keep these presentational,
+  don't half-wire them: the live activity/notification feed
+  (`lib/stores/notifications-store`), some cross-org **admin** views (subdomains,
+  time-series charts, the fleet node list), and the signed-in `/` control-room
+  overview. When it's unclear whether a request means one of these or something
+  already wired, check whether its data layer exists, and ask.
 
 ## Non-negotiable rules
 
@@ -123,10 +123,10 @@ area — they hold the detail this file deliberately leaves out.
 - `architecture.md` — the two halves, how the panel and daemon talk (HTTPS,
   per-node key, cert pinning, enrollment, heartbeat), and the shared contract.
 - `domain.md` — every domain noun, its fields, relationships, and lifecycle.
-- `panel.md` — panel conventions: the UI/stub patterns and the data-layer shape
-  (layering / routing / data-fetching / auth) we're now building behind the UI.
-- `daemon.md` — what `cookied` is and will own, subsystem by subsystem, and its
-  on-box security posture.
+- `panel.md` — panel conventions: the UI patterns and the data-layer shape
+  (layering / routing / data-fetching / auth) behind them.
+- `daemon.md` — what `cookied` owns, subsystem by subsystem, and its on-box
+  security posture.
 - `security.md` — the non-negotiables in full: tenant isolation, secrets,
   validating untrusted input on a root daemon.
 - `design.md` — design language orientation: "The Console" (dark) / "Daylight"
