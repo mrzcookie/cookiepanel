@@ -149,7 +149,12 @@ func (s *Server) routes() http.Handler {
 	// Authorization header on a WS upgrade), so it sits OUTSIDE the bearer
 	// middleware, registered bare on the outer mux.
 	outer := http.NewServeMux()
-	outer.HandleFunc("GET /api/servers/{id}/ws", s.handleServerWS)
+	// Outside bearer auth (JWT query param), but still inside recoverPanic so a
+	// panic in the console socket can't crash the box's control plane.
+	outer.Handle(
+		"GET /api/servers/{id}/ws",
+		recoverPanic(http.HandlerFunc(s.handleServerWS)),
+	)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/system", s.handleSystem)

@@ -121,8 +121,13 @@ func (m *Manager) Format(ctx context.Context, device, fs, mountpoint string) err
 	if err := validMountpoint(mountpoint); err != nil {
 		return err
 	}
-	if _, err := m.guard(ctx, device); err != nil {
+	dr, err := m.guard(ctx, device)
+	if err != nil {
 		return err
+	}
+	// Never reformat the active server-data drive — it would wipe every server.
+	if dr.IsDataTarget {
+		return ErrDataTarget
 	}
 	mkfs := allowedFS[fs]
 	if _, err := exec.LookPath(mkfs[0]); err != nil {
@@ -349,6 +354,14 @@ func validFilesystem(fs string) error {
 func validMountpoint(mp string) error {
 	if !filepath.IsAbs(mp) || filepath.Clean(mp) != mp || mp == "/" {
 		return fmt.Errorf("%w: bad mountpoint %q", ErrInvalid, mp)
+	}
+	// Reject whitespace + control characters: the mountpoint is written into an
+	// fstab line (space-separated fields), so a newline or space could inject or
+	// corrupt entries.
+	for _, c := range mp {
+		if c <= ' ' || c == 0x7f {
+			return fmt.Errorf("%w: whitespace or control character in mountpoint", ErrInvalid)
+		}
 	}
 	// Reject a mountpoint that IS or sits UNDER a system root — mounting a blank
 	// filesystem at e.g. /etc/cron.d or /usr/local would shadow it. Data disks

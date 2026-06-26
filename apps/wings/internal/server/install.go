@@ -19,6 +19,7 @@ const installLogLimit = 4000
 const (
 	installMemoryMB    = 2048
 	installPidsLimit   = 1024
+	installNanoCPUs    = 2_000_000_000 // 2 cores: bound an untrusted install script
 	installHardTimeout = 30 * time.Minute
 	installMountPath   = "/mnt/server" // Pterodactyl's convention.
 	// provisionTimeout bounds the whole background install→create→start (install
@@ -72,6 +73,7 @@ func (m *Manager) runInstall(ctx context.Context, req CreateRequest) error {
 		Labels:          map[string]string{docker.ServerIDLabel: req.ServerID},
 		MemoryMB:        installMemoryMB,
 		PidsLimit:       installPidsLimit,
+		NanoCPUs:        installNanoCPUs,
 		NoNewPrivileges: true,
 		CapDrop:         []string{"ALL"},
 		CapAdd:          installCaps,

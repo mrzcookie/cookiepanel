@@ -137,3 +137,21 @@ func run(ctx context.Context, name string, args ...string) (string, error) {
 	}
 	return string(out), nil
 }
+
+// runStdin is like run but feeds `in` to the command's stdin — used for ufw's
+// interactive delete confirmation.
+func runStdin(ctx context.Context, in, name string, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdin = strings.NewReader(in)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf(
+			"%s %s: %w: %s",
+			name,
+			strings.Join(args, " "),
+			err,
+			strings.TrimSpace(string(out)),
+		)
+	}
+	return string(out), nil
+}

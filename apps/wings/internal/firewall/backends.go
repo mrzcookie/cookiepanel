@@ -34,10 +34,44 @@ func (ufwBackend) Open(ctx context.Context, r Rule) error {
 }
 
 func (ufwBackend) Close(ctx context.Context, r Rule) error {
-	_, err := run(
-		ctx, "ufw", "delete", "allow",
-		fmt.Sprintf("%d/%s", r.Port, r.Protocol),
-	)
+	// ufw matches rules by spec and ignores the comment, so `ufw delete allow
+	// PORT/PROTO` could remove the operator's OWN untagged rule for that port.
+	// Instead find our tagged rule's number and delete exactly that one.
+	out, err := run(ctx, "ufw", "status", "numbered")
+	if err != nil {
+		return err
+	}
+	spec := fmt.Sprintf("%d/%s", r.Port, r.Protocol)
+	num := ""
+	for _, line := range strings.Split(out, "\n") {
+		if !strings.Contains(line, RuleComment) {
+			continue
+		}
+		start := strings.IndexByte(line, '[')
+		end := strings.IndexByte(line, ']')
+		if start < 0 || end < start {
+			continue
+		}
+		// The port/proto must appear as a whole field (not a substring of e.g.
+		// 122/tcp) after the "[ n]" index prefix.
+		matched := false
+		for _, f := range strings.Fields(line[end+1:]) {
+			if f == spec {
+				matched = true
+				break
+			}
+		}
+		if matched {
+			num = strings.TrimSpace(line[start+1 : end])
+			break
+		}
+	}
+	if num == "" {
+		return nil // no tagged rule of ours to remove
+	}
+	// "y\n" answers ufw's interactive delete confirmation (run uses arg vectors,
+	// never a shell), so the delete proceeds non-interactively.
+	_, err = runStdin(ctx, "y\n", "ufw", "delete", num)
 	return err
 }
 

@@ -28,6 +28,10 @@ const (
 	KindLabel     = "raptor.kind"
 )
 
+// defaultPidsLimit caps PIDs on every managed runtime container so a fork-bomb
+// in one server can't exhaust the host's PID space.
+const defaultPidsLimit = 4096
+
 // KindServer is the value stamped into KindLabel for managed server containers.
 const KindServer = "server"
 
@@ -97,6 +101,7 @@ type CreateSpec struct {
 	// 1_500_000_000); 0 = uncapped. MemoryMB caps RAM.
 	NanoCPUs    int64
 	MemoryMB    int
+	PidsLimit   int
 	StopSignal  string
 	PortBinding *PortBinding
 	// Volumes are named volumes to mount into the container. WorkingDir, if set,
@@ -197,6 +202,13 @@ func (c *Client) CreateContainer(ctx context.Context, spec CreateSpec) (string, 
 	if spec.MemoryMB > 0 {
 		host.Memory = int64(spec.MemoryMB) * 1024 * 1024
 	}
+	// Always cap PIDs (default when the spec doesn't set one) so a fork-bomb in
+	// one server can't exhaust the host's PID space.
+	pids := int64(defaultPidsLimit)
+	if spec.PidsLimit > 0 {
+		pids = int64(spec.PidsLimit)
+	}
+	host.PidsLimit = &pids
 	if spec.PortBinding != nil {
 		proto := spec.PortBinding.Protocol
 		if proto != "udp" {

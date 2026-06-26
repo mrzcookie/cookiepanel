@@ -29,6 +29,7 @@ type RunSpec struct {
 	// these to bound an untrusted payload; NoNewPrivileges blocks setuid
 	// escalation inside the container.
 	MemoryMB        int
+	NanoCPUs        int64
 	PidsLimit       int
 	NoNewPrivileges bool
 	// Linux capabilities. Install jobs drop ["ALL"] then add back only the
@@ -90,6 +91,9 @@ func (c *Client) RunOnce(ctx context.Context, spec RunSpec) (RunResult, error) {
 	if spec.PidsLimit > 0 {
 		v := int64(spec.PidsLimit)
 		host.PidsLimit = &v
+	}
+	if spec.NanoCPUs > 0 {
+		host.NanoCPUs = spec.NanoCPUs
 	}
 	if spec.NoNewPrivileges {
 		host.SecurityOpt = append(host.SecurityOpt, "no-new-privileges")
