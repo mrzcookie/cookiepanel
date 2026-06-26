@@ -76,7 +76,10 @@ function NodeChrome({ node }: { node: NodeRow }) {
 					title={
 						<span className="flex items-center gap-2.5">
 							{node.name}
-							<StatusIndicator status={nodeStatus(node.status)} />
+							<StatusIndicator
+								live={node.status === "pending"}
+								status={nodeStatus(node.status)}
+							/>
 							{node.updateAvailable ? (
 								<Badge variant="secondary">Update</Badge>
 							) : null}

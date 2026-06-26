@@ -35,6 +35,7 @@ import {
 	DetailRow,
 } from "@/components/shared/detail-list";
 import { UsageBar } from "@/components/shared/entity-card";
+import { StatusIndicator } from "@/components/shared/status-indicator";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -419,7 +420,6 @@ function FileBrowser({
 							type="file"
 						/>
 						<Button
-							aria-label={sftpActive ? "SFTP, session active" : undefined}
 							onClick={() => setSftpOpen(true)}
 							size="sm"
 							variant="outline"
@@ -427,13 +427,7 @@ function FileBrowser({
 							<KeyRound />
 							SFTP
 							{sftpActive ? (
-								<>
-									<span
-										aria-hidden
-										className="size-2 shrink-0 rounded-full bg-ok"
-									/>
-									<span className="sr-only">session active</span>
-								</>
+								<StatusIndicator status={{ label: "Active", tone: "online" }} />
 							) : null}
 						</Button>
 						<Button

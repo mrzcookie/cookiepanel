@@ -69,7 +69,10 @@ function AdminNodes() {
 								: `${node.serversRunning ?? "—"} / ${node.serversTotal}`}
 						</TableCell>
 						<TableCell className="text-right">
-							<StatusIndicator status={nodeStatus(node.status)} />
+							<StatusIndicator
+								live={node.status === "pending"}
+								status={nodeStatus(node.status)}
+							/>
 						</TableCell>
 					</TableRow>
 				)}

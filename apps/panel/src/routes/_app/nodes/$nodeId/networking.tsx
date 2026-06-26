@@ -145,7 +145,9 @@ function NetworksCard({
 			<CardContent>
 				{networks.length === 0 ? (
 					<p className="text-muted-foreground text-sm">
-						No networks on this node yet.
+						{node.status === "offline"
+							? "The node is offline, so its networks can't be read."
+							: "No networks on this node yet."}
 					</p>
 				) : (
 					<Table>

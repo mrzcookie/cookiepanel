@@ -66,7 +66,12 @@ function NodeView({ node }: { node: AdminNode }) {
 	return (
 		<>
 			<PageHeader
-				actions={<StatusIndicator status={nodeStatus(node.status)} />}
+				actions={
+					<StatusIndicator
+						live={node.status === "pending"}
+						status={nodeStatus(node.status)}
+					/>
+				}
 				back={{ label: "Nodes", to: "/admin/nodes" }}
 				description={`${node.fqdn}:${node.daemonPort}`}
 				title={node.name}

@@ -17,6 +17,7 @@ export function ListPage<T>({
 	action,
 	createLabel,
 	description,
+	emptyAction,
 	emptyDescription,
 	emptyTitle,
 	eyebrow,
@@ -36,6 +37,9 @@ export function ListPage<T>({
 	action?: ReactNode;
 	createLabel: string;
 	description: string;
+	/** Overrides the empty-state CTA — e.g. a prerequisite link when the create
+	 * flow can't run yet. */
+	emptyAction?: ReactNode;
 	/** `// section` kicker for the page header. */
 	eyebrow?: string;
 	emptyDescription: string;
@@ -79,7 +83,7 @@ export function ListPage<T>({
 			/>
 			{items.length === 0 ? (
 				<EmptyState
-					action={cta}
+					action={emptyAction ?? cta}
 					description={emptyDescription}
 					icon={Icon}
 					title={emptyTitle}

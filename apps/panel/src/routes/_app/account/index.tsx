@@ -174,7 +174,9 @@ function ProfileFormBody({ user }: { user: SessionUser | undefined }) {
 function EmailField({ user }: { user: SessionUser | undefined }) {
 	return (
 		<div className="grid gap-2">
-			<Label>Email</Label>
+			<div className="flex select-none items-center gap-2 font-mono text-xs uppercase leading-none tracking-wide">
+				Email
+			</div>
 			<div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
 				{user ? (
 					<span className="truncate font-mono text-sm">{user.email}</span>

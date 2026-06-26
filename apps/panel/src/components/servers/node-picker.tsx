@@ -81,7 +81,7 @@ function NodeRowOption({
 			</div>
 			<div className="flex shrink-0 flex-col items-end gap-1">
 				<StatusIndicator
-					live={node.status === "online"}
+					live={node.status === "pending"}
 					status={nodeStatus(node.status)}
 				/>
 				<span className="text-muted-foreground text-xs tabular-nums">

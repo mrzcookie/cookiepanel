@@ -106,7 +106,12 @@ function NodeCard({ node }: { node: NodeRow }) {
 
 	return (
 		<EntityCard
-			action={<StatusIndicator status={nodeStatus(node.status)} />}
+			action={
+				<StatusIndicator
+					live={node.status === "pending"}
+					status={nodeStatus(node.status)}
+				/>
+			}
 			footer={
 				<>
 					<span className="flex min-w-0 items-center gap-2">
@@ -202,7 +207,10 @@ function NodesTable({ nodes }: { nodes: NodeRow[] }) {
 								: `${node.serversRunning ?? "—"} / ${node.serversTotal}`}
 						</TableCell>
 						<TableCell className="text-right">
-							<StatusIndicator status={nodeStatus(node.status)} />
+							<StatusIndicator
+								live={node.status === "pending"}
+								status={nodeStatus(node.status)}
+							/>
 						</TableCell>
 					</TableRow>
 				))}

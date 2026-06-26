@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Network } from "lucide-react";
+import { Network, Plus } from "lucide-react";
 import { useState } from "react";
 import { CreateNetworkDialog } from "@/components/networks/create-network-dialog";
 import { IsolatedBadge } from "@/components/networks/isolated-badge";
@@ -9,6 +9,7 @@ import {
 	EntityIdentity,
 } from "@/components/shared/entity-card";
 import { ListPage } from "@/components/shared/list/list-page";
+import { Button } from "@/components/ui/button";
 import {
 	Table,
 	TableBody,
@@ -47,6 +48,16 @@ function Networks() {
 			<ListPage
 				createLabel="Create network"
 				description="Networks across your fleet: how servers reach each other and the outside world."
+				emptyAction={
+					nodes.length === 0 ? (
+						<Button asChild size="sm">
+							<Link to="/nodes/new">
+								<Plus />
+								Connect a node
+							</Link>
+						</Button>
+					) : undefined
+				}
 				eyebrow="networking"
 				emptyDescription="Networks group servers on a node and control their connectivity. Connect a node to get started."
 				emptyTitle="No networks yet"
@@ -145,7 +156,7 @@ function NetworksTable({ networks }: { networks: NetworkRow[] }) {
 							{network.subnet ?? <span className="font-sans">Auto</span>}
 						</TableCell>
 						<TableCell className="text-right text-muted-foreground tabular-nums">
-							{network.serverIds.length === 0 ? "—" : network.serverIds.length}
+							{serversLabel(network.serverIds.length)}
 						</TableCell>
 					</TableRow>
 				))}
