@@ -19,7 +19,9 @@ export function AdminSidebar(props: ComponentProps<typeof Sidebar>) {
 		<Sidebar collapsible="icon" {...props}>
 			<SidebarBrand />
 			<SidebarContent>
-				<SidebarNav homePath="/admin" items={ADMIN_NAV} label={"// admin"} />
+				<nav aria-label="Admin">
+					<SidebarNav homePath="/admin" items={ADMIN_NAV} label={"// admin"} />
+				</nav>
 			</SidebarContent>
 			<SidebarFooter className="border-t">
 				<SidebarMenu>

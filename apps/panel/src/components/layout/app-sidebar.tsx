@@ -36,7 +36,9 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
 				<div className="px-2 pt-2 group-data-[collapsible=icon]:px-1.5">
 					<OrgSwitcher />
 				</div>
-				<SidebarNav homePath="/" items={NAV} label={"// manage"} />
+				<nav aria-label="Main">
+					<SidebarNav homePath="/" items={NAV} label={"// manage"} />
+				</nav>
 			</SidebarContent>
 			<SidebarFooter className="border-t group-data-[collapsible=icon]:hidden">
 				<NodeReadout />
