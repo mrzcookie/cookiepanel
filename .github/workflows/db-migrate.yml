@@ -1,0 +1,60 @@
+name: Migrate prod DB
+
+# Applies any pending Drizzle migrations to the production database.
+#
+# It runs `drizzle-kit migrate`, which is idempotent: it only applies migrations
+# not yet recorded in the __drizzle_migrations table, each inside a transaction,
+# so a failed run rolls back cleanly and a re-run is a safe no-op.
+#
+# Fires automatically on a push to `main` that changes the committed migrations,
+# and can be run by hand from the Actions tab (workflow_dispatch).
+#
+# ── One-time setup ──────────────────────────────────────────────────────────
+#   1. Repo → Settings → Environments → New environment → name it "production".
+#   2. In that environment, add a secret DATABASE_URL = the prod Postgres URL,
+#      e.g. postgres://USER:PASS@HOST:5432/DB?sslmode=require
+#   3. (Recommended) Add yourself under "Required reviewers" on the environment
+#      so prod migrations pause for a one-click approval before they apply.
+#   4. The prod DB must be reachable from GitHub-hosted runners — a public
+#      endpoint, or allowlist GitHub's IP ranges. If it's inside a private VPC,
+#      use a self-hosted runner (swap `runs-on`) or a bastion/proxy instead.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Only when the committed migrations actually change.
+      - "apps/panel/src/server/db/migrations/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never run two migrations at once, and never cancel one mid-flight.
+concurrency:
+  group: db-migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: drizzle-kit migrate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Scopes DATABASE_URL to this job and is where the required-reviewer gate
+    # (step 3 above) lives — so prod can't be migrated from anywhere else.
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # drizzle.config.ts reads DATABASE_URL from the environment (it only loads a
+      # local .env when one exists, which CI has none of), so passing it here is
+      # all the migrate command needs.
+      - name: Apply pending migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm --filter @raptor/panel db:migrate
