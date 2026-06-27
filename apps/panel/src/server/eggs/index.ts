@@ -1,6 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireOrg } from "@/server/auth/guards";
+import { validateImageUpload } from "@/server/storage/image-upload";
+import { uploadManagedImage } from "@/server/storage/managed-image";
+import { EGG_ICON_PREFIX } from "./icon";
 import type { OwnerScope } from "./repository";
 import type { Actor } from "./service";
 import * as service from "./service";
@@ -45,6 +48,24 @@ export const createEgg = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const { scope, actor } = await orgContext();
 		return service.createEgg(scope, actor, data);
+	});
+
+/**
+ * Upload an egg icon to object storage and return its URL for the editor to save
+ * on the egg. Decoupled from create/update because a brand-new egg has no id yet:
+ * the key is minted server-side under the caller's verified org namespace, and
+ * the URL only becomes the egg's icon once the editor saves it.
+ */
+export const uploadEggIcon = createServerFn({ method: "POST" })
+	.validator(validateImageUpload)
+	.handler(async ({ data }) => {
+		const { orgId } = await requireOrg();
+		const { url } = await uploadManagedImage({
+			prefix: EGG_ICON_PREFIX,
+			ownerId: orgId,
+			file: data.file,
+		});
+		return { iconUrl: url };
 	});
 
 export const updateEgg = createServerFn({ method: "POST" })

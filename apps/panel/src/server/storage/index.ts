@@ -1,4 +1,8 @@
-import { DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+	CopyObjectCommand,
+	DeleteObjectCommand,
+	PutObjectCommand,
+} from "@aws-sdk/client-s3";
 import { getS3Client, getStorageConfig, isStorageConfigured } from "./client";
 
 /**
@@ -34,6 +38,27 @@ export async function deleteObject(key: string): Promise<void> {
 	const { bucket } = getStorageConfig();
 	await getS3Client().send(
 		new DeleteObjectCommand({ Bucket: bucket, Key: key })
+	);
+}
+
+/**
+ * Server-side copy of one object to a new key in the same bucket (content-type
+ * and metadata preserved). Lets a forked egg get its *own* icon object instead
+ * of sharing the source's — so deleting/replacing either egg can't strand or
+ * break the other.
+ */
+export async function copyObject(input: {
+	sourceKey: string;
+	destKey: string;
+}): Promise<void> {
+	const { bucket } = getStorageConfig();
+	await getS3Client().send(
+		new CopyObjectCommand({
+			Bucket: bucket,
+			CopySource: `${bucket}/${input.sourceKey}`,
+			Key: input.destKey,
+			MetadataDirective: "COPY",
+		})
 	);
 }
 

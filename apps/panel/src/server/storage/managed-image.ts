@@ -9,6 +9,35 @@ import {
 } from "./index";
 
 /**
+ * Upload a server-minted, owner-namespaced image object and return its public
+ * URL + storage key. The shared first half of every managed-image flow: re-read
+ * the file and magic-byte check it (defense in depth past the validator's MIME
+ * check), then put it under a key the client can't influence
+ * (`prefix/ownerId/uuid.ext`), immutable-cached. Callers that persist the URL
+ * onto an existing row wrap this in `replaceManagedImage`; callers that just
+ * need the URL — an egg icon, whose egg may not exist yet — use this directly.
+ */
+export async function uploadManagedImage(opts: {
+	prefix: string;
+	ownerId: string;
+	file: File;
+}): Promise<{ url: string; key: string }> {
+	if (!isStorageConfigured()) {
+		// Operator/config condition, not user error — keep it presentable.
+		throw new Error("Image uploads aren't available right now");
+	}
+	const { bytes, ext } = await sniffImage(opts.file);
+	const key = `${opts.prefix}/${opts.ownerId}/${randomUUID()}.${ext}`;
+	await putObject({
+		key,
+		body: bytes,
+		contentType: opts.file.type,
+		cacheControl: "public, max-age=31536000, immutable",
+	});
+	return { url: publicUrl(key), key };
+}
+
+/**
  * The shared "replace a managed image" orchestration behind every avatar/logo
  * upload (self-service account + org, and their admin-console counterparts).
  * Sequence, with the tricky failure handling in one place:
@@ -40,24 +69,11 @@ export async function replaceManagedImage(opts: {
 	persist: (url: string) => Promise<unknown>;
 	errorMessage?: string;
 }): Promise<{ url: string }> {
-	if (!isStorageConfigured()) {
-		// Operator/config condition, not user error — keep it presentable.
-		throw new Error("Image uploads aren't available right now");
-	}
-
-	// Re-read + magic-byte check (defense in depth past the validator's MIME
-	// check); yields the bytes and a safe extension.
-	const { bytes, ext } = await sniffImage(opts.file);
-	const key = `${opts.prefix}/${opts.ownerId}/${randomUUID()}.${ext}`;
-
-	await putObject({
-		key,
-		body: bytes,
-		contentType: opts.file.type,
-		cacheControl: "public, max-age=31536000, immutable",
+	const { url, key } = await uploadManagedImage({
+		prefix: opts.prefix,
+		ownerId: opts.ownerId,
+		file: opts.file,
 	});
-
-	const url = publicUrl(key);
 	try {
 		await opts.persist(url);
 	} catch (cause) {

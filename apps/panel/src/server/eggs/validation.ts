@@ -99,7 +99,11 @@ export const eggInputSchema = z.object({
 	summary: z.string().max(300).default(""),
 	description: z.string().max(20000).default(""),
 	category: z.enum(EGG_CATEGORIES),
-	iconUrl: z.string().max(512_000).nullable().default(null),
+	// A URL, not the old inline data URL — icons now live in S3 (so 2 KB is
+	// plenty). The real gate is server-side: `ownedIconUrl` narrows this to an
+	// object under our storage base before it's persisted, so a crafted external
+	// or data: URL is dropped to null whatever the string here.
+	iconUrl: z.string().trim().max(2048).nullable().default(null),
 	images: z.array(imageSchema).max(30).default([]),
 	variables: z.array(variableSchema).max(200).default([]),
 	startupCommand: z.string().max(4000).default(""),

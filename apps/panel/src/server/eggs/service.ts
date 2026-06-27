@@ -2,6 +2,7 @@ import type { Egg, EggImage, EggVariable } from "@/lib/domain/eggs";
 import { INSTALL_ENTRYPOINTS } from "@/lib/domain/eggs";
 import { recordActivity } from "@/server/activity/record";
 import { type EggImportResult, fetchEggJson, parseEgg } from "./egg-import";
+import { deleteEggIcon, forkIconUrl, ownedIconUrl } from "./icon";
 import {
 	type EggImageRecord,
 	type EggRecord,
@@ -77,7 +78,10 @@ function toEgg(
 		summary: record.summary,
 		description: record.description,
 		category: record.category,
-		iconUrl: record.iconUrl,
+		// Narrow to an icon we actually serve (eggs-over-images twin): drops legacy
+		// inline data URLs and any external URL, so the client only ever gets a
+		// real object URL or null.
+		iconUrl: ownedIconUrl(record.iconUrl),
 		official: record.organizationId === null,
 		origin: record.origin,
 		status: record.status,
@@ -198,7 +202,9 @@ function eggColumns(
 		summary: input.summary,
 		description: input.description,
 		category: input.category,
-		iconUrl: input.iconUrl,
+		// Persist only an icon we own (an S3 object under our base); a data: or
+		// external URL is dropped to null here, never written.
+		iconUrl: ownedIconUrl(input.iconUrl),
 		startupCommand: input.startupCommand,
 		stopType: input.stopType,
 		stopValue: input.stopValue,
@@ -287,6 +293,13 @@ export async function updateEgg(
 	);
 	if (!updated) {
 		return null;
+	}
+	// Drop the prior icon object when it was replaced or cleared (no-op when it's
+	// unchanged, or was never one we own). Each egg owns its icon — forks
+	// deep-copy — so deleting the old object can't strand another egg.
+	const nextIcon = ownedIconUrl(input.iconUrl);
+	if (owned.iconUrl && owned.iconUrl !== nextIcon) {
+		await deleteEggIcon(owned.iconUrl);
 	}
 	await audit(actor, "egg.updated", owned);
 	return { ok: true };
@@ -378,9 +391,14 @@ export async function forkEgg(
 		eggsRepository.imagesFor([sourceId]),
 		eggsRepository.variablesFor([sourceId]),
 	]);
+	// Give the copy its own icon object so the two eggs never share one (which
+	// would let deleting/replacing either break the other). Falls back to no icon
+	// when the source has none we own, or the copy fails.
+	const iconUrl = await forkIconUrl(source.iconUrl, orgId);
 	const input = eggInputSchema.parse({
 		...toEgg(source, images, variables, true),
 		name: `${source.name} (copy)`,
+		iconUrl,
 	});
 	return insertEgg(scope, actor, input, {
 		origin: "fork",
@@ -446,6 +464,9 @@ export async function deleteEgg(
 	if (!removed) {
 		return null;
 	}
+	// The egg is gone — drop its icon object too (best-effort; no-op when it isn't
+	// one we own). Safe to delete unconditionally: forks own their own copy.
+	await deleteEggIcon(owned.iconUrl);
 	await audit(actor, "egg.deleted", owned);
 	return { ok: true, refCount: 0 };
 }

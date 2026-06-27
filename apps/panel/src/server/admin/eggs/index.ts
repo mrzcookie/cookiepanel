@@ -1,10 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requirePlatformAdmin } from "@/server/auth/guards";
+import { EGG_ICON_PREFIX } from "@/server/eggs/icon";
 import type { OwnerScope } from "@/server/eggs/repository";
 import type { Actor } from "@/server/eggs/service";
 import * as service from "@/server/eggs/service";
 import { eggInputSchema } from "@/server/eggs/validation";
+import { validateImageUpload } from "@/server/storage/image-upload";
+import { uploadManagedImage } from "@/server/storage/managed-image";
 
 /**
  * The official egg library — the platform-owned (null-org) eggs every
@@ -49,6 +52,22 @@ export const createAdminEgg = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const { scope, actor } = await adminContext();
 		return service.createEgg(scope, actor, data);
+	});
+
+/**
+ * Upload an official egg icon. Platform-admin gated (not org membership); official
+ * icons share one `official` namespace. Returns the URL for the editor to save.
+ */
+export const uploadAdminEggIcon = createServerFn({ method: "POST" })
+	.validator(validateImageUpload)
+	.handler(async ({ data }) => {
+		await requirePlatformAdmin();
+		const { url } = await uploadManagedImage({
+			prefix: EGG_ICON_PREFIX,
+			ownerId: "official",
+			file: data.file,
+		});
+		return { iconUrl: url };
 	});
 
 export const updateAdminEgg = createServerFn({ method: "POST" })

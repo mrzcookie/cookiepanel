@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -78,6 +78,11 @@ export function EntityIconChip({
 	imageUrl?: string | null;
 	size?: "md" | "sm";
 }) {
+	// Remote icons (avatars, egg icons) can 404 or fail to load — fall back to the
+	// entity glyph rather than a broken-image box. Track *which* URL failed so a
+	// later src change retries on its own, no reset effect needed.
+	const [brokenUrl, setBrokenUrl] = useState<string | null>(null);
+	const broken = imageUrl != null && brokenUrl === imageUrl;
 	return (
 		<span
 			className={cn(
@@ -85,8 +90,13 @@ export function EntityIconChip({
 				size === "md" ? "size-9" : "size-8"
 			)}
 		>
-			{imageUrl ? (
-				<img alt="" className="size-full object-cover" src={imageUrl} />
+			{imageUrl && !broken ? (
+				<img
+					alt=""
+					className="size-full object-cover"
+					onError={() => setBrokenUrl(imageUrl)}
+					src={imageUrl}
+				/>
 			) : (
 				<Icon
 					className={size === "md" ? "size-4.5" : "size-4"}

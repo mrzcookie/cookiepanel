@@ -109,6 +109,20 @@ export function EggEditor({
 		setState((current) => ({ ...current, ...next }));
 	}
 
+	// Live-upload the icon to S3 (org or official surface, per scope) and store the
+	// returned URL; the editor saves it on the egg like any other field.
+	async function uploadIcon(file: File) {
+		try {
+			const { iconUrl } = await eggActions(scope).uploadIcon(file);
+			patch({ iconUrl });
+			toast.success("Icon updated.");
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't upload the icon."
+			);
+		}
+	}
+
 	async function save() {
 		if (!state.name.trim()) {
 			toast.error("Give your egg a name.");
@@ -175,7 +189,7 @@ export function EggEditor({
 				role="tabpanel"
 			>
 				{tab === "overview" ? (
-					<OverviewTab patch={patch} state={state} />
+					<OverviewTab onUploadIcon={uploadIcon} patch={patch} state={state} />
 				) : null}
 				{tab === "runtimes" ? (
 					<RuntimesTab patch={patch} state={state} />
@@ -216,7 +230,11 @@ type TabProps = {
 	patch: (next: Partial<EditorState>) => void;
 };
 
-function OverviewTab({ state, patch }: TabProps) {
+function OverviewTab({
+	state,
+	patch,
+	onUploadIcon,
+}: TabProps & { onUploadIcon: (file: File) => Promise<void> }) {
 	return (
 		<div className="max-w-2xl space-y-4">
 			<div className="grid gap-2">
@@ -224,7 +242,8 @@ function OverviewTab({ state, patch }: TabProps) {
 				<ImageUploadField
 					icon={ImageIcon}
 					label="Upload icon"
-					onChange={(iconUrl) => patch({ iconUrl })}
+					onRemove={() => patch({ iconUrl: null })}
+					onUpload={onUploadIcon}
 					shape="square"
 					value={state.iconUrl}
 				/>

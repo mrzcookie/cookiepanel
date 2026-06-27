@@ -16,6 +16,7 @@ import {
 	publishAdminEgg,
 	unpublishAdminEgg,
 	updateAdminEgg,
+	uploadAdminEggIcon,
 } from "@/server/admin/eggs";
 import {
 	archiveEgg,
@@ -28,6 +29,7 @@ import {
 	publishEgg,
 	unpublishEgg,
 	updateEgg,
+	uploadEggIcon,
 } from "@/server/eggs";
 
 // Query factories + read hooks + mutation routing for eggs. The two
@@ -114,7 +116,15 @@ export type EggActions = {
 	importUrl: (
 		url: string
 	) => Promise<{ id: string; name: string; warnings: string[] }>;
+	uploadIcon: (file: File) => Promise<{ iconUrl: string }>;
 };
+
+/** A picked image File as the multipart body the upload server fns validate. */
+function iconUpload(file: File): FormData {
+	const body = new FormData();
+	body.append("file", file);
+	return body;
+}
 
 const orgActions: EggActions = {
 	create: (input) => createEgg({ data: input }),
@@ -125,6 +135,7 @@ const orgActions: EggActions = {
 	remove: (id) => deleteEgg({ data: { id } }),
 	importJson: (json) => importEggFromJson({ data: { json } }),
 	importUrl: (url) => importEggFromUrl({ data: { url } }),
+	uploadIcon: (file) => uploadEggIcon({ data: iconUpload(file) }),
 };
 
 const adminActions: EggActions = {
@@ -136,6 +147,7 @@ const adminActions: EggActions = {
 	remove: (id) => deleteAdminEgg({ data: { id } }),
 	importJson: (json) => importAdminEggFromJson({ data: { json } }),
 	importUrl: (url) => importAdminEggFromUrl({ data: { url } }),
+	uploadIcon: (file) => uploadAdminEggIcon({ data: iconUpload(file) }),
 };
 
 export function eggActions(scope: EggScope): EggActions {
