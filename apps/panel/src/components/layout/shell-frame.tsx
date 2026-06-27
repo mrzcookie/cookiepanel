@@ -36,13 +36,13 @@ export function ShellFrame({
 					{headerStart}
 					<div className="ml-auto flex items-center gap-2">{headerEnd}</div>
 				</header>
-				<div
+				<main
 					className="mx-auto w-full max-w-6xl flex-1 space-y-6 p-6 outline-none"
 					id="main-content"
 					tabIndex={-1}
 				>
 					{children}
-				</div>
+				</main>
 			</SidebarInset>
 		</SidebarProvider>
 	);

@@ -12,7 +12,6 @@ import {
 	FolderPlus,
 	House,
 	KeyRound,
-	Loader2,
 	MoreHorizontal,
 	PackageOpen,
 	Pencil,
@@ -35,6 +34,7 @@ import {
 	DetailRow,
 } from "@/components/shared/detail-list";
 import { UsageBar } from "@/components/shared/entity-card";
+import { LoadingRows } from "@/components/shared/loading-rows";
 import { StatusIndicator } from "@/components/shared/status-indicator";
 import { Button } from "@/components/ui/button";
 import {
@@ -70,6 +70,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
 	Table,
 	TableBody,
@@ -497,10 +498,7 @@ function FileBrowser({
 					onDrop={(event) => dropFiles(event, currentDir)}
 				>
 					{isLoading ? (
-						<div className="flex items-center justify-center gap-2 py-12 text-muted-foreground text-sm">
-							<Loader2 className="size-4 animate-spin" />
-							Loading files…
-						</div>
+						<LoadingRows rows={5} />
 					) : isError ? (
 						<div className="rounded-lg border border-warn/40 bg-warn-wash py-12 text-center text-sm text-warn-foreground">
 							Couldn't reach this server's files
@@ -1077,10 +1075,7 @@ function FileEditor({
 			</CardHeader>
 			<CardContent>
 				{isLoading ? (
-					<div className="flex items-center justify-center gap-2 py-12 text-muted-foreground text-sm">
-						<Loader2 className="size-4 animate-spin" />
-						Loading…
-					</div>
+					<Skeleton className="h-72 w-full rounded-lg" />
 				) : isError ? (
 					<div className="rounded-lg border border-warn/40 bg-warn-wash py-12 text-center text-sm text-warn-foreground">
 						Couldn't open this file

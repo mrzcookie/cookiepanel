@@ -2,7 +2,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	CalendarClock,
-	Loader2,
 	MoreHorizontal,
 	Play,
 	Plus,
@@ -12,6 +11,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { ScheduleWizard } from "@/components/schedules/schedule-wizard";
 import { EmptyState } from "@/components/shared/empty-state";
+import { LoadingRows } from "@/components/shared/loading-rows";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -91,10 +91,7 @@ function ServerSchedulesTab() {
 			</CardHeader>
 			<CardContent>
 				{isLoading ? (
-					<div className="flex items-center justify-center gap-2 py-12 text-muted-foreground text-sm">
-						<Loader2 className="size-4 animate-spin" />
-						Loading schedules…
-					</div>
+					<LoadingRows />
 				) : unreachable ? (
 					<div className="rounded-lg border border-warn/40 bg-warn-wash py-12 text-center text-sm text-warn-foreground">
 						Can't reach this server's node, so its schedules aren't available

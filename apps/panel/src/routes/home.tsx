@@ -101,7 +101,7 @@ function Landing() {
 					</div>
 				</section>
 
-				<section className="grid gap-px overflow-hidden rounded-xl bg-border ring-1 ring-foreground/10 sm:grid-cols-3">
+				<section className="divide-y overflow-hidden rounded-xl border">
 					{FEATURES.map((feature) => (
 						<Feature feature={feature} key={feature.title} />
 					))}
@@ -126,13 +126,20 @@ function Feature({
 }) {
 	const Icon = feature.icon;
 	return (
-		<div className="space-y-2 bg-card p-6">
-			<Icon className="size-5 text-primary" strokeWidth={1.75} />
-			<div className="font-mono text-[0.7rem] text-muted-foreground uppercase tracking-[0.18em]">
-				{feature.label}
+		<div className="flex items-start gap-4 bg-card p-6">
+			<Icon
+				className="mt-0.5 size-5 shrink-0 text-primary"
+				strokeWidth={1.75}
+			/>
+			<div className="space-y-1">
+				<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+					<span className="font-mono text-[0.7rem] text-muted-foreground uppercase tracking-[0.18em]">
+						{feature.label}
+					</span>
+					<h2 className="font-medium text-base">{feature.title}</h2>
+				</div>
+				<p className="text-muted-foreground text-sm">{feature.body}</p>
 			</div>
-			<h2 className="font-medium text-base">{feature.title}</h2>
-			<p className="text-muted-foreground text-sm">{feature.body}</p>
 		</div>
 	);
 }
