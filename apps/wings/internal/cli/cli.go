@@ -256,6 +256,15 @@ func newRunCmd() *cobra.Command {
 					_ = apiSrv.Shutdown(sCtx)
 				}()
 
+				// Open the host firewall for the panel-facing API port. Without this,
+				// enabling ufw/iptables on the box silently blocks inbound to the API
+				// and cuts the panel off — the daemon still heartbeats outbound, so the
+				// node looks "online" while every control call fails. Best-effort + a
+				// no-op when there's no firewall backend; the rule is tagged like our
+				// others, and this port can never be closed (the Manager's protected-
+				// port guard), so it can't lock the panel out later.
+				_ = fw.Open(context.Background(), firewall.Rule{Port: apiPort, Protocol: "tcp"})
+
 				// ACME HTTP-01 needs a plaintext responder on :80 — Let's Encrypt
 				// dials port 80 for the challenge regardless of the API port. Open
 				// the firewall for it and serve the autocert challenge handler there.
