@@ -51,6 +51,29 @@ export class DaemonError extends Error {
 	}
 }
 
+/**
+ * The reason out of a daemon error response. The daemon reports failures as
+ * `{"error":"<reason>"}` (its `writeJSONError`), so pull that out and append it to
+ * the error message — otherwise a rejected create/start surfaces to the panel (and
+ * the user's "Setup failed") as a bare `HTTP 400` with no *why*. Falls back to a
+ * trimmed snippet for a non-JSON body.
+ */
+function daemonErrorDetail(raw: string): string {
+	const text = raw.trim();
+	if (!text) {
+		return "";
+	}
+	try {
+		const parsed = JSON.parse(text) as { error?: unknown };
+		if (typeof parsed.error === "string" && parsed.error) {
+			return ` — ${parsed.error}`;
+		}
+	} catch {
+		// Not JSON — fall through to the raw snippet.
+	}
+	return ` — ${text.slice(0, 200)}`;
+}
+
 type NodeRef = {
 	id: string;
 	fqdn: string;
@@ -209,7 +232,7 @@ function daemonFetch(
 					if (code < 200 || code >= 300) {
 						reject(
 							new DaemonError(
-								`daemon ${opts.method ?? "GET"} ${opts.path}: HTTP ${code}`,
+								`daemon ${opts.method ?? "GET"} ${opts.path}: HTTP ${code}${daemonErrorDetail(raw)}`,
 								code,
 								raw.slice(0, 500)
 							)
@@ -293,11 +316,12 @@ function daemonStream(
 					const chunks: Buffer[] = [];
 					res.on("data", (c: Buffer) => chunks.push(c));
 					res.on("end", () => {
+						const raw = Buffer.concat(chunks).toString("utf8");
 						reject(
 							new DaemonError(
-								`daemon ${opts.method} ${opts.path}: HTTP ${code}`,
+								`daemon ${opts.method} ${opts.path}: HTTP ${code}${daemonErrorDetail(raw)}`,
 								code,
-								Buffer.concat(chunks).toString("utf8").slice(0, 500)
+								raw.slice(0, 500)
 							)
 						);
 					});
