@@ -20,9 +20,12 @@ export const env = createEnv({
 		// --- Core (required) ---
 		// Postgres connection string for Drizzle.
 		DATABASE_URL: z.url(),
-		// Redis connection string — Better Auth secondary storage (sessions +
-		// rate limiting) and shared server-side caching. See src/server/redis.ts.
-		REDIS_URL: z.url(),
+		// Upstash Redis REST API — Better Auth secondary storage (sessions +
+		// rate-limit counters). HTTP-based, so it suits serverless. In dev the
+		// serverless-redis-http proxy in infra/compose.yaml speaks this protocol
+		// over the local Redis. See src/server/redis.ts.
+		UPSTASH_REDIS_REST_URL: z.url(),
+		UPSTASH_REDIS_REST_TOKEN: z.string().min(1),
 		// Better Auth signing secret. Generate: `openssl rand -base64 32`.
 		AUTH_SECRET: z.string().min(32),
 		// Public base URL the app is served from (auth callbacks, magic links).

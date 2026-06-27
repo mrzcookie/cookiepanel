@@ -17,7 +17,7 @@ import { db } from "@/server/db";
 import * as schema from "@/server/db/schema";
 import { sendEmail } from "@/server/email";
 import { env } from "@/server/env";
-import { redis } from "@/server/redis";
+import { redisSecondaryStorage } from "./redis-secondary-storage";
 
 // Social sign-in shows up only when a provider's credentials are configured.
 const socialProviders: NonNullable<BetterAuthOptions["socialProviders"]> = {};
@@ -89,20 +89,8 @@ export const auth = betterAuth({
 	secret: env.AUTH_SECRET,
 	database: drizzleAdapter(db, { provider: "pg", schema }),
 
-	// Sessions + rate-limit counters in Redis. See src/server/redis.ts.
-	secondaryStorage: {
-		get: (key) => redis.get(key),
-		set: async (key, value, ttl) => {
-			if (ttl) {
-				await redis.set(key, value, "EX", ttl);
-			} else {
-				await redis.set(key, value);
-			}
-		},
-		delete: async (key) => {
-			await redis.del(key);
-		},
-	},
+	// Sessions + rate-limit counters live in Upstash Redis, not Postgres.
+	secondaryStorage: redisSecondaryStorage,
 
 	emailAndPassword: { enabled: false },
 	socialProviders,
