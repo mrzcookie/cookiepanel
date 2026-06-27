@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
+	countAdminUsers,
 	listAdminUserAccounts,
 	listAdminUserSessions,
 	listAdminUsers,
@@ -17,6 +18,16 @@ export function adminUsersQueryOptions() {
 	return queryOptions({
 		queryKey: ["admin", "users"] as const,
 		queryFn: () => listAdminUsers(),
+	});
+}
+
+/** Just the platform user count, for the admin overview stat tile. Keyed under
+ * the user-list prefix so a list invalidation (a user added/removed) refreshes
+ * it too. */
+export function adminUsersCountQueryOptions() {
+	return queryOptions({
+		queryKey: ["admin", "users", "count"] as const,
+		queryFn: () => countAdminUsers(),
 	});
 }
 

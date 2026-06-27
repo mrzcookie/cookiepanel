@@ -48,6 +48,7 @@ import {
 import {
 	createAllocation,
 	invalidateAllocations,
+	nodeAllocationsQueryOptions,
 	removeAllocation,
 	useNodeAllocations,
 } from "@/lib/allocation-queries";
@@ -66,6 +67,12 @@ import {
 import { useNode } from "@/lib/node-queries";
 
 export const Route = createFileRoute("/_app/nodes/$nodeId/networking")({
+	// Preload the (panel-owned) port allocations so the tab SSRs with them rather
+	// than fetching after mount. Swallow errors — non-critical warm-up.
+	loader: ({ context, params }) =>
+		context.queryClient
+			.ensureQueryData(nodeAllocationsQueryOptions(params.nodeId))
+			.catch(() => {}),
 	component: NodeNetworking,
 });
 

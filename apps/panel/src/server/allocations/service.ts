@@ -83,7 +83,10 @@ export async function releaseServerFirewall(
 	serverId: string
 ): Promise<void> {
 	const rows = await allocationsRepository.listByServer(orgId, serverId);
-	for (const r of rows) {
-		await closeFirewall(r.nodeId, r.port, r.protocol);
-	}
+	// Independent, best-effort daemon calls — fire them together so a server with
+	// several ports doesn't pay one TLS round-trip per allocation in series.
+	// `closeFirewall` swallows its own errors, so `Promise.all` never rejects.
+	await Promise.all(
+		rows.map((r) => closeFirewall(r.nodeId, r.port, r.protocol))
+	);
 }

@@ -24,18 +24,18 @@ import { useNetworks } from "@/lib/networking-queries";
 import { useNodes } from "@/lib/node-queries";
 import { useServers } from "@/lib/server-queries";
 
+type NavigateFn = ReturnType<typeof useNavigate>;
+type RunFn = (action: () => void) => void;
+
 // A search-bar-styled launcher in the topbar that opens a command palette for
-// jumping around the panel. It reads the live query hooks (nodes / servers /
-// networks / eggs) so jump-to-entity rows reflect the real fleet.
+// jumping around the panel. The live fleet rows (nodes / servers / networks /
+// eggs) live in <FleetResults>, which is rendered *inside* the dialog — so those
+// list queries only run while the palette is open, not in the background on every
+// authed page.
 export function CommandMenu() {
 	const [open, setOpen] = useState(false);
 	const [mod, setMod] = useState("Ctrl");
 	const navigate = useNavigate();
-
-	const nodes = useNodes();
-	const servers = useServers();
-	const networks = useNetworks();
-	const eggs = useEggs();
 
 	// Match the host's modifier key after mount (keeps SSR + first render stable).
 	useEffect(() => {
@@ -130,107 +130,125 @@ export function CommandMenu() {
 						</CommandItem>
 					</CommandGroup>
 
-					{nodes.length > 0 ? (
-						<CommandGroup heading="Nodes">
-							{nodes.map((node) => (
-								<CommandItem
-									key={node.id}
-									onSelect={() =>
-										run(() =>
-											navigate({
-												params: { nodeId: node.id },
-												to: "/nodes/$nodeId",
-											})
-										)
-									}
-									value={`node ${node.name} ${node.fqdn}`}
-								>
-									<HardDrive />
-									<span className="truncate">{node.name}</span>
-									<span className="ml-auto truncate font-mono text-muted-foreground text-xs">
-										{node.fqdn}
-									</span>
-								</CommandItem>
-							))}
-						</CommandGroup>
-					) : null}
-
-					{servers.length > 0 ? (
-						<CommandGroup heading="Servers">
-							{servers.map((server) => (
-								<CommandItem
-									key={server.id}
-									onSelect={() =>
-										run(() =>
-											navigate({
-												params: { serverId: server.id },
-												to: "/servers/$serverId",
-											})
-										)
-									}
-									value={`server ${server.name} ${server.nodeName}`}
-								>
-									<Server />
-									<span className="truncate">{server.name}</span>
-									<span className="ml-auto truncate font-mono text-muted-foreground text-xs">
-										{server.nodeName}
-									</span>
-								</CommandItem>
-							))}
-						</CommandGroup>
-					) : null}
-
-					{networks.length > 0 ? (
-						<CommandGroup heading="Networks">
-							{networks.map((network) => (
-								<CommandItem
-									key={network.id}
-									onSelect={() =>
-										run(() =>
-											navigate({
-												params: { networkId: network.id },
-												to: "/networks/$networkId",
-											})
-										)
-									}
-									value={`network ${network.name}`}
-								>
-									<Network />
-									<span className="truncate">{network.name}</span>
-									<span className="ml-auto truncate font-mono text-muted-foreground text-xs">
-										{network.driver}
-									</span>
-								</CommandItem>
-							))}
-						</CommandGroup>
-					) : null}
-
-					{eggs.length > 0 ? (
-						<CommandGroup heading="Eggs">
-							{eggs.map((egg) => (
-								<CommandItem
-									key={egg.id}
-									onSelect={() =>
-										run(() =>
-											navigate({
-												params: { eggId: egg.id },
-												to: "/eggs/$eggId",
-											})
-										)
-									}
-									value={`egg ${egg.name} ${egg.category}`}
-								>
-									<LayoutTemplate />
-									<span className="truncate">{egg.name}</span>
-									<span className="ml-auto truncate font-mono text-muted-foreground text-xs">
-										{egg.category}
-									</span>
-								</CommandItem>
-							))}
-						</CommandGroup>
-					) : null}
+					<FleetResults navigate={navigate} run={run} />
 				</CommandList>
 			</CommandDialog>
+		</>
+	);
+}
+
+// The live "jump to entity" rows. Only mounts while the palette is open (it's a
+// child of CommandDialog, which Radix unmounts when closed), so useNodes /
+// useServers / useNetworks / useEggs — and their polling, including the networks
+// daemon fan-out — never run on closed pages. Opening hits the warm caches the
+// list routes already prime.
+function FleetResults({ navigate, run }: { navigate: NavigateFn; run: RunFn }) {
+	const nodes = useNodes();
+	const servers = useServers();
+	const networks = useNetworks();
+	const eggs = useEggs();
+
+	return (
+		<>
+			{nodes.length > 0 ? (
+				<CommandGroup heading="Nodes">
+					{nodes.map((node) => (
+						<CommandItem
+							key={node.id}
+							onSelect={() =>
+								run(() =>
+									navigate({
+										params: { nodeId: node.id },
+										to: "/nodes/$nodeId",
+									})
+								)
+							}
+							value={`node ${node.name} ${node.fqdn}`}
+						>
+							<HardDrive />
+							<span className="truncate">{node.name}</span>
+							<span className="ml-auto truncate font-mono text-muted-foreground text-xs">
+								{node.fqdn}
+							</span>
+						</CommandItem>
+					))}
+				</CommandGroup>
+			) : null}
+
+			{servers.length > 0 ? (
+				<CommandGroup heading="Servers">
+					{servers.map((server) => (
+						<CommandItem
+							key={server.id}
+							onSelect={() =>
+								run(() =>
+									navigate({
+										params: { serverId: server.id },
+										to: "/servers/$serverId",
+									})
+								)
+							}
+							value={`server ${server.name} ${server.nodeName}`}
+						>
+							<Server />
+							<span className="truncate">{server.name}</span>
+							<span className="ml-auto truncate font-mono text-muted-foreground text-xs">
+								{server.nodeName}
+							</span>
+						</CommandItem>
+					))}
+				</CommandGroup>
+			) : null}
+
+			{networks.length > 0 ? (
+				<CommandGroup heading="Networks">
+					{networks.map((network) => (
+						<CommandItem
+							key={network.id}
+							onSelect={() =>
+								run(() =>
+									navigate({
+										params: { networkId: network.id },
+										to: "/networks/$networkId",
+									})
+								)
+							}
+							value={`network ${network.name}`}
+						>
+							<Network />
+							<span className="truncate">{network.name}</span>
+							<span className="ml-auto truncate font-mono text-muted-foreground text-xs">
+								{network.driver}
+							</span>
+						</CommandItem>
+					))}
+				</CommandGroup>
+			) : null}
+
+			{eggs.length > 0 ? (
+				<CommandGroup heading="Eggs">
+					{eggs.map((egg) => (
+						<CommandItem
+							key={egg.id}
+							onSelect={() =>
+								run(() =>
+									navigate({
+										params: { eggId: egg.id },
+										to: "/eggs/$eggId",
+									})
+								)
+							}
+							value={`egg ${egg.name} ${egg.category}`}
+						>
+							<LayoutTemplate />
+							<span className="truncate">{egg.name}</span>
+							<span className="ml-auto truncate font-mono text-muted-foreground text-xs">
+								{egg.category}
+							</span>
+						</CommandItem>
+					))}
+				</CommandGroup>
+			) : null}
 		</>
 	);
 }

@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, FileJson, FolderTree, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import type { ServerConnection } from "@/components/servers/database/explorer-shell";
 import {
 	Breadcrumb,
 	ConfirmDrop,
@@ -33,7 +34,6 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { isValidMongoName } from "@/lib/domain/mongo-browser";
-import type { ServerRow } from "@/lib/domain/servers";
 import { formatBytes, formatCount } from "@/lib/format";
 import {
 	createMongoCollection,
@@ -68,13 +68,25 @@ function prettyJson(json: string): string {
 // The MongoDB Browser: databases drill down to collections and their documents,
 // all lazily fetched from the live instance. Create databases/collections, insert
 // and delete documents, with paginated document views.
-export function MongoBrowser({ server }: { server: ServerRow }) {
+export function MongoBrowser({
+	eggName,
+	nodeAddress,
+	port,
+	serverId,
+	state,
+}: { serverId: string } & ServerConnection) {
 	const [database, setDatabase] = useState<string | null>(null);
 	const [collection, setCollection] = useState<string | null>(null);
 
 	return (
 		<div className="space-y-4">
-			<ConnectionHeader label="Browser" server={server} />
+			<ConnectionHeader
+				eggName={eggName}
+				label="Browser"
+				nodeAddress={nodeAddress}
+				port={port}
+				state={state}
+			/>
 			{database && collection ? (
 				<DocumentList
 					collection={collection}
@@ -84,14 +96,14 @@ export function MongoBrowser({ server }: { server: ServerRow }) {
 						setDatabase(null);
 						setCollection(null);
 					}}
-					serverId={server.id}
+					serverId={serverId}
 				/>
 			) : database ? (
 				<CollectionList
 					database={database}
 					onBack={() => setDatabase(null)}
 					onOpen={setCollection}
-					serverId={server.id}
+					serverId={serverId}
 				/>
 			) : (
 				<DatabaseList
@@ -99,7 +111,7 @@ export function MongoBrowser({ server }: { server: ServerRow }) {
 						setDatabase(name);
 						setCollection(null);
 					}}
-					serverId={server.id}
+					serverId={serverId}
 				/>
 			)}
 		</div>

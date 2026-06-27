@@ -583,11 +583,15 @@ export type DaemonNetwork = Schemas["Network"];
 export type DaemonNetworkSpec = Schemas["CreateNetworkRequest"];
 
 export async function getNodeNetworks(
-	nodeId: string
+	nodeId: string,
+	// The org-wide list fan-out passes a tighter budget so one slow box can't
+	// stall the whole page; single-node reads keep the default.
+	timeoutMs?: number
 ): Promise<DaemonNetwork[]> {
 	const { node: ref, nodeKey } = await loadDialer(nodeId);
 	return (await daemonFetch(nodeKey, ref, {
 		path: "/api/v1/networks",
+		timeoutMs,
 	})) as DaemonNetwork[];
 }
 

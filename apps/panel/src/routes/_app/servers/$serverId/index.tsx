@@ -1,7 +1,6 @@
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 import { ServerActivityCard } from "@/components/servers/server-activity";
-import { ServerUsageCard } from "@/components/servers/server-usage";
 import { useServerConsole } from "@/components/servers/use-server-console";
 import { DetailList, DetailRow } from "@/components/shared/detail-list";
 import {
@@ -16,6 +15,16 @@ import { useServer } from "@/lib/server-queries";
 
 // xterm touches the DOM at import, so the console only loads on the client.
 const ServerConsole = lazy(() => import("@/components/servers/server-console"));
+
+// recharts (+ its d3 deps) is heavy and the usage card sits below the fold,
+// under the console. Load it as its own async chunk after paint rather than in
+// this high-traffic route's synchronous bundle. `live` keeps streaming from the
+// parent hook, so the lazy boundary only delays the first chart frame.
+const ServerUsageCard = lazy(() =>
+	import("@/components/servers/server-usage").then((m) => ({
+		default: m.ServerUsageCard,
+	}))
+);
 
 export const Route = createFileRoute("/_app/servers/$serverId/")({
 	component: ServerConsoleTab,
@@ -100,9 +109,15 @@ function ServerConsoleView({ server }: { server: ServerRow }) {
 				</div>
 			</div>
 
-			<ServerUsageCard live={stats} server={server} />
+			<Suspense fallback={<UsageFallback />}>
+				<ServerUsageCard live={stats} server={server} />
+			</Suspense>
 		</div>
 	);
+}
+
+function UsageFallback() {
+	return <div className="h-72 rounded-xl border bg-muted/20" />;
 }
 
 function ConsoleFallback() {

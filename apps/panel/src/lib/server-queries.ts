@@ -48,12 +48,16 @@ export function serverQueryOptions(id: string) {
 		queryKey: ["servers", "detail", id] as const,
 		queryFn: () => syncServer({ data: { id } }),
 		retry: false,
-		refetchInterval: 5_000,
+		// This poll only reconciles power state (running/stopped) for the detail
+		// header — live cpu/mem stream over the console WebSocket, not here. A
+		// user-initiated start/stop invalidates immediately, so a brisk interval
+		// buys little; match the list cadence and spare the daemon round-trips.
+		refetchInterval: 15_000,
 	});
 }
 
 /** Servers on one node, for the node-detail card. */
-function serversForNodeQueryOptions(nodeId: string) {
+export function serversForNodeQueryOptions(nodeId: string) {
 	return queryOptions({
 		queryKey: ["servers", "node", nodeId] as const,
 		queryFn: () => listServersForNode({ data: { nodeId } }),

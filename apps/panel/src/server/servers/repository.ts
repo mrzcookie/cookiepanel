@@ -4,6 +4,49 @@ import { server } from "@/server/db/schema/servers";
 
 export type ServerRecord = typeof server.$inferSelect;
 
+/**
+ * The columns the org-wide list views actually render (see `toServerRow`). It
+ * deliberately omits the sealed `secretVariables` (an AES-GCM jsonb blob), the
+ * server-only `image`/`startupCommand`/`stopSignal`, and `eggVersion` — so the
+ * fleet list and its 15s poll never fetch or deserialize them for every server.
+ * A full `ServerRecord` is assignable to this (it's a subset), so the create /
+ * sync / single-server paths keep passing full rows to `toServerRow` unchanged.
+ */
+export type ServerListRecord = Pick<
+	ServerRecord,
+	| "id"
+	| "name"
+	| "eggName"
+	| "eggId"
+	| "imageLabel"
+	| "state"
+	| "nodeId"
+	| "port"
+	| "cpuLimitMillicores"
+	| "memLimitBytes"
+	| "diskLimitBytes"
+	| "variables"
+	| "lastError"
+	| "createdAt"
+>;
+
+const listColumns = {
+	id: server.id,
+	name: server.name,
+	eggName: server.eggName,
+	eggId: server.eggId,
+	imageLabel: server.imageLabel,
+	state: server.state,
+	nodeId: server.nodeId,
+	port: server.port,
+	cpuLimitMillicores: server.cpuLimitMillicores,
+	memLimitBytes: server.memLimitBytes,
+	diskLimitBytes: server.diskLimitBytes,
+	variables: server.variables,
+	lastError: server.lastError,
+	createdAt: server.createdAt,
+} as const;
+
 /** A new server row, minus the columns the repository/service own. */
 export type NewServerValues = Omit<
 	typeof server.$inferInsert,
@@ -49,6 +92,25 @@ export const serversRepository = {
 	listByNode: (orgId: string, nodeId: string) =>
 		db
 			.select()
+			.from(server)
+			.where(and(eq(server.organizationId, orgId), eq(server.nodeId, nodeId)))
+			.orderBy(desc(server.createdAt)),
+
+	/** The org's servers, list projection only (no secrets / image / startup). */
+	listView: (orgId: string): Promise<ServerListRecord[]> =>
+		db
+			.select(listColumns)
+			.from(server)
+			.where(eq(server.organizationId, orgId))
+			.orderBy(desc(server.createdAt)),
+
+	/** One node's servers, list projection only. */
+	listByNodeView: (
+		orgId: string,
+		nodeId: string
+	): Promise<ServerListRecord[]> =>
+		db
+			.select(listColumns)
 			.from(server)
 			.where(and(eq(server.organizationId, orgId), eq(server.nodeId, nodeId)))
 			.orderBy(desc(server.createdAt)),

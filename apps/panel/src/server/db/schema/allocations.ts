@@ -44,6 +44,9 @@ export const allocation = pgTable(
 	(table) => [
 		index("allocation_organization_id_idx").on(table.organizationId),
 		index("allocation_node_id_idx").on(table.nodeId),
+		// `serverId` is both a filter (listByServer) and a cascade FK — index it so
+		// per-server reads and (especially) server deletes don't seq-scan allocations.
+		index("allocation_server_id_idx").on(table.serverId),
 		// One slot per (node, port, protocol) — the double-bind guard, at the DB.
 		uniqueIndex("allocation_node_port_proto_uidx").on(
 			table.nodeId,

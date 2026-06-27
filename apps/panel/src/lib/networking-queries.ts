@@ -30,7 +30,10 @@ export function nodeFirewallQueryOptions(nodeId: string) {
 		queryKey: ["node-live", "firewall", nodeId] as const,
 		queryFn: () => nodeFirewall({ data: { nodeId } }),
 		retry: false,
-		refetchInterval: 15_000,
+		// The firewall only changes via panel actions (allocations open/close it),
+		// and those invalidate this key on success. So poll slowly — just enough to
+		// reconcile a rare out-of-band change — rather than dialing the box often.
+		refetchInterval: 60_000,
 	});
 }
 

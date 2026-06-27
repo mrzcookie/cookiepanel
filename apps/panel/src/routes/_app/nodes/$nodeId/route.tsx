@@ -6,7 +6,11 @@ import { StatusIndicator } from "@/components/shared/status-indicator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { NodeRow } from "@/lib/domain/nodes";
-import { nodeQueryOptions, useNode } from "@/lib/node-queries";
+import {
+	nodeQueryOptions,
+	nodesListQueryOptions,
+	useNode,
+} from "@/lib/node-queries";
 import { nodeStatus } from "@/lib/status";
 
 export const Route = createFileRoute("/_app/nodes/$nodeId")({
@@ -14,10 +18,22 @@ export const Route = createFileRoute("/_app/nodes/$nodeId")({
 	// a generic not-found; swallow it so the component renders its own screen
 	// instead of bubbling to the router error boundary.
 	loader: async ({ context, params }) => {
+		const qc = context.queryClient;
+		// Seed the per-node detail cache from the warm fleet list (if any) so a
+		// list → detail navigation paints instantly instead of blocking on a fresh
+		// getNode; the query's own poll reconciles live status moments later. A
+		// direct hit (no list cache) just fetches as before.
+		const detailKey = nodeQueryOptions(params.nodeId).queryKey;
+		if (qc.getQueryData(detailKey) === undefined) {
+			const fromList = qc
+				.getQueryData(nodesListQueryOptions().queryKey)
+				?.find((n) => n.id === params.nodeId);
+			if (fromList) {
+				qc.setQueryData(detailKey, fromList);
+			}
+		}
 		try {
-			await context.queryClient.ensureQueryData(
-				nodeQueryOptions(params.nodeId)
-			);
+			await qc.ensureQueryData(nodeQueryOptions(params.nodeId));
 		} catch {
 			// Not found — handled in the component.
 		}

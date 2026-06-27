@@ -1,4 +1,4 @@
-import { and, eq, inArray, max } from "drizzle-orm";
+import { and, count, eq, inArray, max } from "drizzle-orm";
 import type { AdminMembership, MemberRole } from "@/lib/domain/admin";
 import { db } from "@/server/db";
 import {
@@ -6,6 +6,7 @@ import {
 	member,
 	organization,
 	session,
+	user,
 } from "@/server/db/schema/auth";
 
 /**
@@ -26,6 +27,13 @@ import {
  * `requirePlatformAdmin` instead (see ./index.ts).
  */
 export const usersRepository = {
+	/** Total platform user count — for the admin overview's "Users" stat tile, so
+	 * it doesn't have to fetch + project the whole user list just to read length. */
+	count: async (): Promise<number> => {
+		const [row] = await db.select({ value: count() }).from(user);
+		return row?.value ?? 0;
+	},
+
 	/** Org memberships (with org names + the per-org role) grouped by user id. */
 	membershipsForUsers: async (
 		userIds: string[]

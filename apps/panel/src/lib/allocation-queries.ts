@@ -23,7 +23,7 @@ export function nodeAllocationsQueryOptions(nodeId: string) {
 	});
 }
 
-function serverAllocationsQueryOptions(serverId: string) {
+export function serverAllocationsQueryOptions(serverId: string) {
 	return queryOptions({
 		queryKey: ["allocations", "server", serverId] as const,
 		queryFn: () => listServerAllocations({ data: { serverId } }),

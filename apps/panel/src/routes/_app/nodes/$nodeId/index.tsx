@@ -18,11 +18,21 @@ import {
 	nodeStatsQueryOptions,
 	useNode,
 } from "@/lib/node-queries";
-import { useServersForNode } from "@/lib/server-queries";
+import {
+	serversForNodeQueryOptions,
+	useServersForNode,
+} from "@/lib/server-queries";
 import { serverStatus } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/nodes/$nodeId/")({
+	// Preload the (panel-owned) servers-for-node list so the overview SSRs with it
+	// rather than fetching after mount. Swallow errors — it's a non-critical warm-up
+	// and the component still reads the cache on its own.
+	loader: ({ context, params }) =>
+		context.queryClient
+			.ensureQueryData(serversForNodeQueryOptions(params.nodeId))
+			.catch(() => {}),
 	component: NodeOverview,
 });
 

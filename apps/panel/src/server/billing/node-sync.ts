@@ -28,12 +28,20 @@ import { billingRepository } from "./repository";
  * single place the "first node free" rule shapes what Polar charges; adjust here
  * (or switch to a Polar-native trial) if the policy changes.
  */
-export async function requiredSeats(orgId: string): Promise<number> {
-	const nodeCount = await nodesRepository.count(orgId);
-	const entitlement = await billingRepository.getEntitlement(
-		orgId,
-		NODE_ENTITLEMENT
-	);
+export async function requiredSeats(
+	orgId: string,
+	// The caller can pass an entitlement it already loaded (e.g. syncNodeBilling)
+	// so we don't re-read the same row; otherwise we fetch it ourselves.
+	knownEntitlement?: Awaited<
+		ReturnType<typeof billingRepository.getEntitlement>
+	>
+): Promise<number> {
+	const [nodeCount, entitlement] = await Promise.all([
+		nodesRepository.count(orgId),
+		knownEntitlement !== undefined
+			? Promise.resolve(knownEntitlement)
+			: billingRepository.getEntitlement(orgId, NODE_ENTITLEMENT),
+	]);
 	const withinFreeWindow =
 		!!entitlement?.trialEndsAt &&
 		entitlement.trialEndsAt.getTime() > Date.now();
@@ -75,7 +83,9 @@ export async function syncNodeBilling(orgId: string): Promise<void> {
 	if (!entitlement?.polarSubscriptionId) {
 		return;
 	}
-	const seats = await requiredSeats(orgId);
+	// Reuse the entitlement we just read instead of letting requiredSeats fetch
+	// the same row a third time.
+	const seats = await requiredSeats(orgId, entitlement);
 	if (seats > 0) {
 		await updateSubscriptionSeats(entitlement.polarSubscriptionId, seats);
 	}

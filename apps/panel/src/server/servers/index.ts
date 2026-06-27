@@ -29,7 +29,11 @@ import {
 import { signingSecretAad } from "@/server/nodes/enrollment";
 import { type NodeRecord, nodesRepository } from "@/server/nodes/repository";
 import { serverSecretAad } from "@/server/servers/secrets";
-import { type ServerRecord, serversRepository } from "./repository";
+import {
+	type ServerListRecord,
+	type ServerRecord,
+	serversRepository,
+} from "./repository";
 
 /**
  * Servers service + server functions. A server is a Docker container the daemon
@@ -71,7 +75,9 @@ function nodeAddress(node: { fqdn: string }): string {
 	return node.fqdn;
 }
 
-function toServerRow(record: ServerRecord, node: NodeRecord): ServerRow {
+// Accepts the list projection; a full `ServerRecord` is assignable to it, so the
+// single-server paths (sync / rename / power / …) still pass their full rows.
+function toServerRow(record: ServerListRecord, node: NodeRecord): ServerRow {
 	return {
 		id: record.id,
 		name: record.name,
@@ -275,7 +281,7 @@ export const listServers = createServerFn({ method: "GET" }).handler(
 	async () => {
 		const { orgId } = await requireOrg();
 		const [rows, nodes] = await Promise.all([
-			serversRepository.list(orgId),
+			serversRepository.listView(orgId),
 			nodesRepository.list(orgId),
 		]);
 		const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -296,7 +302,7 @@ export const listServersForNode = createServerFn({ method: "GET" })
 		if (!node) {
 			return [];
 		}
-		const rows = await serversRepository.listByNode(orgId, data.nodeId);
+		const rows = await serversRepository.listByNodeView(orgId, data.nodeId);
 		return rows.map((row) => toServerRow(row, node));
 	});
 

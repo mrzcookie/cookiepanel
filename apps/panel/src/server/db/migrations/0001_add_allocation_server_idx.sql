@@ -1,0 +1,1 @@
+CREATE INDEX "allocation_server_id_idx" ON "allocation" USING btree ("server_id");

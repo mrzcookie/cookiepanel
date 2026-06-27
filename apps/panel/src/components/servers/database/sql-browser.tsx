@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import type { ServerConnection } from "@/components/servers/database/explorer-shell";
 import {
 	Breadcrumb,
 	ConfirmDrop,
@@ -50,7 +51,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import type { ServerRow } from "@/lib/domain/servers";
 import {
 	columnKeyLabel,
 	columnTypes,
@@ -90,20 +90,32 @@ function errorMessage(error: unknown, fallback: string) {
 // The SQL Browser: a lightweight phpMyAdmin for a database server (PostgreSQL or
 // MySQL/MariaDB). Databases drill down to tables and table structure; Users manage
 // access. Everything is fetched live from the running instance, lazily per level.
-export function SqlBrowser({ server }: { server: ServerRow }) {
-	const engine = sqlEngine(server.eggName);
+export function SqlBrowser({
+	eggName,
+	nodeAddress,
+	port,
+	serverId,
+	state,
+}: { serverId: string } & ServerConnection) {
+	const engine = sqlEngine(eggName);
 	const [view, setView] = useState<View>("databases");
 	const [database, setDatabase] = useState<string | null>(null);
 	const [table, setTable] = useState<string | null>(null);
 
-	const databases = useSqlDatabases(server.id);
-	const users = useSqlUsers(server.id);
+	const databases = useSqlDatabases(serverId);
+	const users = useSqlUsers(serverId);
 	const dbCount = databases?.ok ? databases.data.length : undefined;
 	const userCount = users?.ok ? users.data.length : undefined;
 
 	return (
 		<div className="space-y-4">
-			<ConnectionHeader label="Browser" server={server} />
+			<ConnectionHeader
+				eggName={eggName}
+				label="Browser"
+				nodeAddress={nodeAddress}
+				port={port}
+				state={state}
+			/>
 
 			<div className="border-b">
 				<div
@@ -146,7 +158,7 @@ export function SqlBrowser({ server }: { server: ServerRow }) {
 								setDatabase(null);
 								setTable(null);
 							}}
-							serverId={server.id}
+							serverId={serverId}
 							table={table}
 						/>
 					) : database ? (
@@ -154,7 +166,7 @@ export function SqlBrowser({ server }: { server: ServerRow }) {
 							database={database}
 							onBack={() => setDatabase(null)}
 							onOpen={setTable}
-							serverId={server.id}
+							serverId={serverId}
 						/>
 					) : (
 						<DatabaseList
@@ -163,11 +175,11 @@ export function SqlBrowser({ server }: { server: ServerRow }) {
 								setDatabase(name);
 								setTable(null);
 							}}
-							serverId={server.id}
+							serverId={serverId}
 						/>
 					)
 				) : (
-					<UsersPanel engine={engine} serverId={server.id} />
+					<UsersPanel engine={engine} serverId={serverId} />
 				)}
 			</div>
 		</div>

@@ -140,6 +140,15 @@ export const listAdminUsers = createServerFn({ method: "GET" }).handler(
 	}
 );
 
+/** Just the platform user count, for the admin overview's stat tile — avoids
+ * listing + projecting every user (membership/last-seen joins) for a number. */
+export const countAdminUsers = createServerFn({ method: "GET" }).handler(
+	async () => {
+		await requirePlatformAdmin();
+		return usersRepository.count();
+	}
+);
+
 const updateInput = z.object({
 	userId: z.string().min(1),
 	name: z.string().trim().min(1).max(100).optional(),

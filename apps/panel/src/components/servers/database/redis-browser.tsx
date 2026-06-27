@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
+import type { ServerConnection } from "@/components/servers/database/explorer-shell";
 import {
 	Breadcrumb,
 	ConfirmDrop,
@@ -59,7 +60,6 @@ import {
 	type RedisSetType,
 	ttlLabel,
 } from "@/lib/domain/redis-browser";
-import type { ServerRow } from "@/lib/domain/servers";
 import { formatBytes, formatCount } from "@/lib/format";
 import {
 	deleteRedisKey,
@@ -104,7 +104,13 @@ function formatUptime(seconds: number): string {
 // The Redis Browser: a live keyspace explorer + manager. DB selector, INFO-derived
 // overview, server-side pattern scan with paging, type-aware key inspection, and
 // create / edit-ttl / rename / delete / flush — all against the real instance.
-export function RedisBrowser({ server }: { server: ServerRow }) {
+export function RedisBrowser({
+	eggName,
+	nodeAddress,
+	port,
+	serverId,
+	state,
+}: { serverId: string } & ServerConnection) {
 	const [db, setDb] = useState(0);
 	const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
@@ -116,17 +122,23 @@ export function RedisBrowser({ server }: { server: ServerRow }) {
 
 	return (
 		<div className="space-y-4">
-			<ConnectionHeader label="Browser" server={server} />
-			<Overview db={db} onChangeDb={changeDb} serverId={server.id} />
+			<ConnectionHeader
+				eggName={eggName}
+				label="Browser"
+				nodeAddress={nodeAddress}
+				port={port}
+				state={state}
+			/>
+			<Overview db={db} onChangeDb={changeDb} serverId={serverId} />
 			{selectedKey ? (
 				<KeyDetail
 					db={db}
 					keyName={selectedKey}
 					onBack={() => setSelectedKey(null)}
-					serverId={server.id}
+					serverId={serverId}
 				/>
 			) : (
-				<KeyList db={db} onOpen={setSelectedKey} serverId={server.id} />
+				<KeyList db={db} onOpen={setSelectedKey} serverId={serverId} />
 			)}
 		</div>
 	);

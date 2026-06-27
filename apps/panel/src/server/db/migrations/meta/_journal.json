@@ -8,6 +8,13 @@
       "when": 1782453338163,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782579974584,
+      "tag": "0001_add_allocation_server_idx",
+      "breakpoints": true
     }
   ]
 }

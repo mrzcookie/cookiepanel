@@ -30,6 +30,12 @@ import { serversRepository } from "@/server/servers/repository";
 
 const DRIVERS: NetworkDriver[] = ["bridge", "macvlan", "ipvlan"];
 
+// The org-wide list dials every online node in parallel, so its wall-clock is
+// the slowest single node. Cap each box's dial well under the daemon-client
+// default (10s) so one black-holing node can't stall the networks page during
+// SSR — an unreachable node just contributes no networks.
+const LIST_FANOUT_TIMEOUT_MS = 4_000;
+
 function toNetworkRow(
 	n: DaemonNetwork,
 	nodeId: string,
@@ -82,7 +88,7 @@ export const listNetworks = createServerFn({ method: "GET" }).handler(
 		const perNode = await Promise.all(
 			nodes.map(async (node) => {
 				try {
-					const nets = await getNodeNetworks(node.id);
+					const nets = await getNodeNetworks(node.id, LIST_FANOUT_TIMEOUT_MS);
 					return nets.map((n) => toNetworkRow(n, node.id, node.name));
 				} catch {
 					return [] as NetworkRow[];

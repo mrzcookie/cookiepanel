@@ -4,15 +4,7 @@ import {
 } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CircleCheck, CreditCard } from "lucide-react";
-import {
-	Area,
-	AreaChart,
-	CartesianGrid,
-	Line,
-	LineChart,
-	XAxis,
-	YAxis,
-} from "recharts";
+import { lazy, Suspense } from "react";
 import { StatTile } from "@/components/admin/stat-tile";
 import {
 	ActivityList,
@@ -27,52 +19,29 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import {
-	type ChartConfig,
-	ChartContainer,
-	ChartLegend,
-	ChartLegendContent,
-	ChartTooltip,
-	ChartTooltipContent,
-} from "@/components/ui/chart";
 import { allActivityQueryOptions } from "@/lib/activity-queries";
 import { adminBillingQueryOptions } from "@/lib/admin-billing-queries";
-import { adminUsersQueryOptions } from "@/lib/admin-users-queries";
+import { adminUsersCountQueryOptions } from "@/lib/admin-users-queries";
 import { billableNodeCount, monthlyTotalCents } from "@/lib/domain/billing";
 import { formatMoney, pluralize } from "@/lib/format";
-import { MONTHLY } from "@/lib/stubs/admin";
+
+// recharts (+ d3) is heavy; the overview charts load as their own async chunk
+// after paint rather than in this route's synchronous bundle.
+const OverviewCharts = lazy(() => import("@/components/admin/overview-charts"));
 
 export const Route = createFileRoute("/admin/")({
 	loader: ({ context }) =>
 		Promise.all([
 			context.queryClient.ensureQueryData(adminBillingQueryOptions()),
-			context.queryClient.ensureQueryData(adminUsersQueryOptions()),
+			context.queryClient.ensureQueryData(adminUsersCountQueryOptions()),
 			context.queryClient.ensureInfiniteQueryData(allActivityQueryOptions()),
 		]),
 	component: AdminOverview,
 });
 
-const REVENUE_CONFIG = {
-	revenue: { label: "Revenue", color: "var(--chart-1)" },
-} satisfies ChartConfig;
-
-const GROWTH_CONFIG = {
-	users: { label: "Users", color: "var(--chart-1)" },
-	orgs: { label: "Organizations", color: "var(--chart-4)" },
-} satisfies ChartConfig;
-
-// Historical trend points are still illustrative: a monthly revenue/growth series
-// needs time-series we don't record yet (the cache holds only current state). The
-// tiles, table, and activity below are real; these two charts stay sampled until
-// we persist history.
-const REVENUE_DATA = MONTHLY.map((point) => ({
-	month: point.month,
-	revenue: Math.round(point.mrrCents / 100),
-}));
-
 function AdminOverview() {
 	const billing = useSuspenseQuery(adminBillingQueryOptions()).data;
-	const users = useSuspenseQuery(adminUsersQueryOptions()).data;
+	const userCount = useSuspenseQuery(adminUsersCountQueryOptions()).data;
 	const activity = useSuspenseInfiniteQuery(allActivityQueryOptions());
 
 	const mrrCents = billing.reduce(
@@ -106,11 +75,7 @@ function AdminOverview() {
 					label="Organizations"
 					value={String(billing.length)}
 				/>
-				<StatTile
-					detail="accounts"
-					label="Users"
-					value={String(users.length)}
-				/>
+				<StatTile detail="accounts" label="Users" value={String(userCount)} />
 				<StatTile
 					detail="registered"
 					label="Nodes"
@@ -123,100 +88,9 @@ function AdminOverview() {
 				/>
 			</div>
 
-			<div className="grid gap-6 lg:grid-cols-2">
-				<Card>
-					<CardHeader>
-						<CardTitle>Revenue</CardTitle>
-						<CardDescription>
-							Monthly recurring revenue, last 12 months (sample data).
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<ChartContainer
-							className="aspect-auto h-64 w-full"
-							config={REVENUE_CONFIG}
-						>
-							<AreaChart
-								data={REVENUE_DATA}
-								margin={{ left: 4, right: 12, top: 8 }}
-							>
-								<CartesianGrid vertical={false} />
-								<XAxis
-									axisLine={false}
-									dataKey="month"
-									tickLine={false}
-									tickMargin={8}
-								/>
-								<YAxis
-									axisLine={false}
-									tickFormatter={(value) => `$${value}`}
-									tickLine={false}
-									width={44}
-								/>
-								<ChartTooltip content={<ChartTooltipContent />} />
-								<Area
-									dataKey="revenue"
-									fill="var(--color-revenue)"
-									fillOpacity={0.15}
-									isAnimationActive={false}
-									stroke="var(--color-revenue)"
-									strokeWidth={2}
-									type="monotone"
-								/>
-							</AreaChart>
-						</ChartContainer>
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardHeader>
-						<CardTitle>Growth</CardTitle>
-						<CardDescription>
-							Users and organizations over time (sample data).
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<ChartContainer
-							className="aspect-auto h-64 w-full"
-							config={GROWTH_CONFIG}
-						>
-							<LineChart data={MONTHLY} margin={{ left: 4, right: 12, top: 8 }}>
-								<CartesianGrid vertical={false} />
-								<XAxis
-									axisLine={false}
-									dataKey="month"
-									tickLine={false}
-									tickMargin={8}
-								/>
-								<YAxis
-									allowDecimals={false}
-									axisLine={false}
-									tickLine={false}
-									width={28}
-								/>
-								<ChartTooltip content={<ChartTooltipContent />} />
-								<Line
-									dataKey="users"
-									dot={false}
-									isAnimationActive={false}
-									stroke="var(--color-users)"
-									strokeWidth={2}
-									type="monotone"
-								/>
-								<Line
-									dataKey="orgs"
-									dot={false}
-									isAnimationActive={false}
-									stroke="var(--color-orgs)"
-									strokeWidth={2}
-									type="monotone"
-								/>
-								<ChartLegend content={<ChartLegendContent />} />
-							</LineChart>
-						</ChartContainer>
-					</CardContent>
-				</Card>
-			</div>
+			<Suspense fallback={<ChartsFallback />}>
+				<OverviewCharts />
+			</Suspense>
 
 			<div className="grid items-start gap-6 lg:grid-cols-2">
 				<Card>
@@ -267,5 +141,14 @@ function AdminOverview() {
 				</Card>
 			</div>
 		</>
+	);
+}
+
+function ChartsFallback() {
+	return (
+		<div className="grid gap-6 lg:grid-cols-2">
+			<div className="h-80 rounded-xl border bg-muted/20" />
+			<div className="h-80 rounded-xl border bg-muted/20" />
+		</div>
 	);
 }

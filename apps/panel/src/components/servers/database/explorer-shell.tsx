@@ -18,15 +18,23 @@ import type { ServerRow } from "@/lib/domain/servers";
 // breadcrumb, and a destructive confirm dialog. Keeps the three add-on tabs
 // pixel-identical.
 
+/** The server fields the browsers + connection header read. Passed as primitives
+ * (not the whole live-polling `ServerRow`) so a stats poll doesn't re-render the
+ * browser unless one of these actually changes. */
+export type ServerConnection = Pick<
+	ServerRow,
+	"eggName" | "nodeAddress" | "port" | "state"
+>;
+
 /** The connection readout: `// <add-on> · engine · host:port [ CONNECTED ]`. */
 export function ConnectionHeader({
+	eggName,
 	label,
-	server,
-}: {
-	label: string;
-	server: ServerRow;
-}) {
-	const running = server.state === "running";
+	nodeAddress,
+	port,
+	state,
+}: { label: string } & ServerConnection) {
+	const running = state === "running";
 	return (
 		<>
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -34,7 +42,7 @@ export function ConnectionHeader({
 					{`// ${label.toLowerCase()}`}
 				</p>
 				<span className="font-mono text-muted-foreground text-xs">
-					{server.eggName} · {server.nodeAddress}:{server.port ?? "—"}
+					{eggName} · {nodeAddress}:{port ?? "—"}
 				</span>
 				<StatusIndicator
 					live={running}

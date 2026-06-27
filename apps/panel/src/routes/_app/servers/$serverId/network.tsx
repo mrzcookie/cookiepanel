@@ -14,7 +14,10 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { useServerAllocations } from "@/lib/allocation-queries";
+import {
+	serverAllocationsQueryOptions,
+	useServerAllocations,
+} from "@/lib/allocation-queries";
 import type { AllocationRow, NetworkRow } from "@/lib/domain/networks";
 import type { ServerRow } from "@/lib/domain/servers";
 import {
@@ -25,6 +28,12 @@ import {
 import { useServer } from "@/lib/server-queries";
 
 export const Route = createFileRoute("/_app/servers/$serverId/network")({
+	// Preload the (panel-owned) port allocations so the tab SSRs with them rather
+	// than fetching after mount. Swallow errors — non-critical warm-up.
+	loader: ({ context, params }) =>
+		context.queryClient
+			.ensureQueryData(serverAllocationsQueryOptions(params.serverId))
+			.catch(() => {}),
 	component: ServerNetworkTab,
 });
 
