@@ -143,7 +143,9 @@ export const nodesRepository = {
 				nodeId: nodeCredential.nodeId,
 				managed: node.managed,
 				fqdn: node.fqdn,
-				publicIp: node.publicIp,
+				// The IP last written to DNS, so the heartbeat self-heals a missing or
+				// stale managed record without dialing Cloudflare every beat.
+				dnsSyncedIp: node.dnsSyncedIp,
 			})
 			.from(nodeCredential)
 			.innerJoin(node, eq(node.id, nodeCredential.nodeId))
@@ -235,4 +237,9 @@ export const nodesRepository = {
 				...(values.publicIp ? { publicIp: values.publicIp } : {}),
 			})
 			.where(eq(node.id, nodeId)),
+
+	/** Remember the IP we last successfully wrote to a managed node's DNS A
+	 * record, so the heartbeat only reconciles when it's missing or the IP moved. */
+	markDnsSynced: (nodeId: string, ip: string) =>
+		db.update(node).set({ dnsSyncedIp: ip }).where(eq(node.id, nodeId)),
 };

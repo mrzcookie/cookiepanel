@@ -1,0 +1,1 @@
+ALTER TABLE "node" ADD COLUMN "dns_synced_ip" text;

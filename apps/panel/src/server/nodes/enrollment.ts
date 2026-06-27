@@ -85,9 +85,13 @@ export async function activateNode(input: {
 	}
 
 	// Managed nodes: now that we've observed the box's public IP, point its
-	// panel-owned subdomain at it. Best-effort + a no-op without Cloudflare.
+	// panel-owned subdomain at it. Best-effort + a no-op without Cloudflare; on
+	// success record the synced IP so the heartbeat won't redo it every beat — and
+	// will self-heal it if this didn't take (e.g. Cloudflare wasn't configured yet).
 	if (cred.managed && input.observedIp) {
-		await reconcileManagedNodeDns(cred.fqdn, input.observedIp);
+		if (await reconcileManagedNodeDns(cred.fqdn, input.observedIp)) {
+			await nodesRepository.markDnsSynced(input.nodeId, input.observedIp);
+		}
 	}
 
 	return { nodeKey, signingSecret };
@@ -119,14 +123,19 @@ export async function recordHeartbeat(input: {
 		publicIp: input.observedIp ?? undefined,
 	});
 
-	// Keep a managed node's A record on the current IP, but only when it actually
-	// changed — otherwise we'd hit Cloudflare on every ~30s beat.
+	// Self-heal the managed subdomain's A record. Reconcile when we've never
+	// successfully written it (`dnsSyncedIp` is null — e.g. the node enrolled
+	// before Cloudflare was configured) or the box's IP moved, then remember the
+	// synced IP so we don't call Cloudflare on every ~30s beat. A no-op (Cloudflare
+	// unconfigured) or a failure leaves it unsynced, so the next beat retries.
 	if (
 		found.managed &&
 		input.observedIp &&
-		input.observedIp !== found.publicIp
+		input.observedIp !== found.dnsSyncedIp
 	) {
-		await reconcileManagedNodeDns(found.fqdn, input.observedIp);
+		if (await reconcileManagedNodeDns(found.fqdn, input.observedIp)) {
+			await nodesRepository.markDnsSynced(found.nodeId, input.observedIp);
+		}
 	}
 }
 

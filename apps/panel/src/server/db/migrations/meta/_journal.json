@@ -15,6 +15,13 @@
       "when": 1782579974584,
       "tag": "0001_add_allocation_server_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782582949937,
+      "tag": "0002_add_node_dns_synced_ip",
+      "breakpoints": true
     }
   ]
 }

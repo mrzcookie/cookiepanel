@@ -8,10 +8,11 @@ import { env } from "@/server/env";
  *
  * **The IP is daemon-derived.** The panel learns a box's public IP only when the
  * box calls home (the observed source IP of the daemon's enrollment/heartbeat —
- * see architecture.md), which is the daemon phase and not built yet. So the
- * create/update side has no live caller today; the daemon enrollment handler will
- * call `reconcileManagedNodeDns(fqdn, observedIp)` once it lands. The delete side
- * *is* live: removing a managed node tears its record down.
+ * see architecture.md). Enrollment reconciles the record once that IP is first
+ * observed, and the heartbeat self-heals it — reconciling whenever the node's
+ * `dnsSyncedIp` doesn't match the observed IP (a never-written record, or a moved
+ * IP) — so a node that enrolled before Cloudflare was configured still gets its
+ * record on a later beat. Removing a managed node tears its record down.
  *
  * Server-only (reads the Cloudflare token). Optional + best-effort: a no-op when
  * the `CLOUDFLARE_*` creds are absent, and it never throws into its caller — DNS
@@ -86,30 +87,34 @@ async function findARecord(fqdn: string): Promise<DnsRecord | null> {
 }
 
 /**
- * Point a managed node's subdomain at an IP, or tear the record down.
+ * Point a managed node's subdomain at an IP, or tear the record down. Returns
+ * whether the record is now in the desired state: `true` when the upsert/delete
+ * succeeded, `false` on a no-op (Cloudflare not configured / invalid input) or a
+ * failure — so callers can remember a successful sync and retry otherwise.
  *
- * - `ip` set   → upsert the A record (`<fqdn> → ip`, DNS-only / unproxied so the
- *   daemon port and ACME challenge reach the box). Called by the daemon
- *   enrollment path once it observes the node's public IP (daemon phase).
+ * - `ip` set   → upsert the A record (`<fqdn> → ip`, **DNS-only / unproxied** so
+ *   the daemon's TLS reaches the box directly: the panel pins the daemon's own
+ *   leaf cert, so a proxy terminating TLS would break the pin). Called at
+ *   enrollment and self-healed on the heartbeat.
  * - `ip` null  → delete the A record. Called when a managed node is removed.
  *
  * No-op when Cloudflare isn't configured; swallows + logs failures so it never
- * breaks node create/remove.
+ * breaks node create/remove/heartbeat.
  */
 export async function reconcileManagedNodeDns(
 	fqdn: string,
 	ip: string | null
-): Promise<void> {
+): Promise<boolean> {
 	if (!cloudflareConfigured()) {
-		return;
+		return false;
 	}
 	if (!HOSTNAME.test(fqdn)) {
 		console.error(`[dns] refusing to manage a malformed hostname: ${fqdn}`);
-		return;
+		return false;
 	}
 	if (ip !== null && !isIpv4(ip)) {
 		console.error(`[dns] refusing to point ${fqdn} at a non-IPv4: ${ip}`);
-		return;
+		return false;
 	}
 
 	try {
@@ -119,7 +124,7 @@ export async function reconcileManagedNodeDns(
 			if (existing) {
 				await cloudflare(`/dns_records/${existing.id}`, { method: "DELETE" });
 			}
-			return;
+			return true;
 		}
 
 		const payload = JSON.stringify({
@@ -137,7 +142,9 @@ export async function reconcileManagedNodeDns(
 		} else {
 			await cloudflare("/dns_records", { method: "POST", body: payload });
 		}
+		return true;
 	} catch (error) {
 		console.error(`[dns] Cloudflare reconcile failed for ${fqdn}:`, error);
+		return false;
 	}
 }

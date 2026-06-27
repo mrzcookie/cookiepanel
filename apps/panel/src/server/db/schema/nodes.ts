@@ -62,6 +62,11 @@ export const node = pgTable(
 		systemInfo: jsonb("system_info").$type<DaemonSystemInfo>(),
 		// Observed source IP of the daemon's enrollment/heartbeat (never self-reported).
 		publicIp: text("public_ip"),
+		// The public IP we last successfully wrote to this managed node's DNS A
+		// record (null until synced). Lets the heartbeat self-heal a missing/stale
+		// record — e.g. when Cloudflare was configured only after the node enrolled —
+		// without re-hitting the Cloudflare API on every beat.
+		dnsSyncedIp: text("dns_synced_ip"),
 		// sha256 of the daemon's self-signed leaf cert (or the "acme" sentinel); the
 		// panel pins this when it dials the box. Reported via the heartbeat.
 		certFingerprint: text("cert_fingerprint"),
