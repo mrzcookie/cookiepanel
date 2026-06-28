@@ -14,8 +14,10 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/subtle"
 	cryptotls "crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,6 +34,7 @@ import (
 	"github.com/xena-studios/raptor/apps/wings/internal/drive"
 	"github.com/xena-studios/raptor/apps/wings/internal/filesystem"
 	"github.com/xena-studios/raptor/apps/wings/internal/firewall"
+	"github.com/xena-studios/raptor/apps/wings/internal/logging"
 	"github.com/xena-studios/raptor/apps/wings/internal/mongobrowser"
 	"github.com/xena-studios/raptor/apps/wings/internal/network"
 	"github.com/xena-studios/raptor/apps/wings/internal/redisbrowser"
@@ -243,8 +246,102 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/delete", s.handleTrashDelete)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/empty", s.handleTrashEmpty)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/purge", s.handleTrashPurge)
-	outer.Handle("/", recoverPanic(s.bearerAuth(mux)))
+	// Chain, outermost first: logRequests → recoverPanic → bearerAuth → mux. The
+	// logger is outermost so the access log always records a completion line —
+	// even when a handler panics, which recoverPanic converts to a correlated
+	// 500. The logger never sees the bearer token (it isn't logged regardless —
+	// see logRequests).
+	outer.Handle("/", s.logRequests(recoverPanic(s.bearerAuth(mux))))
 	return outer
+}
+
+// RequestIDHeader correlates one logical request across the two halves: the
+// panel stamps it on every daemon call, the daemon echoes it back and tags its
+// access log with it. Absent, the daemon mints one.
+const RequestIDHeader = "X-Raptor-Request-Id"
+
+// statusRecorder captures the response status + byte count for the access log.
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+	bytes  int
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	r.status = code
+	r.ResponseWriter.WriteHeader(code)
+}
+
+func (r *statusRecorder) Write(b []byte) (int, error) {
+	n, err := r.ResponseWriter.Write(b)
+	r.bytes += n
+	return n, err
+}
+
+// logRequests is the access log + correlation middleware for the panel→daemon
+// API. It mints/propagates a request id, binds it (plus the node id) to the
+// request context so every line a handler logs correlates, and records one
+// completion line whose level reflects the outcome: 5xx→error, 4xx→warn,
+// success→debug (so failures are always visible and the per-request firehose is
+// opt-in behind --debug). It logs NEITHER headers (the Authorization bearer is
+// the node key) NOR bodies (they can carry secret variable values and image
+// strings) — see security.md §2.
+func (s *Server) logRequests(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqID := r.Header.Get(RequestIDHeader)
+		if reqID == "" {
+			reqID = newRequestID()
+		}
+		w.Header().Set(RequestIDHeader, reqID)
+
+		ctx := logging.WithAttrs(r.Context(),
+			slog.String("request_id", reqID),
+			slog.String("node_id", s.nodeID),
+		)
+		r = r.WithContext(ctx)
+
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		start := time.Now()
+		slog.DebugContext(ctx, "api request started",
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+			slog.String("remote", r.RemoteAddr),
+		)
+		next.ServeHTTP(rec, r)
+		slog.LogAttrs(ctx, levelForStatus(rec.status), "api request completed",
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+			slog.Int("status", rec.status),
+			slog.Duration("duration", time.Since(start)),
+			slog.Int("bytes", rec.bytes),
+		)
+	})
+}
+
+// levelForStatus maps an HTTP status to a log level so server errors always
+// surface (error), client errors are visible (warn), and routine success stays
+// quiet (debug).
+func levelForStatus(status int) slog.Level {
+	switch {
+	case status >= 500:
+		return slog.LevelError
+	case status >= 400:
+		return slog.LevelWarn
+	default:
+		return slog.LevelDebug
+	}
+}
+
+// newRequestID mints a short random hex id (crypto/rand, never math/rand) for
+// calls that arrive without the panel's request-id header.
+func newRequestID() string {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		// A crypto/rand failure is effectively impossible; fall back to a
+		// timestamp so request logging can never block a request.
+		return fmt.Sprintf("ts-%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b[:])
 }
 
 // recoverPanic turns a handler panic into a 500 instead of crashing the daemon —
@@ -253,7 +350,8 @@ func recoverPanic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {
-				slog.Error("panic in handler", "path", r.URL.Path, "recover", rec)
+				slog.ErrorContext(r.Context(), "panic in handler",
+					"path", r.URL.Path, "recover", rec)
 				// Headers may already be partially written; best-effort.
 				w.WriteHeader(http.StatusInternalServerError)
 				_, _ = w.Write([]byte(`{"error":"internal error"}`))

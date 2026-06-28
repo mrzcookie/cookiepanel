@@ -13,6 +13,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"strings"
 )
@@ -105,7 +106,16 @@ func (m *Manager) Open(ctx context.Context, r Rule) error {
 	if err != nil {
 		return err
 	}
-	return m.backend.Open(ctx, rule)
+	if err := m.backend.Open(ctx, rule); err != nil {
+		slog.ErrorContext(ctx, "firewall open failed",
+			"component", "firewall", "backend", m.backend.Name(),
+			"port", rule.Port, "protocol", rule.Protocol, "err", err)
+		return err
+	}
+	slog.DebugContext(ctx, "firewall rule opened",
+		"component", "firewall", "backend", m.backend.Name(),
+		"port", rule.Port, "protocol", rule.Protocol)
+	return nil
 }
 
 func (m *Manager) Close(ctx context.Context, r Rule) error {
@@ -116,9 +126,20 @@ func (m *Manager) Close(ctx context.Context, r Rule) error {
 	// Hard guard: never close the ports that keep the box reachable. Authoritative
 	// here, not just in the UI.
 	if rule.Port == SSHPort || rule.Port == m.daemonPort {
+		slog.WarnContext(ctx, "firewall close refused for protected port",
+			"component", "firewall", "port", rule.Port, "protocol", rule.Protocol)
 		return ErrProtectedPort
 	}
-	return m.backend.Close(ctx, rule)
+	if err := m.backend.Close(ctx, rule); err != nil {
+		slog.ErrorContext(ctx, "firewall close failed",
+			"component", "firewall", "backend", m.backend.Name(),
+			"port", rule.Port, "protocol", rule.Protocol, "err", err)
+		return err
+	}
+	slog.DebugContext(ctx, "firewall rule closed",
+		"component", "firewall", "backend", m.backend.Name(),
+		"port", rule.Port, "protocol", rule.Protocol)
+	return nil
 }
 
 // run is a small shared exec helper for the shell backends — arg vectors, never

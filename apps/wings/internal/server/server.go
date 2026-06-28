@@ -201,6 +201,9 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (*Server, error
 			"server %s already has container %s", req.ServerID, existing.ID[:12],
 		)
 	}
+	slog.DebugContext(ctx, "server create requested",
+		"component", "server", "server_id", req.ServerID, "name", req.Name,
+		"hasInstall", req.Install != nil)
 
 	// The data volume holds the server's files (mounted at /data, its working
 	// directory) and is where the install step lays them down. Created
@@ -332,38 +335,52 @@ func (m *Manager) provision(
 }
 
 func (m *Manager) Start(ctx context.Context, serverID string) (*Server, error) {
+	slog.DebugContext(ctx, "server start requested", "component", "server", "server_id", serverID)
 	c, err := m.requireContainer(ctx, serverID)
 	if err != nil {
 		return nil, err
 	}
 	if err := m.docker.StartContainer(ctx, c.ID); err != nil {
+		slog.ErrorContext(ctx, "server start failed",
+			"component", "server", "server_id", serverID, "container", c.ID[:12], "err", err)
 		return nil, err
 	}
+	slog.InfoContext(ctx, "server started", "component", "server", "server_id", serverID, "container", c.ID[:12])
 	return m.snapshotByServerID(ctx, serverID)
 }
 
 func (m *Manager) Stop(ctx context.Context, serverID string) (*Server, error) {
+	slog.DebugContext(ctx, "server stop requested", "component", "server", "server_id", serverID)
 	c, err := m.requireContainer(ctx, serverID)
 	if err != nil {
 		return nil, err
 	}
 	if err := m.docker.StopContainer(ctx, c.ID); err != nil {
+		slog.ErrorContext(ctx, "server stop failed",
+			"component", "server", "server_id", serverID, "container", c.ID[:12], "err", err)
 		return nil, err
 	}
+	slog.InfoContext(ctx, "server stopped", "component", "server", "server_id", serverID, "container", c.ID[:12])
 	return m.snapshotByServerID(ctx, serverID)
 }
 
 func (m *Manager) Restart(ctx context.Context, serverID string) (*Server, error) {
+	slog.DebugContext(ctx, "server restart requested", "component", "server", "server_id", serverID)
 	c, err := m.requireContainer(ctx, serverID)
 	if err != nil {
 		return nil, err
 	}
 	if err := m.docker.StopContainer(ctx, c.ID); err != nil {
+		slog.ErrorContext(ctx, "server restart failed (stop)",
+			"component", "server", "server_id", serverID, "container", c.ID[:12], "err", err)
 		return nil, err
 	}
 	if err := m.docker.StartContainer(ctx, c.ID); err != nil {
+		slog.ErrorContext(ctx, "server restart failed (start)",
+			"component", "server", "server_id", serverID, "container", c.ID[:12], "err", err)
 		return nil, err
 	}
+	slog.InfoContext(ctx, "server restarted", "component", "server", "server_id", serverID, "container", c.ID[:12])
 	return m.snapshotByServerID(ctx, serverID)
 }
 
@@ -384,6 +401,7 @@ func (m *Manager) SendCommand(
 // regardless so deleting a server reclaims its disk. Any in-flight or failed
 // install is aborted + dropped first.
 func (m *Manager) Delete(ctx context.Context, serverID string) error {
+	slog.DebugContext(ctx, "server delete requested", "component", "server", "server_id", serverID)
 	m.cancelInstall(serverID)
 	c, err := m.docker.InspectByServerID(ctx, serverID)
 	if err != nil {
@@ -391,12 +409,20 @@ func (m *Manager) Delete(ctx context.Context, serverID string) error {
 	}
 	if c != nil {
 		if err := m.docker.RemoveContainer(ctx, c.ID, true); err != nil {
+			slog.ErrorContext(ctx, "server delete failed (container)",
+				"component", "server", "server_id", serverID, "container", c.ID[:12], "err", err)
 			return err
 		}
 	}
 	// Named volumes outlive ContainerRemove's anonymous-only cleanup, so tear the
 	// server's data volume down explicitly.
-	return m.docker.RemoveVolumesByServerID(ctx, serverID)
+	if err := m.docker.RemoveVolumesByServerID(ctx, serverID); err != nil {
+		slog.ErrorContext(ctx, "server delete failed (volume)",
+			"component", "server", "server_id", serverID, "err", err)
+		return err
+	}
+	slog.InfoContext(ctx, "server deleted", "component", "server", "server_id", serverID)
+	return nil
 }
 
 // Get returns the server snapshot, or (nil, nil) if no container exists for it.

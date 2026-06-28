@@ -39,6 +39,7 @@ import (
 	"github.com/xena-studios/raptor/apps/wings/internal/filesystem"
 	"github.com/xena-studios/raptor/apps/wings/internal/firewall"
 	"github.com/xena-studios/raptor/apps/wings/internal/ipc"
+	"github.com/xena-studios/raptor/apps/wings/internal/logging"
 	"github.com/xena-studios/raptor/apps/wings/internal/network"
 	"github.com/xena-studios/raptor/apps/wings/internal/remote"
 	"github.com/xena-studios/raptor/apps/wings/internal/scheduler"
@@ -59,13 +60,30 @@ const (
 
 // Run dispatches a wings subcommand and returns a process exit code.
 func Run(args []string) int {
+	var debug bool
+	var logFormat string
 	root := &cobra.Command{
 		Use:           "wings",
 		Short:         "Raptor Wings",
 		Version:       version.String(),
 		SilenceUsage:  true,
 		SilenceErrors: false,
+		// Configure the process-wide logger before any subcommand runs, so every
+		// subsystem logs at the chosen level + format. Debug is off by default.
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+			logging.Setup(logging.Options{
+				Debug:  debug,
+				Format: logging.Format(logFormat),
+			})
+			slog.Debug("logging configured",
+				"debug", logging.Enabled(), "version", version.Version)
+			return nil
+		},
 	}
+	root.PersistentFlags().BoolVar(&debug, "debug", false,
+		"verbose debug logging with source locations; also via WINGS_DEBUG=1 / WINGS_LOG_LEVEL=debug (also exposes pprof on the local control socket while running)")
+	root.PersistentFlags().StringVar(&logFormat, "log-format", "",
+		"log output format: text (default) or json; also via WINGS_LOG_FORMAT")
 	root.AddCommand(
 		newInstallCmd(),
 		newConfigureCmd(),
@@ -245,6 +263,16 @@ func newRunCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("%w (run `wings configure` first)", err)
 			}
+			// Confirms credentials loaded without leaking the secrets: the node key
+			// and signing secret render as <redacted> (the handler also scrubs them
+			// by key — see logging.Redact / security.md §2).
+			slog.Debug("credentials loaded",
+				"panelUrl", creds.PanelURL,
+				"nodeId", creds.NodeID,
+				"fqdn", creds.FQDN,
+				"nodeKey", logging.Redact(creds.NodeKey),
+				"signingSecret", logging.Redact(creds.SigningSecret),
+			)
 
 			st, err := store.Open(stateDir)
 			if err != nil {
@@ -281,6 +309,9 @@ func newRunCmd() *cobra.Command {
 			// (the heartbeat loop, the download-job sweeper) hang off it.
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
+			// Tag the daemon's root context with the node id so every correlated
+			// log line (heartbeats, and anything else using *Context) carries it.
+			ctx = logging.WithAttrs(ctx, slog.String("node_id", creds.NodeID))
 
 			// Serving mode (not --once): provision the self-signed TLS cert whose
 			// fingerprint the panel pins, then start the panel-facing HTTPS API.
@@ -418,6 +449,7 @@ func newRunCmd() *cobra.Command {
 					Store:      st,
 					Servers:    serverMgr,
 					Docker:     dockerClient,
+					Debug:      logging.Enabled(),
 				})
 				if err := ipcSrv.Start(); err != nil {
 					slog.Warn("ipc start failed; local control socket disabled", "err", err)
@@ -510,11 +542,14 @@ func heartbeatLoop(
 		hbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
 		info := composeInfo(hbCtx, dockerClient, staticInfo)
+		slog.DebugContext(hbCtx, "heartbeat attempt", "panel", creds.PanelURL, "apiPort", apiPort)
+		start := time.Now()
 		err := client.Heartbeat(hbCtx, creds.NodeKey, remote.HeartbeatBody{
 			SystemInfo:      info,
 			CertFingerprint: certFingerprint,
 			DaemonPort:      apiPort,
 		})
+		dur := time.Since(start)
 		now := time.Now().UTC()
 		updateErr := st.UpdateStatus(func(cur store.Status) store.Status {
 			cur.LastHeartbeatAt = now
@@ -531,10 +566,10 @@ func heartbeatLoop(
 			slog.Error("persist status failed", "err", updateErr)
 		}
 		if err != nil {
-			slog.Error("heartbeat failed", "err", err)
+			slog.ErrorContext(hbCtx, "heartbeat failed", "duration", dur, "err", err)
 			return
 		}
-		slog.Info("heartbeat ok", "node_id", creds.NodeID)
+		slog.DebugContext(hbCtx, "heartbeat ok", "duration", dur)
 	}
 
 	beat()

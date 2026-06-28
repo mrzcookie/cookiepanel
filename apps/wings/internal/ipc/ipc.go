@@ -17,6 +17,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"path/filepath"
 	"time"
@@ -41,6 +42,7 @@ type Server struct {
 	store      *store.Store
 	servers    *server.Manager
 	docker     *docker.Client
+	debug      bool
 
 	listener net.Listener
 	server   *http.Server
@@ -52,6 +54,10 @@ type Config struct {
 	Store      *store.Store
 	Servers    *server.Manager
 	Docker     *docker.Client
+	// Debug exposes net/http/pprof on this socket. Safe only because the socket
+	// is root-only (0600) and never reaches the network; never enable a network
+	// pprof surface.
+	Debug bool
 }
 
 // New constructs but does not start the server.
@@ -61,6 +67,7 @@ func New(cfg Config) *Server {
 		store:      cfg.Store,
 		servers:    cfg.Servers,
 		docker:     cfg.Docker,
+		debug:      cfg.Debug,
 	}
 }
 
@@ -133,7 +140,24 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /v1/servers/{id}/stop", s.handleStopServer)
 	mux.HandleFunc("DELETE /v1/servers/{id}", s.handleDeleteServer)
 	mux.HandleFunc("GET /v1/servers/{id}/logs", s.handleServerLogs)
+	if s.debug {
+		registerPprof(mux)
+	}
 	return mux
+}
+
+// registerPprof mounts the standard net/http/pprof endpoints under
+// /debug/pprof/. Only ever called for the root-only Unix socket in debug mode —
+// the panel-facing network API must never expose pprof. Reach it with:
+//
+//	curl --unix-socket /run/wings.sock http://x/debug/pprof/goroutine?debug=2
+//	go tool pprof 'http+unix://...'
+func registerPprof(mux *http.ServeMux) {
+	mux.HandleFunc("GET /debug/pprof/", pprof.Index)
+	mux.HandleFunc("GET /debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("GET /debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("GET /debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("GET /debug/pprof/trace", pprof.Trace)
 }
 
 func (s *Server) handlePing(w http.ResponseWriter, _ *http.Request) {

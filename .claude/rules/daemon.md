@@ -118,3 +118,13 @@ Because the daemon is root, validation is consistent and up front:
   mongo-driver, and SQL via pgx + go-sql-driver for PostgreSQL/MySQL/MariaDB —
   the panel passes the admin password, the daemon resolves the container's
   published port itself and connects locally).
+- **Observability.** Structured logging is centralized in `internal/logging`:
+  leveled slog, off by default (info), flipped to debug with `--debug` (a root
+  persistent flag, also `WINGS_DEBUG` / `WINGS_LOG_LEVEL`) and rendered as text
+  or JSON (`--log-format` / `WINGS_LOG_FORMAT`) for an aggregator. A
+  context-aware handler stamps a `request_id` + `node_id` onto every line within
+  a panel call (the API logs each request at a status-derived level: 5xx→error,
+  4xx→warn, success→debug). Secrets never reach a sink — the handler scrubs any
+  secret-named attribute (node key, signing secret, Authorization, token,
+  password) and the request logger omits headers/bodies. `--debug` also exposes
+  `net/http/pprof` on the **root-only** IPC socket (never the network API).
