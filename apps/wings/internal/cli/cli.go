@@ -38,6 +38,7 @@ import (
 	"github.com/xena-studios/raptor/apps/wings/internal/filesystem"
 	"github.com/xena-studios/raptor/apps/wings/internal/firewall"
 	"github.com/xena-studios/raptor/apps/wings/internal/ipc"
+	"github.com/xena-studios/raptor/apps/wings/internal/logging"
 	"github.com/xena-studios/raptor/apps/wings/internal/network"
 	"github.com/xena-studios/raptor/apps/wings/internal/remote"
 	"github.com/xena-studios/raptor/apps/wings/internal/scheduler"
@@ -126,16 +127,32 @@ func newConfigureCmd() *cobra.Command {
 func newRunCmd() *cobra.Command {
 	var dataDir, stateDir, socketPath, acmeEmail string
 	var apiPort int
-	var once, acme bool
+	var once, acme, debug bool
 	var interval time.Duration
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Start the daemon (heartbeat loop)",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			// Resolve + install the log level before anything else, so every
+			// subsystem below logs at the chosen verbosity. Debug is off by default.
+			level := logging.ResolveLevel(debug)
+			logging.Configure(level)
+			debugMode := level == slog.LevelDebug
+			slog.Info("log level configured", "level", level.String(), "debug", debugMode)
+
 			creds, err := credentials.Load(dataDir)
 			if err != nil {
 				return fmt.Errorf("%w (run `wings configure` first)", err)
 			}
+			// Confirms credentials loaded without leaking the secrets: the node key
+			// and signing secret are redacted (see logging.RedactToken / security.md).
+			slog.Debug("credentials loaded",
+				"panelUrl", creds.PanelURL,
+				"nodeId", creds.NodeID,
+				"fqdn", creds.FQDN,
+				"nodeKey", logging.RedactToken(creds.NodeKey),
+				"signingSecret", logging.RedactToken(creds.SigningSecret),
+			)
 
 			st, err := store.Open(stateDir)
 			if err != nil {
@@ -309,6 +326,7 @@ func newRunCmd() *cobra.Command {
 					Store:      st,
 					Servers:    serverMgr,
 					Docker:     dockerClient,
+					Debug:      debugMode,
 				})
 				if err := ipcSrv.Start(); err != nil {
 					slog.Warn("ipc start failed; local control socket disabled", "err", err)
@@ -330,6 +348,7 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&socketPath, "socket", ipc.DefaultSocket, "path for the box-local control socket")
 	cmd.Flags().IntVar(&apiPort, "api-port", defaultAPIPort, "TCP port the panel-facing HTTPS API will bind (advertised in the heartbeat)")
 	cmd.Flags().BoolVar(&once, "once", false, "send a single heartbeat and exit (testing)")
+	cmd.Flags().BoolVar(&debug, "debug", false, "enable debug logging (also via WINGS_DEBUG / WINGS_LOG_LEVEL) and pprof on the local socket")
 	cmd.Flags().BoolVar(&acme, "acme", false, "obtain a Let's Encrypt cert for the FQDN (needs :80 reachable) instead of self-signed")
 	cmd.Flags().StringVar(&acmeEmail, "acme-email", "", "ACME account contact email (optional, for renewal notices)")
 	cmd.Flags().DurationVar(&interval, "interval", 30*time.Second, "heartbeat interval")
@@ -401,11 +420,14 @@ func heartbeatLoop(
 		hbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
 		info := composeInfo(hbCtx, dockerClient, staticInfo)
+		slog.Debug("heartbeat attempt", "node_id", creds.NodeID, "panel", creds.PanelURL)
+		start := time.Now()
 		err := client.Heartbeat(hbCtx, creds.NodeKey, remote.HeartbeatBody{
 			SystemInfo:      info,
 			CertFingerprint: certFingerprint,
 			DaemonPort:      apiPort,
 		})
+		dur := time.Since(start)
 		now := time.Now().UTC()
 		updateErr := st.UpdateStatus(func(cur store.Status) store.Status {
 			cur.LastHeartbeatAt = now
@@ -422,9 +444,11 @@ func heartbeatLoop(
 			slog.Error("persist status failed", "err", updateErr)
 		}
 		if err != nil {
+			slog.Debug("heartbeat outcome", "ok", false, "duration", dur, "err", err)
 			slog.Error("heartbeat failed", "err", err)
 			return
 		}
+		slog.Debug("heartbeat outcome", "ok", true, "duration", dur)
 		slog.Info("heartbeat ok", "node_id", creds.NodeID)
 	}
 
@@ -483,32 +507,96 @@ func composeInfo(
 }
 
 func newDiagnosticsCmd() *cobra.Command {
-	var dataDir string
+	var dataDir, stateDir, socketPath string
 	cmd := &cobra.Command{
 		Use:   "diagnostics",
-		Short: "Print system info and check panel connectivity",
-		Run: func(_ *cobra.Command, _ []string) {
+		Short: "Print system, TLS, firewall, docker, store, and panel health",
+		Run: func(cmd *cobra.Command, _ []string) {
 			fmt.Println(version.String())
 			for k, v := range systemInfo() {
-				fmt.Printf("  %-14s %v\n", k, v)
+				fmt.Printf("  %-16s %v\n", k, v)
 			}
+
+			// TLS: the mode + the value the panel pins, read-only (no generation).
+			if mode, fp, ok := wingstls.Fingerprint(filepath.Join(stateDir, "tls")); ok {
+				fmt.Printf("  %-16s %s\n", "tls mode", mode)
+				fmt.Printf("  %-16s %s\n", "tls fingerprint", fp)
+			} else {
+				fmt.Printf("  %-16s %s\n", "tls", "not provisioned")
+			}
+
+			// Firewall: reuse the manager's runtime backend detection.
+			fmt.Printf("  %-16s %s\n", "firewall", firewall.NewManager(defaultAPIPort).BackendName())
+
+			// Docker reachability (non-fatal): same probe the heartbeat uses.
+			dockerClient, derr := docker.New()
+			if derr != nil {
+				fmt.Printf("  %-16s unavailable (%v)\n", "docker", derr)
+			} else {
+				pctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
+				info := dockerClient.Probe(pctx)
+				cancel()
+				_ = dockerClient.Close()
+				if info.Available {
+					fmt.Printf("  %-16s available (engine %s, %d containers)\n",
+						"docker", info.ServerVersion, info.Containers)
+				} else {
+					fmt.Printf("  %-16s unavailable (%s)\n", "docker", info.Error)
+				}
+			}
+
+			// Local store: path + size always work; the schedule count needs the
+			// bbolt lock, which a running daemon holds — so probe the IPC socket
+			// first and skip the (blocking) open when the daemon is up.
+			fmt.Printf("  %-16s %s\n", "store path", store.Path(stateDir))
+			if fi, serr := os.Stat(store.Path(stateDir)); serr == nil {
+				fmt.Printf("  %-16s %d bytes\n", "store size", fi.Size())
+			}
+
+			fmt.Printf("  %-16s %s\n", "ipc socket", socketPath)
+			pingCtx, pcancel := context.WithTimeout(cmd.Context(), 2*time.Second)
+			running := ipc.NewClient(socketPath).Ping(pingCtx) == nil
+			pcancel()
+			fmt.Printf("  %-16s %t\n", "ipc responding", running)
+
+			switch {
+			case running:
+				fmt.Printf("  %-16s unavailable (daemon running)\n", "schedules")
+			default:
+				if st, serr := store.Open(stateDir); serr != nil {
+					fmt.Printf("  %-16s error: %v\n", "schedules", serr)
+				} else {
+					scheds, lerr := st.ListSchedules()
+					_ = st.Close()
+					if lerr != nil {
+						fmt.Printf("  %-16s error: %v\n", "schedules", lerr)
+					} else {
+						fmt.Printf("  %-16s %d\n", "schedules", len(scheds))
+					}
+				}
+			}
+
+			// Panel reachability.
 			creds, err := credentials.Load(dataDir)
 			if err != nil {
-				fmt.Println("credentials:    not configured")
+				fmt.Printf("  %-16s %s\n", "credentials", "not configured")
 				return
 			}
-			fmt.Printf("  panel          %s\n  node           %s\n", creds.PanelURL, creds.NodeID)
+			fmt.Printf("  %-16s %s\n", "panel", creds.PanelURL)
+			fmt.Printf("  %-16s %s\n", "node", creds.NodeID)
 			client := &http.Client{Timeout: 5 * time.Second}
 			resp, err := client.Get(creds.PanelURL + "/api/auth/ok")
 			if err != nil {
-				fmt.Printf("  panel reach    no (%v)\n", err)
+				fmt.Printf("  %-16s no (%v)\n", "panel reach", err)
 				return
 			}
 			defer resp.Body.Close()
-			fmt.Printf("  panel reach    %s\n", resp.Status)
+			fmt.Printf("  %-16s %s\n", "panel reach", resp.Status)
 		},
 	}
 	cmd.Flags().StringVar(&dataDir, "data-dir", defaultDataDir, "directory holding credentials")
+	cmd.Flags().StringVar(&stateDir, "state-dir", defaultStateDir, "directory for the local state db + tls material")
+	cmd.Flags().StringVar(&socketPath, "socket", ipc.DefaultSocket, "path of the local control socket")
 	return cmd
 }
 

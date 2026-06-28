@@ -39,6 +39,13 @@ export const env = createEnv({
 				"ENCRYPTION_KEY must be 64 hex chars (32 bytes) — generate with `openssl rand -hex 32`"
 			),
 
+		// --- Debug (optional) ---
+		// Server log verbosity for the tiny leveled logger (src/server/log.ts).
+		// "debug" turns on the panel→daemon request tracing in the daemon-client
+		// seam (node id / method / path / status / duration, secrets redacted) and
+		// the /admin/debug diagnostics surface. Default "info".
+		LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+
 		// --- Auth extras (optional) ---
 		// Extra CSRF-trusted origins (comma-separated); baseURL is always trusted.
 		AUTH_TRUSTED_ORIGINS: z.string().optional(),

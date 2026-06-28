@@ -1,4 +1,5 @@
 import { env } from "@/server/env";
+import { log } from "@/server/log";
 
 /**
  * Cloudflare DNS for managed nodes — the auto-DNS behind the "Raptor
@@ -109,11 +110,11 @@ export async function reconcileManagedNodeDns(
 		return false;
 	}
 	if (!HOSTNAME.test(fqdn)) {
-		console.error(`[dns] refusing to manage a malformed hostname: ${fqdn}`);
+		log.error("dns: refusing to manage a malformed hostname", { fqdn });
 		return false;
 	}
 	if (ip !== null && !isIpv4(ip)) {
-		console.error(`[dns] refusing to point ${fqdn} at a non-IPv4: ${ip}`);
+		log.error("dns: refusing to point hostname at a non-IPv4", { fqdn, ip });
 		return false;
 	}
 
@@ -144,7 +145,7 @@ export async function reconcileManagedNodeDns(
 		}
 		return true;
 	} catch (error) {
-		console.error(`[dns] Cloudflare reconcile failed for ${fqdn}:`, error);
+		log.error("dns: Cloudflare reconcile failed", { fqdn, error });
 		return false;
 	}
 }

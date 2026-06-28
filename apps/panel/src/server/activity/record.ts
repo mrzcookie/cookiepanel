@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { ActivityCategory } from "@/lib/domain/activity";
+import { log } from "@/server/log";
 import { activityRepository } from "./repository";
 
 export type RecordActivityInput = {
@@ -38,6 +39,6 @@ export async function recordActivity(input: RecordActivityInput) {
 			metadata: input.metadata ?? null,
 		});
 	} catch (error) {
-		console.error("[activity] failed to record entry:", error);
+		log.error("activity: failed to record entry", { error });
 	}
 }
