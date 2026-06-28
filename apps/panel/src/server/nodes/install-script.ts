@@ -3,10 +3,11 @@ import { env } from "@/server/env";
 // The one-line node installer the enrollment command curls from the panel
 // (`curl -fsSL <panel>/install.sh | sudo sh -s -- --panel … --node … --token …`).
 // The panel renders it with the *current* pinned release baked in, so a fresh box
-// always installs the latest daemon. The script downloads the arch-matched binary
-// from the configured release base, verifies its sha256, installs it, exchanges
-// the bootstrap token for durable credentials (`wings configure`), and brings
-// up the systemd service. Absent release config → a script that fails loudly.
+// always installs the latest daemon. The script does the bare minimum: download
+// the arch-matched binary from the configured release base, verify its sha256,
+// install it, then hand off to `wings install` — which provisions the box
+// (activates the node, installs Docker, registers + starts the systemd service,
+// opens its firewall ports). Absent release config → a script that fails loudly.
 
 /** Render the install script as a shell-script HTTP response. */
 export function renderInstallScript(): Response {
@@ -38,6 +39,9 @@ function noReleaseScript(): string {
 function installScript(version: string, base: string): string {
 	return `#!/bin/sh
 # wings installer — rendered by the panel for daemon v${version}.
+# Fetches + verifies the wings binary, then hands off to \`wings install\`, which
+# provisions the box (activates the node, installs Docker, registers the systemd
+# service, opens firewall ports). Everything past the binary lives in the daemon.
 set -eu
 
 VERSION='${version}'
@@ -63,7 +67,7 @@ if [ -z "$PANEL" ] || [ -z "$NODE" ] || [ -z "$TOKEN" ]; then
   exit 1
 fi
 
-for tool in curl sha256sum systemctl install; do
+for tool in curl sha256sum install; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     echo "wings install: required tool not found: $tool" >&2
     exit 1
@@ -75,10 +79,6 @@ case "$(uname -m)" in
   aarch64|arm64) ARCH=arm64 ;;
   *) echo "wings install: unsupported architecture $(uname -m)" >&2; exit 1 ;;
 esac
-
-if ! command -v docker >/dev/null 2>&1; then
-  echo "wings install: warning — Docker not found; install it to run servers." >&2
-fi
 
 URL="$BASE/v$VERSION/wings-linux-$ARCH"
 TMP="$(mktemp)"
@@ -94,32 +94,11 @@ fi
 
 install -m 0755 "$TMP" /usr/local/bin/wings
 
-echo "Activating node..."
+echo "Provisioning node (docker, service, activation)..."
 if [ -n "$FQDN" ]; then
-  /usr/local/bin/wings configure --panel "$PANEL" --node "$NODE" --token "$TOKEN" --fqdn "$FQDN"
+  /usr/local/bin/wings install --panel "$PANEL" --node "$NODE" --token "$TOKEN" --fqdn "$FQDN"
 else
-  /usr/local/bin/wings configure --panel "$PANEL" --node "$NODE" --token "$TOKEN"
+  /usr/local/bin/wings install --panel "$PANEL" --node "$NODE" --token "$TOKEN"
 fi
-
-cat > /etc/systemd/system/wings.service <<'UNIT'
-[Unit]
-Description=Raptor Wings
-After=network-online.target docker.service
-Wants=network-online.target
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/wings run
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-
-systemctl daemon-reload
-systemctl enable --now wings
-
-echo "wings v$VERSION installed and running; the node will come online shortly."
 `;
 }

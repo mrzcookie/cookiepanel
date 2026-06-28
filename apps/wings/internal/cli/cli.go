@@ -1,5 +1,6 @@
 // Package cli implements wings's command-line entrypoint. Subcommands:
 //
+//	install       provisions the box end-to-end: activate, install Docker, register the service
 //	configure     exchanges a single-use bootstrap token for durable credentials
 //	run           serves the panel API + local control socket and heartbeats home
 //	status        prints the daemon's live status via the local control socket
@@ -44,6 +45,7 @@ import (
 	"github.com/xena-studios/raptor/apps/wings/internal/server"
 	"github.com/xena-studios/raptor/apps/wings/internal/sftp"
 	"github.com/xena-studios/raptor/apps/wings/internal/store"
+	"github.com/xena-studios/raptor/apps/wings/internal/system"
 	wingstls "github.com/xena-studios/raptor/apps/wings/internal/tls"
 	"github.com/xena-studios/raptor/apps/wings/internal/tui"
 	"github.com/xena-studios/raptor/apps/wings/internal/version"
@@ -65,6 +67,7 @@ func Run(args []string) int {
 		SilenceErrors: false,
 	}
 	root.AddCommand(
+		newInstallCmd(),
 		newConfigureCmd(),
 		newRunCmd(),
 		newStatusCmd(),
@@ -79,36 +82,141 @@ func Run(args []string) int {
 	return 0
 }
 
+// activation carries the inputs needed to exchange a single-use bootstrap token
+// for durable credentials. Shared by `configure` (credentials only) and
+// `install` (the full box provision).
+type activation struct {
+	PanelURL string
+	NodeID   string
+	Token    string
+	FQDN     string
+	DataDir  string
+}
+
+// activateNode exchanges the bootstrap token for the durable node key + signing
+// secret and persists them. The token is single-use and time-limited, so callers
+// that also do slow work (`install`) run this first.
+func activateNode(ctx context.Context, a activation) error {
+	actx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	client := remote.New(a.PanelURL)
+	res, err := client.Activate(actx, remote.ActivateRequest{
+		NodeID:         a.NodeID,
+		BootstrapToken: a.Token,
+		FQDN:           a.FQDN,
+	})
+	if err != nil {
+		return err
+	}
+	if err := credentials.Save(a.DataDir, credentials.Credentials{
+		PanelURL:      a.PanelURL,
+		NodeID:        a.NodeID,
+		NodeKey:       res.NodeKey,
+		SigningSecret: res.SigningSecret,
+		FQDN:          a.FQDN,
+	}); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr,
+		"activated node %q; credentials written to %s\n",
+		a.NodeID, credentials.Path(a.DataDir))
+	return nil
+}
+
 func newConfigureCmd() *cobra.Command {
 	var panelURL, nodeID, token, dataDir, fqdn string
 	cmd := &cobra.Command{
 		Use:   "configure",
 		Short: "Activate this node against a panel using a bootstrap token",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx, cancel := context.WithTimeout(cmd.Context(), 15*time.Second)
-			defer cancel()
-
-			client := remote.New(panelURL)
-			res, err := client.Activate(ctx, remote.ActivateRequest{
-				NodeID:         nodeID,
-				BootstrapToken: token,
-				FQDN:           fqdn,
+			return activateNode(cmd.Context(), activation{
+				PanelURL: panelURL,
+				NodeID:   nodeID,
+				Token:    token,
+				FQDN:     fqdn,
+				DataDir:  dataDir,
 			})
-			if err != nil {
-				return err
+		},
+	}
+	cmd.Flags().StringVar(&panelURL, "panel", "", "panel base URL")
+	cmd.Flags().StringVar(&nodeID, "node", "", "node id issued by the panel")
+	cmd.Flags().StringVar(&token, "token", "", "single-use bootstrap token")
+	cmd.Flags().StringVar(&dataDir, "data-dir", defaultDataDir, "directory to store credentials")
+	cmd.Flags().StringVar(&fqdn, "fqdn", "", "this box's FQDN (reported to the panel)")
+	_ = cmd.MarkFlagRequired("panel")
+	_ = cmd.MarkFlagRequired("node")
+	_ = cmd.MarkFlagRequired("token")
+	return cmd
+}
+
+// newInstallCmd provisions the box end-to-end. The panel's `install.sh` does
+// nothing but fetch + verify the binary and hand off here, so this is where all
+// the host setup lives: activate the node (token exchange), install Docker, then
+// register + start the systemd service. The started service runs `wings run`,
+// which opens its own firewall ports on startup — so nothing here touches ports
+// directly. Must run as root.
+func newInstallCmd() *cobra.Command {
+	var panelURL, nodeID, token, dataDir, fqdn string
+	var skipDocker bool
+	cmd := &cobra.Command{
+		Use:   "install",
+		Short: "Provision this box: activate the node, install Docker, and register the systemd service",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if os.Geteuid() != 0 {
+				return fmt.Errorf("install must run as root (use sudo)")
 			}
-			if err := credentials.Save(dataDir, credentials.Credentials{
-				PanelURL:      panelURL,
-				NodeID:        nodeID,
-				NodeKey:       res.NodeKey,
-				SigningSecret: res.SigningSecret,
-				FQDN:          fqdn,
+
+			// 1. Claim durable credentials first: the bootstrap token is
+			// single-use and time-limited, so exchange it before the slow Docker
+			// install rather than risk it expiring mid-provision.
+			if err := activateNode(cmd.Context(), activation{
+				PanelURL: panelURL,
+				NodeID:   nodeID,
+				Token:    token,
+				FQDN:     fqdn,
+				DataDir:  dataDir,
 			}); err != nil {
 				return err
 			}
+
+			// 2. Install Docker (best-effort). The daemon runs without it — it
+			// just can't host servers — so a failure warns and provisioning
+			// continues; the operator can install Docker later.
+			if skipDocker {
+				fmt.Fprintln(os.Stderr, "skipping docker install (--skip-docker)")
+			} else {
+				fmt.Fprintln(os.Stderr, "ensuring docker is installed...")
+				if err := system.EnsureDocker(cmd.Context()); err != nil {
+					fmt.Fprintf(os.Stderr,
+						"warning: docker not installed (%v); install it later to host servers\n", err)
+				}
+			}
+
+			// 3. Register + start the systemd service. ExecStart points at the
+			// resolved binary so a later self-update (which swaps the file in
+			// place) keeps working; pass through a non-default data dir so `run`
+			// finds the credentials we just wrote.
+			self, err := os.Executable()
+			if err != nil {
+				return fmt.Errorf("locate executable: %w", err)
+			}
+			if resolved, rerr := filepath.EvalSymlinks(self); rerr == nil {
+				self = resolved
+			}
+			execStart := self + " run"
+			if dataDir != defaultDataDir {
+				execStart += " --data-dir " + dataDir
+			}
+			fmt.Fprintln(os.Stderr, "registering the wings systemd service...")
+			if err := system.InstallService(cmd.Context(), system.ServiceConfig{
+				ExecStart: execStart,
+			}); err != nil {
+				return fmt.Errorf("install service: %w", err)
+			}
+
 			fmt.Fprintf(os.Stderr,
-				"activated node %q; credentials written to %s\n",
-				nodeID, credentials.Path(dataDir))
+				"node %q provisioned; wings is running and will come online shortly.\n", nodeID)
 			return nil
 		},
 	}
@@ -117,6 +225,7 @@ func newConfigureCmd() *cobra.Command {
 	cmd.Flags().StringVar(&token, "token", "", "single-use bootstrap token")
 	cmd.Flags().StringVar(&dataDir, "data-dir", defaultDataDir, "directory to store credentials")
 	cmd.Flags().StringVar(&fqdn, "fqdn", "", "this box's FQDN (reported to the panel)")
+	cmd.Flags().BoolVar(&skipDocker, "skip-docker", false, "don't install Docker (the host already manages it)")
 	_ = cmd.MarkFlagRequired("panel")
 	_ = cmd.MarkFlagRequired("node")
 	_ = cmd.MarkFlagRequired("token")

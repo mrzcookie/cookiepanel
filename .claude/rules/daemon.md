@@ -99,12 +99,17 @@ Because the daemon is root, validation is consistent and up front:
   version is compared to it → per-node Update; `wings`'s self-update verifies
   the sha256 + atomically swaps the binary, then restarts via systemd). A fresh
   box installs the pinned latest via the panel-served `/install.sh` (the
-  enrollment one-liner) — it arch-detects, downloads + verifies, runs
-  `configure`, and brings up the systemd unit.
-- Current subcommands: `configure` (exchange a bootstrap token for durable
-  credentials), `run` (serve everything + heartbeat loop), `status` (print live
-  status via the local socket), `tui` (offline operator console), `diagnostics`,
-  `version`. `run` wires Docker, the server lifecycle (incl. the egg install
+  enrollment one-liner) — it does only the binary bootstrap (arch-detect,
+  download + sha256-verify, install to `/usr/local/bin/wings`), then hands off
+  to `wings install`, which provisions the box: activates the node, installs
+  Docker (official cross-distro `get.docker.com` installer; best-effort, the
+  daemon runs without it), and registers + starts the systemd unit (which runs
+  `wings run`, opening its own firewall ports on startup).
+- Current subcommands: `install` (the full box provision: activate + install
+  Docker + register the service — what `install.sh` hands off to), `configure`
+  (exchange a bootstrap token for durable credentials only), `run` (serve
+  everything + heartbeat loop), `status` (print live status via the local
+  socket), `tui` (offline operator console), `diagnostics`, `version`. `run` wires Docker, the server lifecycle (incl. the egg install
   pipeline + config-file templating), the console WebSocket, networks/firewall,
   the sandboxed file manager (browse/edit/upload/download/archive), the embedded
   SFTP server, the cron scheduler, borg backups, host maintenance (reboot/prune/
