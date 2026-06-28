@@ -29,7 +29,6 @@ import { Route as AdminSubdomainsIndexRouteImport } from './routes/admin/subdoma
 import { Route as AdminOrgsIndexRouteImport } from './routes/admin/orgs/index'
 import { Route as AdminNodesIndexRouteImport } from './routes/admin/nodes/index'
 import { Route as AdminEggsIndexRouteImport } from './routes/admin/eggs/index'
-import { Route as AdminDebugIndexRouteImport } from './routes/admin/debug/index'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppServersIndexRouteImport } from './routes/_app/servers/index'
 import { Route as AppNodesIndexRouteImport } from './routes/_app/nodes/index'
@@ -168,11 +167,6 @@ const AdminNodesIndexRoute = AdminNodesIndexRouteImport.update({
 const AdminEggsIndexRoute = AdminEggsIndexRouteImport.update({
   id: '/eggs/',
   path: '/eggs/',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminDebugIndexRoute = AdminDebugIndexRouteImport.update({
-  id: '/debug/',
-  path: '/debug/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
@@ -417,7 +411,6 @@ export interface FileRoutesByFullPath {
   '/nodes/': typeof AppNodesIndexRoute
   '/servers/': typeof AppServersIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
-  '/admin/debug/': typeof AdminDebugIndexRoute
   '/admin/eggs/': typeof AdminEggsIndexRoute
   '/admin/nodes/': typeof AdminNodesIndexRoute
   '/admin/orgs/': typeof AdminOrgsIndexRoute
@@ -473,7 +466,6 @@ export interface FileRoutesByTo {
   '/nodes': typeof AppNodesIndexRoute
   '/servers': typeof AppServersIndexRoute
   '/settings': typeof AppSettingsIndexRoute
-  '/admin/debug': typeof AdminDebugIndexRoute
   '/admin/eggs': typeof AdminEggsIndexRoute
   '/admin/nodes': typeof AdminNodesIndexRoute
   '/admin/orgs': typeof AdminOrgsIndexRoute
@@ -536,7 +528,6 @@ export interface FileRoutesById {
   '/_app/nodes/': typeof AppNodesIndexRoute
   '/_app/servers/': typeof AppServersIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
-  '/admin/debug/': typeof AdminDebugIndexRoute
   '/admin/eggs/': typeof AdminEggsIndexRoute
   '/admin/nodes/': typeof AdminNodesIndexRoute
   '/admin/orgs/': typeof AdminOrgsIndexRoute
@@ -599,7 +590,6 @@ export interface FileRouteTypes {
     | '/nodes/'
     | '/servers/'
     | '/settings/'
-    | '/admin/debug/'
     | '/admin/eggs/'
     | '/admin/nodes/'
     | '/admin/orgs/'
@@ -655,7 +645,6 @@ export interface FileRouteTypes {
     | '/nodes'
     | '/servers'
     | '/settings'
-    | '/admin/debug'
     | '/admin/eggs'
     | '/admin/nodes'
     | '/admin/orgs'
@@ -717,7 +706,6 @@ export interface FileRouteTypes {
     | '/_app/nodes/'
     | '/_app/servers/'
     | '/_app/settings/'
-    | '/admin/debug/'
     | '/admin/eggs/'
     | '/admin/nodes/'
     | '/admin/orgs/'
@@ -897,13 +885,6 @@ declare module '@tanstack/react-router' {
       path: '/eggs'
       fullPath: '/admin/eggs/'
       preLoaderRoute: typeof AdminEggsIndexRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/debug/': {
-      id: '/admin/debug/'
-      path: '/debug'
-      fullPath: '/admin/debug/'
-      preLoaderRoute: typeof AdminDebugIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/_app/settings/': {
@@ -1308,7 +1289,6 @@ interface AdminRouteRouteChildren {
   AdminEggsEggIdRoute: typeof AdminEggsEggIdRoute
   AdminEggsNewRoute: typeof AdminEggsNewRoute
   AdminNodesNodeIdRoute: typeof AdminNodesNodeIdRoute
-  AdminDebugIndexRoute: typeof AdminDebugIndexRoute
   AdminEggsIndexRoute: typeof AdminEggsIndexRoute
   AdminNodesIndexRoute: typeof AdminNodesIndexRoute
   AdminOrgsIndexRoute: typeof AdminOrgsIndexRoute
@@ -1325,7 +1305,6 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminEggsEggIdRoute: AdminEggsEggIdRoute,
   AdminEggsNewRoute: AdminEggsNewRoute,
   AdminNodesNodeIdRoute: AdminNodesNodeIdRoute,
-  AdminDebugIndexRoute: AdminDebugIndexRoute,
   AdminEggsIndexRoute: AdminEggsIndexRoute,
   AdminNodesIndexRoute: AdminNodesIndexRoute,
   AdminOrgsIndexRoute: AdminOrgsIndexRoute,

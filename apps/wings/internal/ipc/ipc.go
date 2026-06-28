@@ -17,7 +17,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/http/pprof"
 	"os"
 	"path/filepath"
 	"time"
@@ -42,7 +41,6 @@ type Server struct {
 	store      *store.Store
 	servers    *server.Manager
 	docker     *docker.Client
-	debug      bool
 
 	listener net.Listener
 	server   *http.Server
@@ -54,11 +52,6 @@ type Config struct {
 	Store      *store.Store
 	Servers    *server.Manager
 	Docker     *docker.Client
-	// Debug, when true, mounts net/http/pprof under /debug/pprof/ on this socket.
-	// The socket is root-only (0600), so this never widens the attack surface, and
-	// it is absent entirely unless the daemon runs in debug mode. pprof is
-	// deliberately NOT exposed on the panel-facing HTTPS API.
-	Debug bool
 }
 
 // New constructs but does not start the server.
@@ -68,7 +61,6 @@ func New(cfg Config) *Server {
 		store:      cfg.Store,
 		servers:    cfg.Servers,
 		docker:     cfg.Docker,
-		debug:      cfg.Debug,
 	}
 }
 
@@ -141,23 +133,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /v1/servers/{id}/stop", s.handleStopServer)
 	mux.HandleFunc("DELETE /v1/servers/{id}", s.handleDeleteServer)
 	mux.HandleFunc("GET /v1/servers/{id}/logs", s.handleServerLogs)
-	if s.debug {
-		registerPprof(mux)
-	}
 	return mux
-}
-
-// registerPprof mounts the net/http/pprof handlers under /debug/pprof/ on the
-// given mux. They're wired explicitly — rather than relying on the package's
-// init() registration onto http.DefaultServeMux — because this server uses its
-// own mux. Only ever called in debug mode, and only on the root-only local socket;
-// pprof is never reachable from the panel-facing API.
-func registerPprof(mux *http.ServeMux) {
-	mux.HandleFunc("/debug/pprof/", pprof.Index)
-	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 }
 
 func (s *Server) handlePing(w http.ResponseWriter, _ *http.Request) {

@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import { Agent, request } from "node:https";
 import type { Socket } from "node:net";
@@ -13,7 +13,6 @@ import type { NodeHostInfo, NodeLiveStats } from "@/lib/domain/nodes";
 import { unseal } from "@/server/crypto";
 import { db } from "@/server/db";
 import { node, nodeCredential } from "@/server/db/schema/nodes";
-import { log } from "@/server/log";
 import { nodeKeyAad } from "./enrollment";
 
 // The daemon wire types are the OpenAPI contract's generated schemas — the spec
@@ -35,11 +34,6 @@ type Schemas = components["schemas"];
  */
 
 const REQUEST_TIMEOUT_MS = 10_000;
-
-// Correlation header echoed by the daemon, so a single panel action is greppable
-// across the panel log and the daemon log. EXACTLY this casing — the daemon
-// matches it. A fresh id is minted per outbound call.
-const REQUEST_ID_HEADER = "X-Raptor-Request-Id";
 
 // Sentinel the daemon reports (in the certFingerprint slot) when it serves a
 // publicly-trusted Let's Encrypt cert instead of a self-signed one. Keep in sync
@@ -209,21 +203,16 @@ function daemonFetch(
 	opts: DaemonFetchOptions
 ): Promise<unknown> {
 	return new Promise((resolve, reject) => {
-		const method = opts.method ?? "GET";
 		const payload = opts.body !== undefined ? JSON.stringify(opts.body) : "";
-		// Per-call correlation id (sent + logged); never log the Bearer node key.
-		const requestId = randomUUID();
-		const startedAt = Date.now();
 		const req = request(
 			{
 				host: ref.fqdn,
 				port: ref.daemonPort,
 				path: opts.path,
-				method,
+				method: opts.method ?? "GET",
 				agent: pinningAgent(ref.certFingerprint),
 				headers: {
 					Authorization: `Bearer ${nodeKey}`,
-					[REQUEST_ID_HEADER]: requestId,
 					Accept: "application/json",
 					...(payload
 						? {
@@ -240,39 +229,16 @@ function daemonFetch(
 				res.on("end", () => {
 					const raw = Buffer.concat(chunks).toString("utf8");
 					const code = res.statusCode ?? 0;
-					const durationMs = Date.now() - startedAt;
 					if (code < 200 || code >= 300) {
-						// Never log the response body: a daemon error reason can carry
-						// server-only image strings/digests (eggs-over-images) or secret
-						// variable values. The reason still reaches the operator via the
-						// DaemonError below (surfaced in the UI).
-						log.warn("daemon call failed", {
-							nodeId: ref.id,
-							method,
-							path: opts.path,
-							status: code,
-							durationMs,
-							requestId,
-							echoedRequestId: res.headers["x-raptor-request-id"],
-						});
 						reject(
 							new DaemonError(
-								`daemon ${method} ${opts.path}: HTTP ${code}${daemonErrorDetail(raw)}`,
+								`daemon ${opts.method ?? "GET"} ${opts.path}: HTTP ${code}${daemonErrorDetail(raw)}`,
 								code,
 								raw.slice(0, 500)
 							)
 						);
 						return;
 					}
-					log.debug("daemon call", {
-						nodeId: ref.id,
-						method,
-						path: opts.path,
-						status: code,
-						durationMs,
-						requestId,
-						echoedRequestId: res.headers["x-raptor-request-id"],
-					});
 					const ct = res.headers["content-type"] ?? "";
 					if (typeof ct === "string" && ct.includes("application/json")) {
 						try {
@@ -287,28 +253,12 @@ function daemonFetch(
 			}
 		);
 		req.on("timeout", () => {
-			log.error("daemon call timed out", {
-				nodeId: ref.id,
-				method,
-				path: opts.path,
-				durationMs: Date.now() - startedAt,
-				requestId,
-			});
 			req.destroy(new DaemonError("daemon request timed out"));
 		});
 		req.on("error", (err) => {
 			// Surface the real TLS error (pin mismatch, etc.) — Node otherwise hides
 			// it behind a generic ECONNRESET.
 			const tlsMsg = (req.socket as TLSSocket | undefined)?.authorizationError;
-			log.error("daemon transport error", {
-				nodeId: ref.id,
-				method,
-				path: opts.path,
-				durationMs: Date.now() - startedAt,
-				requestId,
-				error: err.message,
-				tls: tlsMsg,
-			});
 			reject(
 				new DaemonError(
 					`daemon transport: ${err.message}${tlsMsg ? ` (${tlsMsg})` : ""}`
@@ -342,9 +292,6 @@ function daemonStream(
 	opts: DaemonStreamOptions
 ): Promise<IncomingMessage> {
 	return new Promise((resolve, reject) => {
-		// Per-call correlation id (sent + logged); never log the Bearer node key.
-		const requestId = randomUUID();
-		const startedAt = Date.now();
 		const req = request(
 			{
 				host: ref.fqdn,
@@ -354,7 +301,6 @@ function daemonStream(
 				agent: pinningAgent(ref.certFingerprint),
 				headers: {
 					Authorization: `Bearer ${nodeKey}`,
-					[REQUEST_ID_HEADER]: requestId,
 					...(opts.body
 						? {
 								"Content-Type": opts.contentType ?? "application/octet-stream",
@@ -366,24 +312,11 @@ function daemonStream(
 			},
 			(res) => {
 				const code = res.statusCode ?? 0;
-				const durationMs = Date.now() - startedAt;
 				if (code < 200 || code >= 300) {
 					const chunks: Buffer[] = [];
 					res.on("data", (c: Buffer) => chunks.push(c));
 					res.on("end", () => {
 						const raw = Buffer.concat(chunks).toString("utf8");
-						// Body intentionally omitted — see daemonFetch above (can carry
-						// image strings / secret values). The reason still reaches the
-						// operator via the DaemonError below.
-						log.warn("daemon stream failed", {
-							nodeId: ref.id,
-							method: opts.method,
-							path: opts.path,
-							status: code,
-							durationMs,
-							requestId,
-							echoedRequestId: res.headers["x-raptor-request-id"],
-						});
 						reject(
 							new DaemonError(
 								`daemon ${opts.method} ${opts.path}: HTTP ${code}${daemonErrorDetail(raw)}`,
@@ -394,39 +327,14 @@ function daemonStream(
 					});
 					return;
 				}
-				log.debug("daemon stream", {
-					nodeId: ref.id,
-					method: opts.method,
-					path: opts.path,
-					status: code,
-					durationMs,
-					requestId,
-					echoedRequestId: res.headers["x-raptor-request-id"],
-				});
 				resolve(res);
 			}
 		);
 		req.on("timeout", () => {
-			log.error("daemon stream timed out", {
-				nodeId: ref.id,
-				method: opts.method,
-				path: opts.path,
-				durationMs: Date.now() - startedAt,
-				requestId,
-			});
 			req.destroy(new DaemonError("daemon request timed out"));
 		});
 		req.on("error", (err) => {
 			const tlsMsg = (req.socket as TLSSocket | undefined)?.authorizationError;
-			log.error("daemon stream transport error", {
-				nodeId: ref.id,
-				method: opts.method,
-				path: opts.path,
-				durationMs: Date.now() - startedAt,
-				requestId,
-				error: err.message,
-				tls: tlsMsg,
-			});
 			reject(
 				new DaemonError(
 					`daemon transport: ${err.message}${tlsMsg ? ` (${tlsMsg})` : ""}`

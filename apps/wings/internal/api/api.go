@@ -14,10 +14,8 @@ package api
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/subtle"
 	cryptotls "crypto/tls"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -245,18 +243,9 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/delete", s.handleTrashDelete)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/empty", s.handleTrashEmpty)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files/trash/purge", s.handleTrashPurge)
-	// Chain (outermost first): recoverPanic → logRequests → bearerAuth → mux, so
-	// the log line captures the final status and logRequests never sees the bearer
-	// token (it's not logged anyway — see logRequests).
-	outer.Handle("/", recoverPanic(s.logRequests(s.bearerAuth(mux))))
+	outer.Handle("/", recoverPanic(s.bearerAuth(mux)))
 	return outer
 }
-
-// RequestIDHeader is the header the panel stamps on every daemon call so one
-// request can be correlated across the two halves. The daemon echoes it back and
-// includes it in its debug request log; when the caller omits it, the daemon
-// mints one (crypto/rand).
-const RequestIDHeader = "X-Raptor-Request-Id"
 
 // recoverPanic turns a handler panic into a 500 instead of crashing the daemon —
 // a single malformed request must never take the box's control plane down.
@@ -272,71 +261,6 @@ func recoverPanic(next http.Handler) http.Handler {
 		}()
 		next.ServeHTTP(w, r)
 	})
-}
-
-// statusRecorder wraps an http.ResponseWriter to capture the final status code and
-// the number of bytes written, for the request log line.
-type statusRecorder struct {
-	http.ResponseWriter
-	status int
-	bytes  int
-}
-
-func (r *statusRecorder) WriteHeader(code int) {
-	r.status = code
-	r.ResponseWriter.WriteHeader(code)
-}
-
-func (r *statusRecorder) Write(b []byte) (int, error) {
-	if r.status == 0 {
-		r.status = http.StatusOK
-	}
-	n, err := r.ResponseWriter.Write(b)
-	r.bytes += n
-	return n, err
-}
-
-// logRequests records each panel→daemon call at debug level (quiet by default):
-// method, path, status, duration, remote addr, byte count, and the request id. It
-// deliberately logs NEITHER headers (the Authorization bearer is the node key) NOR
-// request/response bodies (they can carry secret variable values and image
-// strings) — see security.md §2. It also propagates the request id: read from the
-// panel's header or minted locally, and echoed back so both halves share one id.
-func (s *Server) logRequests(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		reqID := r.Header.Get(RequestIDHeader)
-		if reqID == "" {
-			reqID = newRequestID()
-		}
-		w.Header().Set(RequestIDHeader, reqID)
-		rec := &statusRecorder{ResponseWriter: w}
-		start := time.Now()
-		next.ServeHTTP(rec, r)
-		if rec.status == 0 {
-			rec.status = http.StatusOK
-		}
-		slog.Debug("api request",
-			slog.String("method", r.Method),
-			slog.String("path", r.URL.Path),
-			slog.Int("status", rec.status),
-			slog.Duration("duration", time.Since(start)),
-			slog.String("remote", r.RemoteAddr),
-			slog.Int("bytes", rec.bytes),
-			slog.String("reqId", reqID),
-		)
-	})
-}
-
-// newRequestID mints a short random hex id (crypto/rand, never math/rand) for
-// calls that arrive without the panel's request-id header.
-func newRequestID() string {
-	var b [8]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		// A crypto/rand failure is effectively impossible; fall back to a timestamp
-		// so request logging can never block a request.
-		return fmt.Sprintf("ts-%d", time.Now().UnixNano())
-	}
-	return hex.EncodeToString(b[:])
 }
 
 func (s *Server) bearerAuth(next http.Handler) http.Handler {

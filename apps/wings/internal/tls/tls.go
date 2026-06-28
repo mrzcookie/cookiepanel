@@ -215,37 +215,6 @@ func FingerprintDER(der []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// Fingerprint reports the already-provisioned TLS material under dir (as written
-// by EnsureSelfSigned / EnsureAutocert) without generating anything — a read-only
-// view for `wings diagnostics`. It returns the mode and the value the panel pins:
-// the self-signed leaf's fingerprint, or the ACME sentinel. ok is false when no
-// cert has been provisioned yet.
-func Fingerprint(dir string) (mode, fingerprint string, ok bool) {
-	// A self-signed leaf takes precedence: its presence is what the panel pins.
-	if der, err := leafDER(filepath.Join(dir, certFile)); err == nil {
-		return ModeSelfSigned, FingerprintDER(der), true
-	}
-	// ACME issues lazily into the cache dir; there's nothing stable to pin, so the
-	// daemon reports the sentinel and the panel falls back to the trust store.
-	if fi, err := os.Stat(filepath.Join(dir, "acme")); err == nil && fi.IsDir() {
-		return ModeACME, ACMEFingerprint, true
-	}
-	return "", "", false
-}
-
-// leafDER reads a single PEM CERTIFICATE block and returns its DER bytes.
-func leafDER(certPath string) ([]byte, error) {
-	raw, err := os.ReadFile(certPath)
-	if err != nil {
-		return nil, err
-	}
-	block, _ := pem.Decode(raw)
-	if block == nil || block.Type != "CERTIFICATE" {
-		return nil, fmt.Errorf("tls: no certificate in %s", certPath)
-	}
-	return block.Bytes, nil
-}
-
 func writePEM(path, typ string, der []byte, mode os.FileMode) error {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
 	if err != nil {

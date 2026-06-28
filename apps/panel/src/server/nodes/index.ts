@@ -102,7 +102,7 @@ function daemonUpdateAvailable(version: string | null): boolean {
  * usage (cpu%/mem/disk used, real server counts) arrives on the stats channel in
  * a later slice, so it stays null here.
  */
-export function toNodeRow(record: NodeRecord): NodeRow {
+function toNodeRow(record: NodeRecord): NodeRow {
 	const caps =
 		record.capCpuCores !== null &&
 		record.capMemBytes !== null &&

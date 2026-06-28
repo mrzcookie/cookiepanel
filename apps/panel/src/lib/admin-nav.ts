@@ -1,6 +1,5 @@
 import {
 	Activity,
-	Bug,
 	Building2,
 	CreditCard,
 	Globe,
@@ -23,6 +22,5 @@ export const ADMIN_NAV = [
 	{ title: "Eggs", to: "/admin/eggs", icon: LayoutTemplate },
 	{ title: "Billing", to: "/admin/billing", icon: CreditCard },
 	{ title: "Activity", to: "/admin/activity", icon: Activity },
-	{ title: "Debug", to: "/admin/debug", icon: Bug },
 	{ title: "Settings", to: "/admin/settings", icon: Settings },
 ] as const;

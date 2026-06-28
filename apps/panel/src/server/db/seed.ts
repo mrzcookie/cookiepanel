@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { EGGS } from "@/lib/stubs";
 import { db } from "@/server/db";
 import { egg, eggImage, eggVariable } from "@/server/db/schema/eggs";
-import { log } from "@/server/log";
 
 /**
  * Seed the **official** (platform-owned) egg library from the UI-first stub
@@ -95,6 +94,6 @@ async function seed() {
 seed()
 	.then(() => process.exit(0))
 	.catch((error) => {
-		log.error("seed failed", { error });
+		console.error("Seed failed:", error);
 		process.exit(1);
 	});
