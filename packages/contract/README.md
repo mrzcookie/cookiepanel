@@ -45,3 +45,26 @@ spec.
 
 The console WebSocket (`GET /api/servers/{id}/ws`) is intentionally **not** in the
 spec — it isn't request/response shaped.
+
+## The WebSocket envelope
+
+`envelope.ts` (TS) and `apps/wings/internal/rpc/envelope.go` (Go) define the
+**framing** for the persistent panel↔daemon WebSocket transport — the channel that
+will carry the operations above once the daemon dials out instead of serving an
+inbound API. It is **hand-written, not generated**: the spec models operation
+*payloads*; the envelope is the meta-protocol around them (a `kind` —
+`req`/`res`/`chunk`/`err`/`cancel`/`event` — plus an `id` for correlation, an `op`
+naming the operation, and a raw `payload`). Typed frames reuse the spec via the
+`OperationId` / `OpRequest<Op>` / `OpResponse<Op>` helpers, so payloads stay bound
+to the generated types.
+
+The two sides are kept in lockstep by **byte-identical canonical frames** asserted
+in both round-trip tests (`envelope.test.ts` via `bun test`,
+`envelope_test.go` via `go test`) — the same drift-proofing idea as the
+conformance check, applied to the wire format. The envelope is defined now; wiring
+it as the transport (and retiring the inbound HTTPS API) is later work.
+
+```bash
+bun run --filter @raptor/contract typecheck   # op-registry helpers compile
+bun run --filter @raptor/contract test         # frame round-trip + wire form
+```

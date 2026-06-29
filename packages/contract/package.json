@@ -5,15 +5,19 @@
 	"description": "The panel↔daemon HTTPS API contract: one OpenAPI spec, codegen'd to TypeScript (panel) + Go (daemon).",
 	"type": "module",
 	"exports": {
-		".": "./gen/contract.ts"
+		".": "./gen/contract.ts",
+		"./envelope": "./envelope.ts"
 	},
 	"types": "./gen/contract.ts",
 	"scripts": {
 		"generate": "bun run generate:ts && bun run generate:go",
 		"generate:ts": "openapi-typescript openapi.yaml -o gen/contract.ts",
-		"generate:go": "go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.4.1 -config oapi-codegen.yaml openapi.yaml"
+		"generate:go": "go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.4.1 -config oapi-codegen.yaml openapi.yaml",
+		"typecheck": "tsc --noEmit",
+		"test": "bun test"
 	},
 	"devDependencies": {
-		"openapi-typescript": "^7.13.0"
+		"openapi-typescript": "^7.13.0",
+		"typescript": "^6.0.3"
 	}
 }

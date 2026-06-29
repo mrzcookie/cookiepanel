@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   contract:
-    name: Contract — generated bindings in sync with the spec
+    name: Contract — bindings in sync + the WS envelope
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -39,6 +39,10 @@ jobs:
             echo "::error::Generated contract bindings are stale. Run: bun run --filter @raptor/contract generate"
             exit 1
           fi
+      # The WS RPC envelope: type-check the op-registry helpers and round-trip
+      # the frames (which pins the same canonical JSON as the daemon's Go test).
+      - run: bun run --filter @raptor/contract typecheck
+      - run: bun run --filter @raptor/contract test
 
   panel:
     name: Panel — lint, typecheck, build
