@@ -76,9 +76,7 @@ func (c *Client) Activate(ctx context.Context, req ActivateRequest) (*ActivateRe
 }
 
 type HeartbeatBody struct {
-	SystemInfo      map[string]any `json:"systemInfo,omitempty"`
-	CertFingerprint string         `json:"certFingerprint,omitempty"`
-	DaemonPort      int            `json:"daemonPort,omitempty"`
+	SystemInfo map[string]any `json:"systemInfo,omitempty"`
 }
 
 func (c *Client) Heartbeat(ctx context.Context, nodeKey string, hb HeartbeatBody) error {

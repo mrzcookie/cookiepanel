@@ -8,7 +8,6 @@ import {
 	createServer as createServerFn,
 	listServers,
 	listServersForNode,
-	mintServerToken as mintServerTokenFn,
 	removeServer as removeServerFn,
 	renameServer as renameServerFn,
 	restartServer as restartServerFn,
@@ -146,11 +145,6 @@ export function invalidateServers(queryClient: QueryClient): Promise<void> {
 }
 
 // ─── console ─────────────────────────────────────────────────────────────────
-
-/** Mint a short-lived console JWT + the wss URL the browser opens to the daemon. */
-export function mintServerToken(id: string) {
-	return mintServerTokenFn({ data: { id } });
-}
 
 /** Send a console command to a server's container. */
 export function sendServerCommand(id: string, command: string) {
