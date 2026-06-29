@@ -22,8 +22,13 @@ type Config struct {
 	// NodeKey is presented as the bearer on the upgrade (the panel authenticates
 	// the daemon) and on each dispatched request (the API's own middleware).
 	NodeKey string
-	// Dispatcher executes inbound control requests in process.
+	// Dispatcher executes inbound control (unary) requests in process.
 	Dispatcher *Dispatcher
+	// StreamHandlers serve long-lived streaming ops (e.g. "console"): the handler
+	// emits chunk frames until it returns or the request is cancelled. Keyed by
+	// the frame's op; an op with no entry here is dispatched as a unary control
+	// request instead.
+	StreamHandlers map[string]StreamHandler
 	// Heartbeat builds the periodic heartbeat payload; nil disables heartbeats.
 	Heartbeat func() (any, error)
 	// HeartbeatInterval is how often to send a heartbeat event.
@@ -161,7 +166,11 @@ func (c *Client) readLoop(
 		}
 		switch frame.Kind {
 		case rpc.KindRequest:
-			c.handleRequest(ctx, frame, out, inflight, sem)
+			if h, ok := c.cfg.StreamHandlers[frame.Op]; ok {
+				c.handleStream(ctx, frame, h, out, inflight, sem)
+			} else {
+				c.handleRequest(ctx, frame, out, inflight, sem)
+			}
 		case rpc.KindCancel:
 			if cancel, ok := inflight.Load(frame.ID); ok {
 				cancel.(context.CancelFunc)()

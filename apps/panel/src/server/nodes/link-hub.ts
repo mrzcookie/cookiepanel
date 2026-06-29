@@ -1,4 +1,5 @@
 import {
+	cancel as cancelFrame,
 	encodeFrame,
 	type Frame,
 	request as newRequest,
@@ -48,15 +49,27 @@ interface Pending {
 	timer: ReturnType<typeof setTimeout>;
 }
 
+/** Callbacks for a streaming op (the live console): chunk-by-chunk, then end. */
+export interface StreamHandlers {
+	onChunk: (payload: unknown) => void;
+	onEnd?: () => void;
+	onError?: (err: Error) => void;
+}
+
 /** One live link to a single node. */
 class Connection {
 	private readonly pending = new Map<string, Pending>();
+	private readonly streams = new Map<string, StreamHandlers>();
 	private seq = 0;
 
 	constructor(private readonly conn: LinkConnection) {}
 
+	private nextId(): string {
+		return `${Date.now().toString(36)}-${(this.seq++).toString(36)}`;
+	}
+
 	request(cr: ControlRequest, timeoutMs: number): Promise<ControlResponse> {
-		const id = `${Date.now().toString(36)}-${(this.seq++).toString(36)}`;
+		const id = this.nextId();
 		return new Promise<ControlResponse>((resolve, reject) => {
 			const timer = setTimeout(() => {
 				this.pending.delete(id);
@@ -73,6 +86,28 @@ class Connection {
 		});
 	}
 
+	/** Open a streaming op; returns a function that cancels it. */
+	stream(op: string, payload: unknown, handlers: StreamHandlers): () => void {
+		const id = this.nextId();
+		this.streams.set(id, handlers);
+		try {
+			this.conn.send(encodeFrame(newRequest(id, op, payload)));
+		} catch (err) {
+			this.streams.delete(id);
+			handlers.onError?.(err instanceof Error ? err : new Error(String(err)));
+			return () => {};
+		}
+		return () => {
+			if (this.streams.delete(id)) {
+				try {
+					this.conn.send(encodeFrame(cancelFrame(id)));
+				} catch {
+					// the socket is already gone; nothing to cancel
+				}
+			}
+		};
+	}
+
 	/** Feed one inbound frame (raw wire text) from the socket. */
 	handle(data: string): void {
 		let frame: Frame;
@@ -81,26 +116,43 @@ class Connection {
 		} catch {
 			return; // drop malformed frames
 		}
-		if (frame.kind === "res") {
-			this.settle(frame.id, (p) =>
-				p.resolve(
-					(frame.payload as ControlResponse | undefined) ?? {
-						status: 502,
-						body: "",
-					}
-				)
-			);
-		} else if (frame.kind === "err") {
-			this.settle(frame.id, (p) =>
-				p.reject(
-					new Error(
-						`daemon link error: ${frame.error.code}: ${frame.error.message}`
+		switch (frame.kind) {
+			case "chunk":
+				this.streams.get(frame.id)?.onChunk(frame.payload);
+				break;
+			case "res": {
+				const stream = this.streams.get(frame.id);
+				if (stream) {
+					this.streams.delete(frame.id);
+					stream.onEnd?.();
+					break;
+				}
+				this.settle(frame.id, (p) =>
+					p.resolve(
+						(frame.payload as ControlResponse | undefined) ?? {
+							status: 502,
+							body: "",
+						}
 					)
-				)
-			);
+				);
+				break;
+			}
+			case "err": {
+				const message = `daemon link error: ${frame.error.code}: ${frame.error.message}`;
+				const stream = this.streams.get(frame.id);
+				if (stream) {
+					this.streams.delete(frame.id);
+					stream.onError?.(new Error(message));
+					break;
+				}
+				this.settle(frame.id, (p) => p.reject(new Error(message)));
+				break;
+			}
+			default:
+				// `event` (heartbeat/notifications) and any req/cancel inbound to the
+				// panel are ignored — the panel is the requester on this channel.
+				break;
 		}
-		// `event` (heartbeat/notifications) and any req/chunk/cancel inbound to the
-		// panel are ignored here — the panel is the requester on this channel.
 	}
 
 	private settle(id: string, fn: (p: Pending) => void): void {
@@ -113,13 +165,17 @@ class Connection {
 		fn(p);
 	}
 
-	/** Reject every in-flight request — the socket is gone. */
+	/** Fail every in-flight request and stream — the socket is gone. */
 	closeAll(reason: string): void {
 		for (const [, p] of this.pending) {
 			clearTimeout(p.timer);
 			p.reject(new Error(reason));
 		}
 		this.pending.clear();
+		for (const [, s] of this.streams) {
+			s.onError?.(new Error(reason));
+		}
+		this.streams.clear();
 	}
 }
 
@@ -162,6 +218,24 @@ class LinkHub {
 			return Promise.reject(new Error(`no daemon link for node ${nodeId}`));
 		}
 		return c.request(cr, timeoutMs);
+	}
+
+	/**
+	 * Open a streaming op (the live console) on a node; chunk payloads flow to
+	 * `handlers.onChunk` until the stream ends. Returns a cancel function (call it
+	 * when the browser disconnects). Throws if the node has no live link.
+	 */
+	stream(
+		nodeId: string,
+		op: string,
+		payload: unknown,
+		handlers: StreamHandlers
+	): () => void {
+		const c = this.conns.get(nodeId);
+		if (!c) {
+			throw new Error(`no daemon link for node ${nodeId}`);
+		}
+		return c.stream(op, payload, handlers);
 	}
 }
 

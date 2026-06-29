@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	chunk,
 	encodeFrame,
 	errorFrame,
 	parseFrame,
@@ -89,5 +90,61 @@ describe("link hub", () => {
 		await expect(
 			linkHub.request("nobody", { method: "GET", path: "/x" })
 		).rejects.toThrow(/no daemon link/);
+	});
+
+	test("streams chunk frames to onChunk, then onEnd", () => {
+		const node = "node-stream";
+		const conn = new FakeConn();
+		linkHub.register(node, conn);
+
+		const chunks: unknown[] = [];
+		let ended = false;
+		linkHub.stream(
+			node,
+			"console",
+			{ serverId: "srv-1" },
+			{
+				onChunk: (p) => chunks.push(p),
+				onEnd: () => {
+					ended = true;
+				},
+			}
+		);
+		// The hub sent a `req` with the stream op + payload.
+		const sent = parseFrame(conn.sent[0] as string);
+		expect(sent.kind).toBe("req");
+		if (sent.kind === "req") {
+			expect(sent.op).toBe("console");
+		}
+		const id = conn.lastId();
+
+		linkHub.handleMessage(node, encodeFrame(chunk(id, { line: "a" })));
+		linkHub.handleMessage(node, encodeFrame(chunk(id, { line: "b" })));
+		linkHub.handleMessage(node, encodeFrame(result(id)));
+
+		expect(chunks).toEqual([{ line: "a" }, { line: "b" }]);
+		expect(ended).toBe(true);
+		linkHub.unregister(node);
+	});
+
+	test("cancel sends a cancel frame and stops delivering chunks", () => {
+		const node = "node-stream-cancel";
+		const conn = new FakeConn();
+		linkHub.register(node, conn);
+
+		const chunks: unknown[] = [];
+		const cancel = linkHub.stream(node, "console", null, {
+			onChunk: (p) => chunks.push(p),
+		});
+		const id = conn.lastId();
+		linkHub.handleMessage(node, encodeFrame(chunk(id, { line: "a" })));
+		cancel();
+		// A cancel frame went out, and a late chunk is ignored.
+		const last = parseFrame(conn.sent.at(-1) as string);
+		expect(last.kind).toBe("cancel");
+		linkHub.handleMessage(node, encodeFrame(chunk(id, { line: "late" })));
+
+		expect(chunks).toEqual([{ line: "a" }]);
+		linkHub.unregister(node);
 	});
 });
