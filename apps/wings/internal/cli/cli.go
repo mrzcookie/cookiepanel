@@ -16,7 +16,6 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -43,12 +42,12 @@ import (
 	"github.com/xena-studios/raptor/apps/wings/internal/logging"
 	"github.com/xena-studios/raptor/apps/wings/internal/network"
 	"github.com/xena-studios/raptor/apps/wings/internal/remote"
+	"github.com/xena-studios/raptor/apps/wings/internal/rpc"
 	"github.com/xena-studios/raptor/apps/wings/internal/scheduler"
 	"github.com/xena-studios/raptor/apps/wings/internal/server"
 	"github.com/xena-studios/raptor/apps/wings/internal/sftp"
 	"github.com/xena-studios/raptor/apps/wings/internal/store"
 	"github.com/xena-studios/raptor/apps/wings/internal/system"
-	wingstls "github.com/xena-studios/raptor/apps/wings/internal/tls"
 	"github.com/xena-studios/raptor/apps/wings/internal/tui"
 	"github.com/xena-studios/raptor/apps/wings/internal/version"
 )
@@ -252,9 +251,9 @@ func newInstallCmd() *cobra.Command {
 }
 
 func newRunCmd() *cobra.Command {
-	var dataDir, stateDir, socketPath, acmeEmail string
+	var dataDir, stateDir, socketPath string
 	var apiPort int
-	var once, acme, linkEnabled bool
+	var once bool
 	var interval time.Duration
 	cmd := &cobra.Command{
 		Use:   "run",
@@ -314,30 +313,11 @@ func newRunCmd() *cobra.Command {
 			// log line (heartbeats, and anything else using *Context) carries it.
 			ctx = logging.WithAttrs(ctx, slog.String("node_id", creds.NodeID))
 
-			// Serving mode (not --once): provision the self-signed TLS cert whose
-			// fingerprint the panel pins, then start the panel-facing HTTPS API.
-			var fingerprint string
+			// Serving mode (not --once): wire the API handlers + box services, then
+			// dial OUT to the panel over a WebSocket — the box's only control
+			// channel (no inbound port, no TLS). SFTP and the local IPC socket are
+			// the only inbound listeners now.
 			if !once {
-				if creds.FQDN == "" {
-					return fmt.Errorf("credentials missing fqdn; re-run `wings configure --fqdn <name>`")
-				}
-				tlsDir := filepath.Join(stateDir, "tls")
-				var tlsMat *wingstls.Material
-				if acme {
-					tlsMat, err = wingstls.EnsureAutocert(wingstls.AutocertConfig{
-						CacheDir: filepath.Join(tlsDir, "acme"),
-						FQDN:     creds.FQDN,
-						Email:    acmeEmail,
-					})
-				} else {
-					tlsMat, err = wingstls.EnsureSelfSigned(tlsDir, creds.FQDN)
-				}
-				if err != nil {
-					return fmt.Errorf("provision tls: %w", err)
-				}
-				fingerprint = tlsMat.Fingerprint
-				slog.Info("tls ready", "mode", tlsMat.Mode, "fqdn", creds.FQDN, "fingerprint", fingerprint)
-
 				fw := firewall.NewManager(apiPort)
 				serverMgr := server.NewManager(dockerClient)
 
@@ -370,89 +350,44 @@ func newRunCmd() *cobra.Command {
 				}
 
 				apiSrv := api.New(api.Config{
-					Addr:          fmt.Sprintf(":%d", apiPort),
-					NodeKey:       creds.NodeKey,
-					NodeID:        creds.NodeID,
-					SigningSecret: creds.SigningSecret,
-					StaticInfo:    staticInfo,
-					StartedAt:     startedAt,
-					TLS:           tlsMat,
-					DockerClient:  dockerClient,
-					Servers:       serverMgr,
-					Networks:      network.NewManager(dockerClient),
-					Firewall:      fw,
-					Files:         filesMgr,
-					SFTP:          sftpMgr,
-					Scheduler:     sched,
-					Backups:       backupMgr,
-					Drives:        driveMgr,
+					NodeKey:      creds.NodeKey,
+					NodeID:       creds.NodeID,
+					StaticInfo:   staticInfo,
+					StartedAt:    startedAt,
+					DockerClient: dockerClient,
+					Servers:      serverMgr,
+					Networks:     network.NewManager(dockerClient),
+					Firewall:     fw,
+					Files:        filesMgr,
+					SFTP:         sftpMgr,
+					Scheduler:    sched,
+					Backups:      backupMgr,
+					Drives:       driveMgr,
 				})
-				if err := apiSrv.Start(); err != nil {
-					return err
-				}
-				slog.Info("api listening", "addr", fmt.Sprintf(":%d", apiPort))
-				defer func() {
-					sCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-					defer cancel()
-					_ = apiSrv.Shutdown(sCtx)
-				}()
 
-				// Outbound dial-home link (opt-in during the transport cutover):
-				// the daemon connects TO the panel and serves the SAME API handlers
-				// over that socket, so the box stays controllable with no inbound
-				// port. Additive — the HTTPS API above keeps running; this just adds
-				// a second front end onto it. It reconnects on its own, so a failed
-				// dial never stops the daemon.
-				if linkEnabled {
-					linkURL := link.WSURL(creds.PanelURL)
-					lc := link.NewClient(link.Config{
-						URL:        linkURL,
-						NodeKey:    creds.NodeKey,
-						Dispatcher: link.NewDispatcher(apiSrv.Handler(), creds.NodeKey),
-						Heartbeat: func() (any, error) {
-							return composeInfo(context.Background(), dockerClient, staticInfo), nil
-						},
-						HeartbeatInterval: interval,
-					})
-					go func() {
-						if err := lc.Run(ctx); err != nil && ctx.Err() == nil {
-							slog.Error("link client stopped", "err", err)
-						}
-					}()
-					slog.Info("link client dialing panel", "url", linkURL)
-				}
-
-				// Open the host firewall for the panel-facing API port. Without this,
-				// enabling ufw/iptables on the box silently blocks inbound to the API
-				// and cuts the panel off — the daemon still heartbeats outbound, so the
-				// node looks "online" while every control call fails. Best-effort + a
-				// no-op when there's no firewall backend; the rule is tagged like our
-				// others, and this port can never be closed (the Manager's protected-
-				// port guard), so it can't lock the panel out later.
-				_ = fw.Open(context.Background(), firewall.Rule{Port: apiPort, Protocol: "tcp"})
-
-				// ACME HTTP-01 needs a plaintext responder on :80 — Let's Encrypt
-				// dials port 80 for the challenge regardless of the API port. Open
-				// the firewall for it and serve the autocert challenge handler there.
-				if h := tlsMat.ChallengeHandler(); h != nil {
-					_ = fw.Open(context.Background(), firewall.Rule{Port: 80, Protocol: "tcp"})
-					challengeSrv := &http.Server{
-						Addr:              ":80",
-						Handler:           h,
-						ReadHeaderTimeout: 10 * time.Second,
+				// Dial OUT to the panel and serve the API handlers over that socket,
+				// plus the live console as a streaming op. The box has no inbound
+				// control port; the link reconnects on its own, so a failed dial
+				// never stops the daemon.
+				linkURL := link.WSURL(creds.PanelURL)
+				lc := link.NewClient(link.Config{
+					URL:        linkURL,
+					NodeKey:    creds.NodeKey,
+					Dispatcher: link.NewDispatcher(apiSrv.Handler(), creds.NodeKey),
+					StreamHandlers: map[string]link.StreamHandler{
+						"console": consoleStreamHandler(apiSrv),
+					},
+					Heartbeat: func() (any, error) {
+						return composeInfo(context.Background(), dockerClient, staticInfo), nil
+					},
+					HeartbeatInterval: interval,
+				})
+				go func() {
+					if err := lc.Run(ctx); err != nil && ctx.Err() == nil {
+						slog.Error("link client stopped", "err", err)
 					}
-					go func() {
-						if err := challengeSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-							slog.Error("acme challenge server failed", "err", err)
-						}
-					}()
-					slog.Info("acme http-01 challenge responder listening", "addr", ":80")
-					defer func() {
-						sCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-						defer cancel()
-						_ = challengeSrv.Shutdown(sCtx)
-					}()
-				}
+				}()
+				slog.Info("link dialing panel", "url", linkURL)
 
 				if sftpMgr != nil {
 					if err := sftpMgr.Serve(fmt.Sprintf(":%d", sftp.DefaultPort)); err != nil {
@@ -489,7 +424,7 @@ func newRunCmd() *cobra.Command {
 				}
 			}
 
-			return heartbeatLoop(ctx, creds, st, dockerClient, staticInfo, fingerprint, apiPort, interval, once)
+			return heartbeatLoop(ctx, creds, st, dockerClient, staticInfo, interval, once)
 		},
 	}
 	cmd.Flags().StringVar(&dataDir, "data-dir", defaultDataDir, "directory holding credentials")
@@ -497,9 +432,6 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&socketPath, "socket", ipc.DefaultSocket, "path for the box-local control socket")
 	cmd.Flags().IntVar(&apiPort, "api-port", defaultAPIPort, "TCP port the panel-facing HTTPS API will bind (advertised in the heartbeat)")
 	cmd.Flags().BoolVar(&once, "once", false, "send a single heartbeat and exit (testing)")
-	cmd.Flags().BoolVar(&linkEnabled, "link", false, "also dial out to the panel over a WebSocket and serve the API over it (in addition to the inbound HTTPS API)")
-	cmd.Flags().BoolVar(&acme, "acme", false, "obtain a Let's Encrypt cert for the FQDN (needs :80 reachable) instead of self-signed")
-	cmd.Flags().StringVar(&acmeEmail, "acme-email", "", "ACME account contact email (optional, for renewal notices)")
 	cmd.Flags().DurationVar(&interval, "interval", 30*time.Second, "heartbeat interval")
 	return cmd
 }
@@ -552,14 +484,29 @@ func newTuiCmd() *cobra.Command {
 	return cmd
 }
 
+// consoleStreamHandler adapts the API's console streamer to a link
+// StreamHandler: the panel opens a "console" stream for a server, and each
+// log/stats frame is forwarded as a chunk over the link.
+func consoleStreamHandler(apiSrv *api.Server) link.StreamHandler {
+	return func(ctx context.Context, req rpc.Frame, emit func(any) error) error {
+		var p struct {
+			ServerID string `json:"serverId"`
+		}
+		if err := req.Bind(&p); err != nil {
+			return err
+		}
+		return apiSrv.StreamConsole(ctx, p.ServerID, func(f api.ConsoleFrame) error {
+			return emit(f)
+		})
+	}
+}
+
 func heartbeatLoop(
 	ctx context.Context,
 	creds *credentials.Credentials,
 	st *store.Store,
 	dockerClient *docker.Client,
 	staticInfo map[string]any,
-	certFingerprint string,
-	apiPort int,
 	interval time.Duration,
 	once bool,
 ) error {
@@ -569,12 +516,10 @@ func heartbeatLoop(
 		hbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
 		info := composeInfo(hbCtx, dockerClient, staticInfo)
-		slog.DebugContext(hbCtx, "heartbeat attempt", "panel", creds.PanelURL, "apiPort", apiPort)
+		slog.DebugContext(hbCtx, "heartbeat attempt", "panel", creds.PanelURL)
 		start := time.Now()
 		err := client.Heartbeat(hbCtx, creds.NodeKey, remote.HeartbeatBody{
-			SystemInfo:      info,
-			CertFingerprint: certFingerprint,
-			DaemonPort:      apiPort,
+			SystemInfo: info,
 		})
 		dur := time.Since(start)
 		now := time.Now().UTC()

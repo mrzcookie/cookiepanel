@@ -1,12 +1,4 @@
-import { createHash } from "node:crypto";
-import type { IncomingMessage } from "node:http";
-import { Agent, request } from "node:https";
-import type { Socket } from "node:net";
-import {
-	type ConnectionOptions,
-	type TLSSocket,
-	connect as tlsConnect,
-} from "node:tls";
+import { Readable } from "node:stream";
 import type { components } from "@raptor/contract";
 import { eq } from "drizzle-orm";
 import type { NodeHostInfo, NodeLiveStats } from "@/lib/domain/nodes";
@@ -23,23 +15,17 @@ import { linkHub } from "./link-hub";
 type Schemas = components["schemas"];
 
 /**
- * The typed boundary for panel → daemon HTTPS calls. The daemon serves a
- * self-signed cert, so we **pin** against the SHA-256 of the leaf's DER (recorded
- * on the node row at heartbeat) instead of trusting a CA; an "acme" sentinel
- * switches to normal trust-store verification. The Bearer token is the plaintext
- * node key, recovered by unsealing `nodeKeyCiphertext` under its node-bound AAD.
+ * The typed boundary for panel → daemon calls. The box dials IN to the panel and
+ * holds a WebSocket link (see link-hub); every call here tunnels over that
+ * socket, keyed by node id — there is no inbound HTTPS port, cert, or pin any
+ * more. The link is authenticated once at connect by the node key.
  *
- * Server-only (node:https, node:crypto, the DB, secret decryption). Callers must
- * have already established the org scope — this module dials a node by id and
- * does not re-check tenancy.
+ * Server-only (the DB, secret decryption, the link hub). Callers must have
+ * already established the org scope — this module addresses a node by id and does
+ * not re-check tenancy.
  */
 
 const REQUEST_TIMEOUT_MS = 10_000;
-
-// Sentinel the daemon reports (in the certFingerprint slot) when it serves a
-// publicly-trusted Let's Encrypt cert instead of a self-signed one. Keep in sync
-// with the daemon's tls mode.
-const ACME_FINGERPRINT = "acme";
 
 export class DaemonError extends Error {
 	status?: number;
@@ -77,21 +63,20 @@ function daemonErrorDetail(raw: string): string {
 
 type NodeRef = {
 	id: string;
-	fqdn: string;
-	daemonPort: number;
-	certFingerprint: string;
 };
 
-/** Loads the node + credential, unseals the node key, returns the dial args. */
+/**
+ * Loads the node + credential, returning the dial args. The link routes control
+ * by node id (the node key already authenticated the socket at connect), so the
+ * id is all the transport needs; the unsealed key is kept for callers that still
+ * thread it.
+ */
 async function loadDialer(
 	nodeId: string
 ): Promise<{ node: NodeRef; nodeKey: string }> {
 	const [row] = await db
 		.select({
 			id: node.id,
-			fqdn: node.fqdn,
-			daemonPort: node.daemonPort,
-			certFingerprint: node.certFingerprint,
 			nodeKeyCiphertext: nodeCredential.nodeKeyCiphertext,
 		})
 		.from(node)
@@ -102,88 +87,14 @@ async function loadDialer(
 	if (!row) {
 		throw new DaemonError(`node ${nodeId} not found`);
 	}
-	if (!row.certFingerprint) {
-		throw new DaemonError(
-			"node has no cert fingerprint yet (its daemon hasn't heartbeated since starting its API)"
-		);
-	}
 	if (!row.nodeKeyCiphertext) {
 		throw new DaemonError("node is not activated");
 	}
 
 	return {
-		node: {
-			id: row.id,
-			fqdn: row.fqdn,
-			daemonPort: row.daemonPort,
-			certFingerprint: row.certFingerprint,
-		},
+		node: { id: row.id },
 		nodeKey: unseal(row.nodeKeyCiphertext, nodeKeyAad(row.id)),
 	};
-}
-
-/** SHA-256 of the leaf cert's DER, lower-case hex — the pin format the daemon
- * reports. Empty string when no peer cert is available. */
-function leafFingerprint(socket: TLSSocket): string {
-	const cert = socket.getPeerCertificate();
-	return cert?.raw
-		? createHash("sha256").update(cert.raw).digest("hex").toLowerCase()
-		: "";
-}
-
-/**
- * A custom `createConnection` that establishes the TLS socket itself and only
- * hands it to the HTTP client (via the callback) **after** the leaf fingerprint
- * matches the pin. Because the agent doesn't deliver the socket until the callback
- * fires, the HTTP layer never writes a single byte — including the `Authorization:
- * Bearer <nodeKey>` header — to a server whose cert doesn't match. Returning
- * nothing (not the socket) is what defers delivery; returning the socket
- * synchronously would reintroduce the race where the bearer can flush before the
- * pin check runs.
- */
-function pinnedConnection(expected: string) {
-	return (
-		options: ConnectionOptions,
-		callback: (err: Error | null, socket?: Socket) => void
-	): void => {
-		const socket = tlsConnect({ ...options, rejectUnauthorized: false }, () => {
-			const actual = leafFingerprint(socket);
-			if (actual !== expected) {
-				const err = new DaemonError(
-					`tls: cert fingerprint mismatch (expected ${expected.slice(0, 12)}…, got ${actual.slice(0, 12) || "none"}…)`
-				);
-				socket.destroy(err);
-				callback(err);
-				return;
-			}
-			callback(null, socket);
-		});
-		socket.once("error", (err) => callback(err));
-	};
-}
-
-/**
- * An https.Agent for dialing a node.
- *
- * - ACME sentinel: a publicly-trusted cert, so verify against the system trust
- *   store + hostname (a public cert rotates on renewal — nothing stable to pin).
- * - self-signed (default): accept any cert at the TLS layer (the leaf is
- *   self-signed, so chain validation would reject it) and enforce the pin in
- *   `createConnection` **before** the socket reaches the HTTP client, so the node
- *   key never leaks to a mismatched cert. `keepAlive:false` so every request
- *   re-runs the pin check (no pooled socket skips it).
- */
-function pinningAgent(expected: string): Agent {
-	if (expected === ACME_FINGERPRINT) {
-		return new Agent({ rejectUnauthorized: true });
-	}
-	const agent = new Agent({ rejectUnauthorized: false, keepAlive: false });
-	(
-		agent as unknown as {
-			createConnection: ReturnType<typeof pinnedConnection>;
-		}
-	).createConnection = pinnedConnection(expected.toLowerCase());
-	return agent;
 }
 
 type DaemonFetchOptions = {
@@ -194,22 +105,18 @@ type DaemonFetchOptions = {
 };
 
 /**
- * One JSON request to the daemon. When the box holds a live WebSocket link (it
- * dialed in — see link-hub), the request tunnels over that socket; otherwise it
- * falls back to a pinned-cert HTTPS call to the inbound API. Either way it throws
- * `DaemonError` (with status + body) on non-2xx and returns parsed JSON (or raw
- * text). The transport choice is invisible to the wrappers above — they pass
- * `ref` (which carries `ref.id`), and this picks the live socket when present.
+ * One JSON request to the daemon, tunnelled over the node's live WebSocket link
+ * (the box dials in — see link-hub; there is no inbound HTTPS port any more).
+ * Throws `DaemonError` (with status + body) on non-2xx; returns parsed JSON (or
+ * raw text). `_nodeKey` is unused here (the socket is already authenticated) but
+ * kept in the signature so the ~70 wrappers stay byte-for-byte unchanged.
  */
 function daemonFetch(
-	nodeKey: string,
+	_nodeKey: string,
 	ref: NodeRef,
 	opts: DaemonFetchOptions
 ): Promise<unknown> {
-	if (linkHub.isConnected(ref.id)) {
-		return hubFetch(ref.id, opts);
-	}
-	return httpsFetch(nodeKey, ref, opts);
+	return hubFetch(ref.id, opts);
 }
 
 /** Tunnel a JSON request over the node's live WebSocket link. */
@@ -244,160 +151,46 @@ async function hubFetch(
 	}
 }
 
-/**
- * One HTTPS request to the daemon using cert-fingerprint pinning + Bearer
- * node-key auth. Throws `DaemonError` (with status + body) on non-2xx. Returns
- * parsed JSON when the response is JSON, the raw text otherwise.
- */
-function httpsFetch(
-	nodeKey: string,
-	ref: NodeRef,
-	opts: DaemonFetchOptions
-): Promise<unknown> {
-	return new Promise((resolve, reject) => {
-		const payload = opts.body !== undefined ? JSON.stringify(opts.body) : "";
-		const req = request(
-			{
-				host: ref.fqdn,
-				port: ref.daemonPort,
-				path: opts.path,
-				method: opts.method ?? "GET",
-				agent: pinningAgent(ref.certFingerprint),
-				headers: {
-					Authorization: `Bearer ${nodeKey}`,
-					Accept: "application/json",
-					...(payload
-						? {
-								"Content-Type": "application/json",
-								"Content-Length": String(Buffer.byteLength(payload)),
-							}
-						: {}),
-				},
-				timeout: opts.timeoutMs ?? REQUEST_TIMEOUT_MS,
-			},
-			(res) => {
-				const chunks: Buffer[] = [];
-				res.on("data", (c: Buffer) => chunks.push(c));
-				res.on("end", () => {
-					const raw = Buffer.concat(chunks).toString("utf8");
-					const code = res.statusCode ?? 0;
-					if (code < 200 || code >= 300) {
-						reject(
-							new DaemonError(
-								`daemon ${opts.method ?? "GET"} ${opts.path}: HTTP ${code}${daemonErrorDetail(raw)}`,
-								code,
-								raw.slice(0, 500)
-							)
-						);
-						return;
-					}
-					const ct = res.headers["content-type"] ?? "";
-					if (typeof ct === "string" && ct.includes("application/json")) {
-						try {
-							resolve(JSON.parse(raw));
-						} catch (e) {
-							reject(new DaemonError(`invalid JSON from daemon: ${e}`));
-						}
-					} else {
-						resolve(raw);
-					}
-				});
-			}
-		);
-		req.on("timeout", () => {
-			req.destroy(new DaemonError("daemon request timed out"));
-		});
-		req.on("error", (err) => {
-			// Surface the real TLS error (pin mismatch, etc.) — Node otherwise hides
-			// it behind a generic ECONNRESET.
-			const tlsMsg = (req.socket as TLSSocket | undefined)?.authorizationError;
-			reject(
-				new DaemonError(
-					`daemon transport: ${err.message}${tlsMsg ? ` (${tlsMsg})` : ""}`
-				)
-			);
-		});
-		if (payload) {
-			req.write(payload);
-		}
-		req.end();
-	});
-}
-
-type DaemonStreamOptions = {
+type DaemonBinaryOptions = {
 	method: "GET" | "POST";
 	path: string;
 	body?: Buffer;
-	contentType?: string;
 	timeoutMs?: number;
 };
 
 /**
- * Like `daemonFetch` but for **binary** bodies/responses (file upload/download):
- * resolves with the live response stream once headers arrive (no buffering), so
- * the caller can pipe it straight through. A non-2xx response is buffered and
- * rejected as a `DaemonError`. Same pinning + Bearer auth as `daemonFetch`.
+ * A binary request (file upload/download) tunnelled over the link. The body is
+ * base64-encoded on the way out and decoded on the way back, so binary content
+ * round-trips intact. Buffers the whole body — fine for the file manager; a
+ * chunked path for very large transfers is a later optimization. Throws
+ * `DaemonError` on a non-2xx response.
  */
-function daemonStream(
-	nodeKey: string,
-	ref: NodeRef,
-	opts: DaemonStreamOptions
-): Promise<IncomingMessage> {
-	return new Promise((resolve, reject) => {
-		const req = request(
-			{
-				host: ref.fqdn,
-				port: ref.daemonPort,
-				path: opts.path,
-				method: opts.method,
-				agent: pinningAgent(ref.certFingerprint),
-				headers: {
-					Authorization: `Bearer ${nodeKey}`,
-					...(opts.body
-						? {
-								"Content-Type": opts.contentType ?? "application/octet-stream",
-								"Content-Length": String(opts.body.byteLength),
-							}
-						: {}),
-				},
-				timeout: opts.timeoutMs ?? REQUEST_TIMEOUT_MS,
-			},
-			(res) => {
-				const code = res.statusCode ?? 0;
-				if (code < 200 || code >= 300) {
-					const chunks: Buffer[] = [];
-					res.on("data", (c: Buffer) => chunks.push(c));
-					res.on("end", () => {
-						const raw = Buffer.concat(chunks).toString("utf8");
-						reject(
-							new DaemonError(
-								`daemon ${opts.method} ${opts.path}: HTTP ${code}${daemonErrorDetail(raw)}`,
-								code,
-								raw.slice(0, 500)
-							)
-						);
-					});
-					return;
-				}
-				resolve(res);
-			}
+async function hubBinary(
+	nodeId: string,
+	opts: DaemonBinaryOptions
+): Promise<{ bytes: Buffer; headers: Record<string, string> }> {
+	const resp = await linkHub.request(
+		nodeId,
+		{
+			method: opts.method,
+			path: opts.path,
+			body: opts.body ? opts.body.toString("base64") : undefined,
+			encoding: opts.body ? "base64" : undefined,
+		},
+		opts.timeoutMs ?? REQUEST_TIMEOUT_MS
+	);
+	if (resp.status < 200 || resp.status >= 300) {
+		throw new DaemonError(
+			`daemon ${opts.method} ${opts.path}: HTTP ${resp.status}${daemonErrorDetail(resp.body)}`,
+			resp.status,
+			resp.body.slice(0, 500)
 		);
-		req.on("timeout", () => {
-			req.destroy(new DaemonError("daemon request timed out"));
-		});
-		req.on("error", (err) => {
-			const tlsMsg = (req.socket as TLSSocket | undefined)?.authorizationError;
-			reject(
-				new DaemonError(
-					`daemon transport: ${err.message}${tlsMsg ? ` (${tlsMsg})` : ""}`
-				)
-			);
-		});
-		if (opts.body) {
-			req.write(opts.body);
-		}
-		req.end();
-	});
+	}
+	const bytes =
+		resp.encoding === "base64"
+			? Buffer.from(resp.body, "base64")
+			: Buffer.from(resp.body, "utf8");
+	return { bytes, headers: resp.headers ?? {} };
 }
 
 // Raw daemon JSON shapes (snake-ish keys as the Go side encodes them).
@@ -1527,14 +1320,13 @@ export async function uploadNodeFile(
 	path: string,
 	body: Buffer
 ): Promise<void> {
-	const { node: ref, nodeKey } = await loadDialer(nodeId);
-	const res = await daemonStream(nodeKey, ref, {
+	const { node: ref } = await loadDialer(nodeId);
+	await hubBinary(ref.id, {
 		method: "POST",
 		path: withPath(`${filesBase(serverId)}/upload`, path),
 		body,
 		timeoutMs: FILE_DOWNLOAD_TIMEOUT_MS,
 	});
-	res.resume(); // drain the 204 body
 }
 
 /**
@@ -1547,23 +1339,21 @@ export async function openNodeDownload(
 	serverId: string,
 	path: string
 ): Promise<{
-	stream: IncomingMessage;
+	stream: Readable;
 	filename: string;
 	contentLength: string | null;
 }> {
-	const { node: ref, nodeKey } = await loadDialer(nodeId);
-	const stream = await daemonStream(nodeKey, ref, {
+	const { node: ref } = await loadDialer(nodeId);
+	const { bytes, headers } = await hubBinary(ref.id, {
 		method: "GET",
 		path: withPath(`${filesBase(serverId)}/download`, path),
 		timeoutMs: FILE_DOWNLOAD_TIMEOUT_MS,
 	});
-	const disposition = stream.headers["content-disposition"] ?? "";
-	const match = /filename="([^"]*)"/.exec(
-		Array.isArray(disposition) ? disposition[0] : disposition
-	);
+	const disposition = headers["content-disposition"] ?? "";
+	const match = /filename="([^"]*)"/.exec(disposition);
 	return {
-		stream,
+		stream: Readable.from(bytes),
 		filename: match?.[1] || path.split("/").pop() || "download",
-		contentLength: (stream.headers["content-length"] as string) ?? null,
+		contentLength: headers["content-length"] ?? String(bytes.byteLength),
 	};
 }

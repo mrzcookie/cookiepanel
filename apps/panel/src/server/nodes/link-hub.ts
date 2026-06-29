@@ -29,14 +29,20 @@ export interface LinkConnection {
 export interface ControlRequest {
 	method: string;
 	path: string;
-	/** Raw request body (a JSON string for the API's JSON ops). */
+	/** Raw request body (a JSON string, or base64 for a binary upload). */
 	body?: string;
+	/** "base64" when `body` is base64-encoded binary, omitted for a plain body. */
+	encoding?: "base64";
 }
 
 /** The daemon's response (mirrors Go's ControlResponse). */
 export interface ControlResponse {
 	status: number;
 	body: string;
+	/** "base64" when `body` is base64-encoded binary (a download). */
+	encoding?: "base64";
+	/** Response headers the panel needs (content-type/-disposition/-length). */
+	headers?: Record<string, string>;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;

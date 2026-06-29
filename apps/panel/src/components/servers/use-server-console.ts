@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { mintServerToken, sendServerCommand } from "@/lib/server-queries";
+import { sendServerCommand } from "@/lib/server-queries";
 
 // Client-only hook driving the live server console: mint a short-lived JWT, open
 // the WebSocket straight to the daemon, and demux its typed frames into a capped
@@ -65,24 +65,20 @@ export function useServerConsole(serverId: string, enabled: boolean) {
 		}
 		closedRef.current = false;
 
-		const connect = async () => {
+		const connect = () => {
 			if (closedRef.current) {
 				return;
 			}
 			setStatus("connecting");
-			let url: string;
-			try {
-				url = (await mintServerToken(serverId)).url;
-			} catch {
-				setStatus("error");
-				return;
-			}
-			if (closedRef.current) {
-				return;
-			}
 			setLines([]);
 			setGeneration((g) => g + 1);
 
+			// Connect to the panel's own console relay (same origin, session
+			// cookie); the panel streams the box's logs + stats down from the daemon
+			// link. No daemon-facing token, and it works for every node regardless
+			// of cert — the browser only ever talks to the panel.
+			const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
+			const url = `${wsProto}//${window.location.host}/api/servers/${serverId}/console`;
 			const ws = new WebSocket(url);
 			wsRef.current = ws;
 			ws.onopen = () => setStatus("open");

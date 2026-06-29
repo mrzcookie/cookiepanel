@@ -10,11 +10,14 @@
 package link
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"unicode/utf8"
 )
 
 // LinkPath is the panel endpoint the daemon dials for the control channel.
@@ -27,10 +30,13 @@ const LinkPath = "/api/daemon/v1/link"
 type ControlRequest struct {
 	Method string `json:"method"`
 	Path   string `json:"path"`
-	// Body is the raw request body (a JSON string for the API's JSON ops). Kept
-	// as a plain string rather than json.RawMessage so a non-JSON body never
-	// breaks framing.
+	// Body is the raw request body (a JSON string for the API's JSON ops, base64
+	// for a binary upload — see Encoding). A plain string rather than
+	// json.RawMessage so a non-JSON body never breaks framing.
 	Body string `json:"body,omitempty"`
+	// Encoding is "base64" when Body is base64-encoded binary (a file upload),
+	// empty for a plain (UTF-8) body.
+	Encoding string `json:"encoding,omitempty"`
 }
 
 // ControlResponse is the payload of the matching `res` frame: the handler's
@@ -39,9 +45,14 @@ type ControlRequest struct {
 // transport-level failures (a malformed frame, a dispatch panic).
 type ControlResponse struct {
 	Status int `json:"status"`
-	// Body is the raw response body (verbatim handler output). A string, so any
-	// content — JSON, a plain-text 404, anything — round-trips through the frame.
+	// Body is the verbatim handler output: a plain string when it's valid UTF-8,
+	// base64 otherwise (see Encoding) — so a binary download round-trips intact.
 	Body string `json:"body,omitempty"`
+	// Encoding is "base64" when Body is base64-encoded binary, empty otherwise.
+	Encoding string `json:"encoding,omitempty"`
+	// Headers carries the response headers the panel needs (e.g. content-type,
+	// content-disposition, content-length for a download).
+	Headers map[string]string `json:"headers,omitempty"`
 }
 
 // Dispatcher executes ControlRequests against the daemon's API handler in
@@ -72,17 +83,41 @@ func (d *Dispatcher) Dispatch(ctx context.Context, cr ControlRequest) ControlRes
 	}
 
 	var body io.Reader
+	contentType := "application/json"
 	if cr.Body != "" {
-		body = strings.NewReader(cr.Body)
+		if cr.Encoding == "base64" {
+			if raw, err := base64.StdEncoding.DecodeString(cr.Body); err == nil {
+				body = bytes.NewReader(raw)
+				contentType = "application/octet-stream"
+			}
+		} else {
+			body = strings.NewReader(cr.Body)
+		}
 	}
 	req := httptest.NewRequest(method, path, body).WithContext(ctx)
 	req.Header.Set("Authorization", "Bearer "+d.nodeKey)
-	if cr.Body != "" {
-		req.Header.Set("Content-Type", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", contentType)
 	}
 
 	rec := httptest.NewRecorder()
 	d.handler.ServeHTTP(rec, req)
 
-	return ControlResponse{Status: rec.Code, Body: rec.Body.String()}
+	resp := ControlResponse{Status: rec.Code}
+	if h := rec.Header(); len(h) > 0 {
+		resp.Headers = make(map[string]string, len(h))
+		for k := range h {
+			resp.Headers[strings.ToLower(k)] = h.Get(k)
+		}
+	}
+	// Plain string for UTF-8 output (JSON, text); base64 for binary (a download),
+	// so the body always round-trips through the JSON frame intact.
+	raw := rec.Body.Bytes()
+	if utf8.Valid(raw) {
+		resp.Body = string(raw)
+	} else {
+		resp.Body = base64.StdEncoding.EncodeToString(raw)
+		resp.Encoding = "base64"
+	}
+	return resp
 }

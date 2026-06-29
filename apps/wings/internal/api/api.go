@@ -16,14 +16,12 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
-	cryptotls "crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -44,130 +42,74 @@ import (
 	"github.com/xena-studios/raptor/apps/wings/internal/sqlbrowser"
 	"github.com/xena-studios/raptor/apps/wings/internal/store"
 	"github.com/xena-studios/raptor/apps/wings/internal/system"
-	wingstls "github.com/xena-studios/raptor/apps/wings/internal/tls"
 	"github.com/xena-studios/raptor/apps/wings/internal/version"
 )
 
-// Server is the panel-facing HTTPS server.
+// Server holds the panel-facing API handlers. It no longer binds an inbound
+// listener: the daemon dials OUT to the panel (see internal/link), and the link
+// dispatches control requests into Handler() in process. The bearer middleware
+// still wraps every route (the link sets the node key on each synthetic request).
 type Server struct {
-	addr          string
-	nodeKey       string
-	nodeID        string
-	signingSecret string
-	staticInfo    map[string]any
-	startedAt     time.Time
-	tls           *wingstls.Material
-	dockerClient  *docker.Client
-	servers       *server.Manager
-	networks      *network.Manager
-	firewall      *firewall.Manager
-	files         *filesystem.Manager
-	sftp          *sftp.Manager
-	scheduler     *scheduler.Scheduler
-	backups       *backup.Manager
-	drives        *drive.Manager
-
-	server   *http.Server
-	listener net.Listener
+	nodeKey      string
+	nodeID       string
+	staticInfo   map[string]any
+	startedAt    time.Time
+	dockerClient *docker.Client
+	servers      *server.Manager
+	networks     *network.Manager
+	firewall     *firewall.Manager
+	files        *filesystem.Manager
+	sftp         *sftp.Manager
+	scheduler    *scheduler.Scheduler
+	backups      *backup.Manager
+	drives       *drive.Manager
 }
 
 // Config bundles the dependencies needed to construct a Server.
 type Config struct {
-	Addr          string         // e.g. ":8443"
-	NodeKey       string         // plaintext node key (the bearer)
-	NodeID        string         // reported in /system + checked on the console JWT
-	SigningSecret string         // per-node HS256 secret for the browser console JWT
-	StaticInfo    map[string]any // os/arch/cpus/mem/disk/daemonVersion
-	StartedAt     time.Time
-	TLS           *wingstls.Material
-	DockerClient  *docker.Client       // may be nil if docker is unavailable
-	Servers       *server.Manager      // server-container lifecycle
-	Networks      *network.Manager     // docker network lifecycle
-	Firewall      *firewall.Manager    // host firewall
-	Files         *filesystem.Manager  // per-server sandboxed file manager
-	SFTP          *sftp.Manager        // SFTP session mint/revoke
-	Scheduler     *scheduler.Scheduler // server automations (cron)
-	Backups       *backup.Manager      // borg snapshot/restore
-	Drives        *drive.Manager       // physical-disk management
+	NodeKey      string               // plaintext node key (the bearer)
+	NodeID       string               // reported in /system, stamped on logs
+	StaticInfo   map[string]any       // os/arch/cpus/mem/disk/daemonVersion
+	StartedAt    time.Time            //
+	DockerClient *docker.Client       // may be nil if docker is unavailable
+	Servers      *server.Manager      // server-container lifecycle
+	Networks     *network.Manager     // docker network lifecycle
+	Firewall     *firewall.Manager    // host firewall
+	Files        *filesystem.Manager  // per-server sandboxed file manager
+	SFTP         *sftp.Manager        // SFTP session mint/revoke
+	Scheduler    *scheduler.Scheduler // server automations (cron)
+	Backups      *backup.Manager      // borg snapshot/restore
+	Drives       *drive.Manager       // physical-disk management
 }
 
-// New constructs but does not start the server.
+// New constructs the API handler set.
 func New(cfg Config) *Server {
 	return &Server{
-		addr:          cfg.Addr,
-		nodeKey:       cfg.NodeKey,
-		nodeID:        cfg.NodeID,
-		signingSecret: cfg.SigningSecret,
-		staticInfo:    cfg.StaticInfo,
-		startedAt:     cfg.StartedAt,
-		tls:           cfg.TLS,
-		dockerClient:  cfg.DockerClient,
-		servers:       cfg.Servers,
-		networks:      cfg.Networks,
-		firewall:      cfg.Firewall,
-		files:         cfg.Files,
-		sftp:          cfg.SFTP,
-		scheduler:     cfg.Scheduler,
-		backups:       cfg.Backups,
-		drives:        cfg.Drives,
+		nodeKey:      cfg.NodeKey,
+		nodeID:       cfg.NodeID,
+		staticInfo:   cfg.StaticInfo,
+		startedAt:    cfg.StartedAt,
+		dockerClient: cfg.DockerClient,
+		servers:      cfg.Servers,
+		networks:     cfg.Networks,
+		firewall:     cfg.Firewall,
+		files:        cfg.Files,
+		sftp:         cfg.SFTP,
+		scheduler:    cfg.Scheduler,
+		backups:      cfg.Backups,
+		drives:       cfg.Drives,
 	}
 }
 
-// Start binds and serves HTTPS in a background goroutine. Returns once the
-// listener is ready (or an error if binding fails).
-func (s *Server) Start() error {
-	if s.tls == nil {
-		return errors.New("api: tls material is required")
-	}
-	if s.nodeKey == "" {
-		return errors.New("api: node key is required")
-	}
-	ln, err := cryptotls.Listen("tcp", s.addr, s.tls.ServerTLSConfig())
-	if err != nil {
-		return fmt.Errorf("api: listen %s: %w", s.addr, err)
-	}
-	s.listener = ln
-	s.server = &http.Server{
-		Handler:           s.routes(),
-		ReadHeaderTimeout: 10 * time.Second,
-	}
-	go func() {
-		if err := s.server.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			slog.Error("api serve failed", "err", err)
-		}
-	}()
-	return nil
-}
-
-// Shutdown gracefully stops the server.
-func (s *Server) Shutdown(ctx context.Context) error {
-	if s.server == nil {
-		return nil
-	}
-	return s.server.Shutdown(ctx)
-}
-
-// Handler returns the panel-facing HTTP handler (routing + middleware) without
-// binding a listener — so an alternate transport (the outbound WebSocket link,
-// see internal/link) can dispatch requests into the very same handlers in
-// process, instead of the panel reaching an inbound TLS port. The bearer
-// middleware still applies; the link sets the node key on each synthetic request.
+// Handler returns the panel-facing HTTP handler (routing + middleware). The
+// outbound WebSocket link (internal/link) dispatches requests into it in
+// process — there is no inbound listener. The bearer middleware still applies;
+// the link sets the node key on each synthetic request.
 func (s *Server) Handler() http.Handler {
 	return s.routes()
 }
 
 func (s *Server) routes() http.Handler {
-	// The console WS authenticates via a JWT query param (browsers can't set the
-	// Authorization header on a WS upgrade), so it sits OUTSIDE the bearer
-	// middleware, registered bare on the outer mux.
-	outer := http.NewServeMux()
-	// Outside bearer auth (JWT query param), but still inside recoverPanic so a
-	// panic in the console socket can't crash the box's control plane.
-	outer.Handle(
-		"GET /api/servers/{id}/ws",
-		recoverPanic(http.HandlerFunc(s.handleServerWS)),
-	)
-
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/system", s.handleSystem)
 	mux.HandleFunc("GET /api/v1/system/host", s.handleSystemHost)
@@ -260,8 +202,7 @@ func (s *Server) routes() http.Handler {
 	// even when a handler panics, which recoverPanic converts to a correlated
 	// 500. The logger never sees the bearer token (it isn't logged regardless —
 	// see logRequests).
-	outer.Handle("/", s.logRequests(recoverPanic(s.bearerAuth(mux))))
-	return outer
+	return s.logRequests(recoverPanic(s.bearerAuth(mux)))
 }
 
 // RequestIDHeader correlates one logical request across the two halves: the
