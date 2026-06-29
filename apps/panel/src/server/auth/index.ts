@@ -89,7 +89,7 @@ export const auth = betterAuth({
 	secret: env.AUTH_SECRET,
 	database: drizzleAdapter(db, { provider: "pg", schema }),
 
-	// Sessions + rate-limit counters live in Upstash Redis, not Postgres.
+	// Sessions + rate-limit counters live in Redis, not Postgres.
 	secondaryStorage: redisSecondaryStorage,
 
 	emailAndPassword: { enabled: false },

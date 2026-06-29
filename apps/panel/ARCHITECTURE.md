@@ -19,7 +19,7 @@ src/
   lib/         client-safe domain types, pure helpers, and the stub stores. See below.
   server/      server-only code. env.ts (t3-env) validates env; db/ has the
                Drizzle client + schema + migrations; auth/ is Better Auth;
-               email.ts (Resend) and redis.ts (Upstash) are shared. Daemon later.
+               email.ts (Resend) and redis.ts (Redis) are shared. Daemon later.
   styles/      global.css (Tailwind v4 + tokens).
 ```
 

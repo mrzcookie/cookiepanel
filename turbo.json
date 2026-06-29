@@ -10,8 +10,7 @@
 			"outputs": [".output/**", "dist/**"],
 			"env": [
 				"DATABASE_URL",
-				"UPSTASH_REDIS_REST_URL",
-				"UPSTASH_REDIS_REST_TOKEN",
+				"REDIS_URL",
 				"AUTH_SECRET",
 				"AUTH_URL",
 				"AUTH_TRUSTED_ORIGINS",

@@ -1,7 +1,6 @@
-# Local dev infrastructure for the panel — Postgres + Redis (+ an Upstash REST
-# proxy in front of it) + MinIO (S3).
+# Local dev infrastructure for the panel — Postgres + Redis + MinIO (S3).
 # Bring up with `bun run dev:up` (or `docker compose up -d`); stop with `bun run dev:down`.
-# Defaults match apps/panel/.env.example (DATABASE_URL / UPSTASH_REDIS_REST_* / S3_*).
+# Defaults match apps/panel/.env.example (DATABASE_URL / REDIS_URL / S3_*).
 # MinIO console: http://localhost:9001 (login minioadmin / minioadmin).
 name: raptor
 
@@ -35,23 +34,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-
-  # serverless-redis-http (SRH) — fronts the local Redis with the Upstash REST
-  # API, so @upstash/redis talks to it in dev exactly as it talks to Upstash in
-  # prod. The panel points UPSTASH_REDIS_REST_URL at this (never redis:6379
-  # directly); SRH_TOKEN is dev-only and matches apps/panel/.env.example.
-  serverless-redis-http:
-    image: hiett/serverless-redis-http:0.0.10
-    restart: unless-stopped
-    depends_on:
-      redis:
-        condition: service_healthy
-    environment:
-      SRH_MODE: env
-      SRH_TOKEN: raptor_dev_token
-      SRH_CONNECTION_STRING: "redis://redis:6379"
-    ports:
-      - "8079:80"
 
   # MinIO — S3-compatible object storage for testing uploads (egg icons,
   # avatars, public assets). Console at http://localhost:9001, S3 API at :9000.

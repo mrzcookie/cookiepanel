@@ -34,13 +34,8 @@ Attach these as Dokploy services (or point at external ones):
 - **Postgres** — set `DATABASE_URL`. Migrations run automatically on each boot
   (idempotent; set `RUN_MIGRATIONS=false` to disable and run them as a separate
   job).
-- **Redis (via the Upstash REST protocol)** — Better Auth's session +
-  rate-limit storage currently speaks the **Upstash REST API**, not the Redis
-  wire protocol. So either use an Upstash cloud database, or run the
-  `hiett/serverless-redis-http` proxy in front of a plain Redis (the same shim
-  `infra/compose.yaml` uses for local dev) and point `UPSTASH_REDIS_REST_URL` at
-  it. *(The planned Redis swap in a later phase removes this requirement — see
-  the migration plan.)*
+- **Redis** — Better Auth's session + rate-limit storage. A plain Redis over
+  TCP; set `REDIS_URL` (e.g. `redis://default:pass@host:6379`).
 
 ## Environment variables
 
@@ -49,8 +44,7 @@ Attach these as Dokploy services (or point at external ones):
 | Var | What |
 | --- | --- |
 | `DATABASE_URL` | Postgres connection string |
-| `UPSTASH_REDIS_REST_URL` | Upstash REST endpoint (or the proxy above) |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash REST token |
+| `REDIS_URL` | Redis connection string (`redis://` or `rediss://`) |
 | `AUTH_SECRET` | Better Auth signing secret (`openssl rand -base64 32`) |
 | `AUTH_URL` | Public base URL the app is served from |
 | `ENCRYPTION_KEY` | 32-byte hex for sealing secrets (`openssl rand -hex 32`) |
