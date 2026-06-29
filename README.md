@@ -91,6 +91,5 @@ pnpm wings:run              # run the daemon (heartbeat loop; needs `wings confi
 
 Copyright (C) 2026 Xena Studios.
 
-This program is free software: licensed under the GNU Affero General Public
-License, either version 3 or (at your option) any later version
-([AGPL-3.0-or-later](./LICENSE)).
+This program is free software: licensed under version 3 of the GNU Affero
+General Public License ([AGPL-3.0-only](./LICENSE)).

@@ -2,7 +2,7 @@
 	"name": "raptor",
 	"private": true,
 	"type": "module",
-	"license": "AGPL-3.0-or-later",
+	"license": "AGPL-3.0-only",
 	"packageManager": "pnpm@10.28.1",
 	"engines": {
 		"node": ">=24",
