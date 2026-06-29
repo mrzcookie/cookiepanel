@@ -1,6 +1,6 @@
 {
 	"include": ["**/*.ts", "**/*.tsx"],
-	"exclude": ["**/*.test.ts"],
+	"exclude": ["**/*.test.ts", "**/*.ws.ts"],
 	"compilerOptions": {
 		/* Language and Environment */
 		"target": "ES2022",
