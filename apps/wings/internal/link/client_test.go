@@ -118,7 +118,7 @@ func assertSystemResponse(t *testing.T, f rpc.Frame) {
 	if cr.Status != http.StatusOK {
 		t.Fatalf("status: got %d", cr.Status)
 	}
-	if string(cr.Body) != `{"ok":true}` {
+	if cr.Body != `{"ok":true}` {
 		t.Fatalf("body: got %s", cr.Body)
 	}
 }

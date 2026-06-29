@@ -10,9 +10,7 @@
 package link
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -27,9 +25,12 @@ const LinkPath = "/api/daemon/v1/link"
 // in process against the API handler, so routing, path params, and the bearer
 // middleware all behave exactly as they do for an inbound call.
 type ControlRequest struct {
-	Method string          `json:"method"`
-	Path   string          `json:"path"`
-	Body   json.RawMessage `json:"body,omitempty"`
+	Method string `json:"method"`
+	Path   string `json:"path"`
+	// Body is the raw request body (a JSON string for the API's JSON ops). Kept
+	// as a plain string rather than json.RawMessage so a non-JSON body never
+	// breaks framing.
+	Body string `json:"body,omitempty"`
 }
 
 // ControlResponse is the payload of the matching `res` frame: the handler's
@@ -37,8 +38,10 @@ type ControlRequest struct {
 // way it maps an inbound HTTP status today) — `err` frames are reserved for
 // transport-level failures (a malformed frame, a dispatch panic).
 type ControlResponse struct {
-	Status int             `json:"status"`
-	Body   json.RawMessage `json:"body,omitempty"`
+	Status int `json:"status"`
+	// Body is the raw response body (verbatim handler output). A string, so any
+	// content — JSON, a plain-text 404, anything — round-trips through the frame.
+	Body string `json:"body,omitempty"`
 }
 
 // Dispatcher executes ControlRequests against the daemon's API handler in
@@ -69,21 +72,17 @@ func (d *Dispatcher) Dispatch(ctx context.Context, cr ControlRequest) ControlRes
 	}
 
 	var body io.Reader
-	if len(cr.Body) > 0 {
-		body = bytes.NewReader(cr.Body)
+	if cr.Body != "" {
+		body = strings.NewReader(cr.Body)
 	}
 	req := httptest.NewRequest(method, path, body).WithContext(ctx)
 	req.Header.Set("Authorization", "Bearer "+d.nodeKey)
-	if len(cr.Body) > 0 {
+	if cr.Body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
 	rec := httptest.NewRecorder()
 	d.handler.ServeHTTP(rec, req)
 
-	resp := ControlResponse{Status: rec.Code}
-	if b := rec.Body.Bytes(); len(b) > 0 {
-		resp.Body = json.RawMessage(b)
-	}
-	return resp
+	return ControlResponse{Status: rec.Code, Body: rec.Body.String()}
 }

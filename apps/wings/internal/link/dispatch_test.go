@@ -27,7 +27,7 @@ func TestDispatchRoundTrip(t *testing.T) {
 	resp := d.Dispatch(context.Background(), ControlRequest{
 		Method: http.MethodPost,
 		Path:   "/api/v1/servers/abc/start",
-		Body:   json.RawMessage(`{"x":1}`),
+		Body:   `{"x":1}`,
 	})
 
 	if resp.Status != http.StatusOK {
@@ -37,7 +37,7 @@ func TestDispatchRoundTrip(t *testing.T) {
 		ID   string          `json:"id"`
 		Sent json.RawMessage `json:"sent"`
 	}
-	if err := json.Unmarshal(resp.Body, &got); err != nil {
+	if err := json.Unmarshal([]byte(resp.Body), &got); err != nil {
 		t.Fatalf("decode response body: %v", err)
 	}
 	if got.ID != "abc" {

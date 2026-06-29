@@ -14,6 +14,7 @@ import { unseal } from "@/server/crypto";
 import { db } from "@/server/db";
 import { node, nodeCredential } from "@/server/db/schema/nodes";
 import { nodeKeyAad } from "./enrollment";
+import { linkHub } from "./link-hub";
 
 // The daemon wire types are the OpenAPI contract's generated schemas — the spec
 // (packages/contract/openapi.yaml) is the single source of truth, so these are
@@ -193,11 +194,62 @@ type DaemonFetchOptions = {
 };
 
 /**
+ * One JSON request to the daemon. When the box holds a live WebSocket link (it
+ * dialed in — see link-hub), the request tunnels over that socket; otherwise it
+ * falls back to a pinned-cert HTTPS call to the inbound API. Either way it throws
+ * `DaemonError` (with status + body) on non-2xx and returns parsed JSON (or raw
+ * text). The transport choice is invisible to the wrappers above — they pass
+ * `ref` (which carries `ref.id`), and this picks the live socket when present.
+ */
+function daemonFetch(
+	nodeKey: string,
+	ref: NodeRef,
+	opts: DaemonFetchOptions
+): Promise<unknown> {
+	if (linkHub.isConnected(ref.id)) {
+		return hubFetch(ref.id, opts);
+	}
+	return httpsFetch(nodeKey, ref, opts);
+}
+
+/** Tunnel a JSON request over the node's live WebSocket link. */
+async function hubFetch(
+	nodeId: string,
+	opts: DaemonFetchOptions
+): Promise<unknown> {
+	const method = opts.method ?? "GET";
+	const resp = await linkHub.request(
+		nodeId,
+		{
+			method,
+			path: opts.path,
+			body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+		},
+		opts.timeoutMs ?? REQUEST_TIMEOUT_MS
+	);
+	if (resp.status < 200 || resp.status >= 300) {
+		throw new DaemonError(
+			`daemon ${method} ${opts.path}: HTTP ${resp.status}${daemonErrorDetail(resp.body)}`,
+			resp.status,
+			resp.body.slice(0, 500)
+		);
+	}
+	if (!resp.body) {
+		return resp.body;
+	}
+	try {
+		return JSON.parse(resp.body);
+	} catch {
+		return resp.body;
+	}
+}
+
+/**
  * One HTTPS request to the daemon using cert-fingerprint pinning + Bearer
  * node-key auth. Throws `DaemonError` (with status + body) on non-2xx. Returns
  * parsed JSON when the response is JSON, the raw text otherwise.
  */
-function daemonFetch(
+function httpsFetch(
 	nodeKey: string,
 	ref: NodeRef,
 	opts: DaemonFetchOptions

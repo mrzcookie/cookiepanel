@@ -98,6 +98,21 @@ export async function activateNode(input: {
 }
 
 /**
+ * Resolve a presented node key to its node id via the indexed key-hash lookup
+ * (the same credential auth the heartbeat uses), or null if it matches no node.
+ * Used to authenticate the daemon's inbound WebSocket link (see link-handler).
+ */
+export async function authenticateNodeKey(
+	nodeKey: string
+): Promise<string | null> {
+	if (!nodeKey) {
+		return null;
+	}
+	const found = await nodesRepository.findNodeByKeyHash(sha256Hex(nodeKey));
+	return found?.nodeId ?? null;
+}
+
+/**
  * Authenticate a heartbeat by its node key and merge the reported live state onto
  * the node row. Throws `EnrollmentError(401)` if the key matches no node.
  */
