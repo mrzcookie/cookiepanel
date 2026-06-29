@@ -1,6 +1,6 @@
 # Local dev infrastructure for the panel — Postgres + Redis (+ an Upstash REST
 # proxy in front of it) + MinIO (S3).
-# Bring up with `pnpm dev:up` (or `docker compose up -d`); stop with `pnpm dev:down`.
+# Bring up with `bun run dev:up` (or `docker compose up -d`); stop with `bun run dev:down`.
 # Defaults match apps/panel/.env.example (DATABASE_URL / UPSTASH_REDIS_REST_* / S3_*).
 # MinIO console: http://localhost:9001 (login minioadmin / minioadmin).
 name: raptor

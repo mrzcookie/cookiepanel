@@ -121,18 +121,18 @@ out of `stubs/` is what makes this boundary enforceable.
 
 `src/server/db/schema/` is the Drizzle schema — one file per concern, re-exported
 from `index.ts` (what the db client and drizzle-kit read). `auth.ts` is generated
-by Better Auth; regenerate with `pnpm --filter @raptor/panel auth:generate`
+by Better Auth; regenerate with `bun run --filter @raptor/panel auth:generate`
 after changing the auth config.
 
 **Name every migration.** Generate with an explicit `--name`:
 
 ```
-pnpm --filter @raptor/panel exec drizzle-kit generate --name <change>
+cd apps/panel && bunx drizzle-kit generate --name <change>
 ```
 
 That writes `src/server/db/migrations/NNNN_<change>.sql` (e.g. `0000_init_auth.sql`);
 never ship the random default name. Apply with `db:migrate`. The Postgres + Redis
-the panel needs in dev live in `infra/compose.yaml` (`pnpm dev:up`).
+the panel needs in dev live in `infra/compose.yaml` (`bun run dev:up`).
 
 ### Object storage
 
@@ -141,7 +141,7 @@ S3-compatible storage (`@aws-sdk/client-s3`, so it works with MinIO / Cloudflare
 R2 / AWS S3) for egg icons and uploads. It's **optional** — gated by
 `isStorageConfigured()`, so the panel runs without it and features that need it
 degrade gracefully. For dev, a MinIO server (plus a provisioned `raptor`
-bucket) runs in `infra/compose.yaml` (`pnpm dev:up`); the matching `S3_*` env
+bucket) runs in `infra/compose.yaml` (`bun run dev:up`); the matching `S3_*` env
 defaults live in `.env.example`.
 
 ## routes/
@@ -191,8 +191,8 @@ Rules that matter:
 
 ## Tooling
 
-- `pnpm check` — Biome (lint + format + organize imports). `pnpm typecheck` — tsc
+- `bun run check` — Biome (lint + format + organize imports). `bun run typecheck` — tsc
   (strict, incl. `noUncheckedIndexedAccess`, `verbatimModuleSyntax`).
-- `pnpm knip` — unused files / exports / deps gate (config: `knip.json`).
-- `pnpm analyze` — `rollup-plugin-visualizer` treemap to `.analyze/bundle.html`;
+- `bun run knip` — unused files / exports / deps gate (config: `knip.json`).
+- `bun run analyze` — `rollup-plugin-visualizer` treemap to `.analyze/bundle.html`;
   confirms Monaco / xterm / recharts stay in their own chunks, out of the entry.

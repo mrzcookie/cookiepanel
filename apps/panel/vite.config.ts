@@ -7,7 +7,7 @@ import { nitro } from "nitro/vite";
 import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig } from "vite";
 
-// `ANALYZE=true vite build` (pnpm analyze) writes a gzip treemap to
+// `ANALYZE=true bun run build` (bun run analyze) writes a gzip treemap to
 // .analyze/bundle.html so heavy deps (Monaco, xterm, recharts) can be confirmed
 // to stay in their own chunks, out of the initial load.
 const analyze = process.env.ANALYZE === "true";
@@ -15,7 +15,10 @@ const analyze = process.env.ANALYZE === "true";
 const config = defineConfig({
 	plugins: [
 		devtools(),
-		nitro(),
+		// `bun` preset: build a Bun-optimized server (the panel is hosted as a
+		// long-lived Bun container, not on Vercel). Run it with
+		// `bun run .output/server/index.mjs`.
+		nitro({ preset: "bun" }),
 		tailwindcss(),
 		tanstackStart(),
 		react(),

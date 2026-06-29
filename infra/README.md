@@ -12,9 +12,9 @@ Defaults match `apps/panel/.env.example`.
 ## Usage
 
 ```bash
-pnpm dev:up      # start Postgres + Redis, wait for healthy (compose up -d --wait)
-pnpm dev:down    # stop them
+bun run dev:up      # start Postgres + Redis, wait for healthy (compose up -d --wait)
+bun run dev:down    # stop them
 ```
 
 Then in `apps/panel`: copy `.env.example` → `.env`, fill the secrets, and run
-`pnpm --filter @raptor/panel db:migrate` to apply migrations.
+`bun run --filter @raptor/panel db:migrate` to apply migrations.

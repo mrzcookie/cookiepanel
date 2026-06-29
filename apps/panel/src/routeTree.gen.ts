@@ -13,6 +13,7 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as InstallDotshRouteImport } from './routes/install[.]sh'
 import { Route as HomeRouteImport } from './routes/home'
+import { Route as HealthzRouteImport } from './routes/healthz'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
@@ -87,6 +88,11 @@ const InstallDotshRoute = InstallDotshRouteImport.update({
 const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HealthzRoute = HealthzRouteImport.update({
+  id: '/healthz',
+  path: '/healthz',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRouteRoute = AdminRouteRouteImport.update({
@@ -377,6 +383,7 @@ const ApiDaemonV1NodesActivateRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/admin': typeof AdminRouteRouteWithChildren
+  '/healthz': typeof HealthzRoute
   '/home': typeof HomeRoute
   '/install.sh': typeof InstallDotshRoute
   '/login': typeof LoginRoute
@@ -435,6 +442,7 @@ export interface FileRoutesByFullPath {
   '/api/daemon/v1/nodes/activate': typeof ApiDaemonV1NodesActivateRoute
 }
 export interface FileRoutesByTo {
+  '/healthz': typeof HealthzRoute
   '/home': typeof HomeRoute
   '/install.sh': typeof InstallDotshRoute
   '/login': typeof LoginRoute
@@ -493,6 +501,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteRouteWithChildren
   '/admin': typeof AdminRouteRouteWithChildren
+  '/healthz': typeof HealthzRoute
   '/home': typeof HomeRoute
   '/install.sh': typeof InstallDotshRoute
   '/login': typeof LoginRoute
@@ -556,6 +565,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/healthz'
     | '/home'
     | '/install.sh'
     | '/login'
@@ -614,6 +624,7 @@ export interface FileRouteTypes {
     | '/api/daemon/v1/nodes/activate'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/healthz'
     | '/home'
     | '/install.sh'
     | '/login'
@@ -671,6 +682,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/admin'
+    | '/healthz'
     | '/home'
     | '/install.sh'
     | '/login'
@@ -733,6 +745,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
+  HealthzRoute: typeof HealthzRoute
   HomeRoute: typeof HomeRoute
   InstallDotshRoute: typeof InstallDotshRoute
   LoginRoute: typeof LoginRoute
@@ -773,6 +786,13 @@ declare module '@tanstack/react-router' {
       path: '/home'
       fullPath: '/home'
       preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/healthz': {
+      id: '/healthz'
+      path: '/healthz'
+      fullPath: '/healthz'
+      preLoaderRoute: typeof HealthzRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -1320,6 +1340,7 @@ const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
   AdminRouteRoute: AdminRouteRouteWithChildren,
+  HealthzRoute: HealthzRoute,
   HomeRoute: HomeRoute,
   InstallDotshRoute: InstallDotshRoute,
   LoginRoute: LoginRoute,

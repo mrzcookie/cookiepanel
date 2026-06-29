@@ -21,24 +21,22 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-          cache: pnpm
+          bun-version: 1.3.2
       - uses: actions/setup-go@v5
         with:
           go-version-file: apps/wings/go.mod
           cache-dependency-path: apps/wings/go.sum
-      - run: pnpm install --frozen-lockfile
+      - run: bun install --frozen-lockfile
       # Regenerate from openapi.yaml; the committed bindings must match. (The
       # conformance assertions themselves run in the panel typecheck + daemon
       # `go test` jobs.)
-      - run: pnpm --filter @raptor/contract generate
+      - run: bun run --filter @raptor/contract generate
       - name: committed bindings match the spec
         run: |
           if ! git diff --exit-code -- packages/contract/gen apps/wings/internal/contract/contract.gen.go; then
-            echo "::error::Generated contract bindings are stale. Run: pnpm --filter @raptor/contract generate"
+            echo "::error::Generated contract bindings are stale. Run: bun run --filter @raptor/contract generate"
             exit 1
           fi
 
@@ -53,15 +51,13 @@ jobs:
       SKIP_ENV_VALIDATION: "1"
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm check:ci
-      - run: pnpm --filter @raptor/panel typecheck
-      - run: pnpm --filter @raptor/panel build
+          bun-version: 1.3.2
+      - run: bun install --frozen-lockfile
+      - run: bun run check:ci
+      - run: bun run --filter @raptor/panel typecheck
+      - run: bun run --filter @raptor/panel build
 
   daemon:
     name: Daemon — fmt, vet, test, build

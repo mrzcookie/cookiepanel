@@ -46,39 +46,39 @@ apps/
 
 ## Prerequisites
 
-- Node 24+ and pnpm 10.28+
+- Bun 1.2+
 - Go 1.25+
 - Docker (for the local dev infra — Postgres + Redis; see `infra/`)
 
 ## Getting started
 
 ```bash
-pnpm install                 # install JS/TS workspaces
-pnpm dev:up                  # start dev infra (Postgres + Redis) — see infra/
+bun install                  # install JS/TS workspaces
+bun run dev:up               # start dev infra (Postgres + Redis) — see infra/
 
 cp apps/panel/.env.example apps/panel/.env          # then fill AUTH_SECRET + ENCRYPTION_KEY
-pnpm --filter @raptor/panel db:migrate         # apply database migrations
+bun run --filter @raptor/panel db:migrate      # apply database migrations
 
-pnpm dev                     # run the panel (Vite dev) on :3000
-pnpm dev:down                # stop the dev infra when done
+bun run dev                  # run the panel (Vite dev) on :3000
+bun run dev:down             # stop the dev infra when done
 
-pnpm wings:build            # build the wings binary
-pnpm wings:run              # run the daemon (heartbeat loop; needs `wings configure` first)
+bun run wings:build         # build the wings binary
+bun run wings:run           # run the daemon (heartbeat loop; needs `wings configure` first)
 ```
 
 ## Commands
 
-| Command             | What it does                  |
-|---------------------|-------------------------------|
-| `pnpm dev`          | Run the panel dev server      |
-| `pnpm dev:up`       | Start dev infra (Postgres + Redis) |
-| `pnpm dev:down`     | Stop the dev infra            |
-| `pnpm build`        | Build TS workspaces (panel)   |
-| `pnpm typecheck`    | Type-check TS workspaces      |
-| `pnpm check`        | Biome lint + format           |
-| `pnpm wings:build` | Build the `wings` binary    |
-| `pnpm wings:run`   | Run the `wings` daemon      |
-| `pnpm wings:test`  | Run the daemon's Go tests     |
+| Command                | What it does                  |
+|------------------------|-------------------------------|
+| `bun run dev`          | Run the panel dev server      |
+| `bun run dev:up`       | Start dev infra (Postgres + Redis) |
+| `bun run dev:down`     | Stop the dev infra            |
+| `bun run build`        | Build TS workspaces (panel)   |
+| `bun run typecheck`    | Type-check TS workspaces      |
+| `bun run check`        | Biome lint + format           |
+| `bun run wings:build` | Build the `wings` binary    |
+| `bun run wings:run`   | Run the `wings` daemon      |
+| `bun run wings:test`  | Run the daemon's Go tests     |
 
 ## Repo docs
 

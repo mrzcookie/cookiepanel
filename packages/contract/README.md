@@ -22,7 +22,7 @@ spec.
 ## Workflow — changing the API
 
 1. Edit `openapi.yaml`.
-2. `pnpm --filter @raptor/contract generate` (runs both codegens).
+2. `bun run --filter @raptor/contract generate` (runs both codegens).
 3. Reconcile the **daemon's** domain structs until conformance passes (the panel
    consumes the generated types directly, so it just recompiles — fix any consumer
    the new shape breaks).

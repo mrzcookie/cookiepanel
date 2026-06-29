@@ -115,7 +115,7 @@ differently, by their role:
 
 So the loop is: daemon struct ⟷ spec (conformance) ⟷ generated types ⟷ panel
 (direct consumption) — drift anywhere fails a build. The workflow to evolve the
-API: edit `openapi.yaml`, run `pnpm --filter @raptor/contract generate`,
+API: edit `openapi.yaml`, run `bun run --filter @raptor/contract generate`,
 reconcile the daemon structs until conformance passes (the panel just recompiles),
 and commit the spec **and** the regenerated output.
 

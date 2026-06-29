@@ -34,7 +34,7 @@ wire format is pinned by a **shared API contract** so the two never drift. See
   Tailwind v4 web app & API. Server-only code lives under `src/server`.
 - `apps/wings` — `wings`: the Go agent for each managed box (all subsystems
   built; in testing + hardening).
-- Tooling: pnpm workspaces + Turborepo + Go workspace (`go.work`) + Biome +
+- Tooling: Bun workspaces + Turborepo + Go workspace (`go.work`) + Biome +
   lefthook.
 
 ## Domain model (the nouns)
@@ -97,16 +97,16 @@ Details and rationale: `.claude/rules/security.md`.
 
 ## Commands
 
-- `pnpm dev` — run the panel (Vite dev, :3000)
-- `pnpm build` / `pnpm typecheck` — build / type-check TS workspaces
-- `pnpm check` — Biome lint + format (write)
-- `pnpm wings:build` / `pnpm wings:run` — build / run the daemon
+- `bun run dev` — run the panel (Vite dev, :3000)
+- `bun run build` / `bun run typecheck` — build / type-check TS workspaces
+- `bun run check` — Biome lint + format (write)
+- `bun run wings:build` / `bun run wings:run` — build / run the daemon
 
 ## Code style
 
 - TS / CSS / JSON: **Biome** — tabs, line width 80, double quotes, semicolons,
   trailing commas `es5`, organized imports, sorted Tailwind classes. Run
-  `pnpm check`.
+  `bun run check`.
 - Go: `gofmt` + `go vet` (enforced by the lefthook pre-commit hook).
 - Match the conventions of the surrounding code.
 

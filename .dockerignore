@@ -1,0 +1,46 @@
+# Keep the build context small and the in-image install deterministic.
+
+# Dependencies — reinstalled in-image from the lockfile
+node_modules
+**/node_modules
+.pnpm-store
+
+# Build / framework outputs
+.output
+**/.output
+.nitro
+**/.nitro
+.tanstack
+.turbo
+**/.turbo
+dist
+dist-ssr
+**/dist
+.analyze
+**/.analyze
+
+# The Go daemon — not part of the panel build (no pnpm package)
+apps/wings
+
+# VCS / CI
+.git
+.github
+.gitignore
+
+# Local env / secrets — never copy into the image
+.env
+.env.*
+!.env.example
+*.local
+
+# Editor / OS / tooling
+.DS_Store
+.idea
+.vscode
+.claude
+.agents
+*.log
+
+# Docs that don't affect the build
+*.md
+!README.md

@@ -86,7 +86,7 @@ Because the daemon is root, validation is consistent and up front:
 ## Build & run
 
 - Module `github.com/xena-studios/raptor/apps/wings`, Go (see `apps/wings/go.mod`).
-- `pnpm wings:build` / `pnpm wings:run` (Make targets). `make cross` builds
+- `bun run wings:build` / `bun run wings:run` (Make targets). `make cross` builds
   linux amd64/arm64.
 - `gofmt` + `go vet` are enforced by the lefthook pre-commit hook and CI.
 - **Releasing.** Push a SemVer tag (`git tag v1.2.3 && git push --tags`) → the

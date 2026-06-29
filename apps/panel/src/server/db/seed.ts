@@ -11,7 +11,7 @@ import { egg, eggImage, eggVariable } from "@/server/db/schema/eggs";
  *
  * Idempotent: keyed on the egg id (the stub's stable UUID, preserved so any
  * stubbed server's `eggId` still resolves), it inserts an egg once and
- * skips it on re-run. Run with `pnpm db:seed` (after `pnpm db:migrate`).
+ * skips it on re-run. Run with `bun run db:seed` (after `bun run db:migrate`).
  */
 async function seed() {
 	const official = EGGS.filter((t) => t.official);
