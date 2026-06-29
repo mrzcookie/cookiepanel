@@ -147,6 +147,15 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.server.Shutdown(ctx)
 }
 
+// Handler returns the panel-facing HTTP handler (routing + middleware) without
+// binding a listener — so an alternate transport (the outbound WebSocket link,
+// see internal/link) can dispatch requests into the very same handlers in
+// process, instead of the panel reaching an inbound TLS port. The bearer
+// middleware still applies; the link sets the node key on each synthetic request.
+func (s *Server) Handler() http.Handler {
+	return s.routes()
+}
+
 func (s *Server) routes() http.Handler {
 	// The console WS authenticates via a JWT query param (browsers can't set the
 	// Authorization header on a WS upgrade), so it sits OUTSIDE the bearer

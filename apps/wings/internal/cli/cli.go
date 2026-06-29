@@ -39,6 +39,7 @@ import (
 	"github.com/xena-studios/raptor/apps/wings/internal/filesystem"
 	"github.com/xena-studios/raptor/apps/wings/internal/firewall"
 	"github.com/xena-studios/raptor/apps/wings/internal/ipc"
+	"github.com/xena-studios/raptor/apps/wings/internal/link"
 	"github.com/xena-studios/raptor/apps/wings/internal/logging"
 	"github.com/xena-studios/raptor/apps/wings/internal/network"
 	"github.com/xena-studios/raptor/apps/wings/internal/remote"
@@ -253,7 +254,7 @@ func newInstallCmd() *cobra.Command {
 func newRunCmd() *cobra.Command {
 	var dataDir, stateDir, socketPath, acmeEmail string
 	var apiPort int
-	var once, acme bool
+	var once, acme, linkEnabled bool
 	var interval time.Duration
 	cmd := &cobra.Command{
 		Use:   "run",
@@ -396,6 +397,31 @@ func newRunCmd() *cobra.Command {
 					_ = apiSrv.Shutdown(sCtx)
 				}()
 
+				// Outbound dial-home link (opt-in during the transport cutover):
+				// the daemon connects TO the panel and serves the SAME API handlers
+				// over that socket, so the box stays controllable with no inbound
+				// port. Additive — the HTTPS API above keeps running; this just adds
+				// a second front end onto it. It reconnects on its own, so a failed
+				// dial never stops the daemon.
+				if linkEnabled {
+					linkURL := link.WSURL(creds.PanelURL)
+					lc := link.NewClient(link.Config{
+						URL:        linkURL,
+						NodeKey:    creds.NodeKey,
+						Dispatcher: link.NewDispatcher(apiSrv.Handler(), creds.NodeKey),
+						Heartbeat: func() (any, error) {
+							return composeInfo(context.Background(), dockerClient, staticInfo), nil
+						},
+						HeartbeatInterval: interval,
+					})
+					go func() {
+						if err := lc.Run(ctx); err != nil && ctx.Err() == nil {
+							slog.Error("link client stopped", "err", err)
+						}
+					}()
+					slog.Info("link client dialing panel", "url", linkURL)
+				}
+
 				// Open the host firewall for the panel-facing API port. Without this,
 				// enabling ufw/iptables on the box silently blocks inbound to the API
 				// and cuts the panel off — the daemon still heartbeats outbound, so the
@@ -471,6 +497,7 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&socketPath, "socket", ipc.DefaultSocket, "path for the box-local control socket")
 	cmd.Flags().IntVar(&apiPort, "api-port", defaultAPIPort, "TCP port the panel-facing HTTPS API will bind (advertised in the heartbeat)")
 	cmd.Flags().BoolVar(&once, "once", false, "send a single heartbeat and exit (testing)")
+	cmd.Flags().BoolVar(&linkEnabled, "link", false, "also dial out to the panel over a WebSocket and serve the API over it (in addition to the inbound HTTPS API)")
 	cmd.Flags().BoolVar(&acme, "acme", false, "obtain a Let's Encrypt cert for the FQDN (needs :80 reachable) instead of self-signed")
 	cmd.Flags().StringVar(&acmeEmail, "acme-email", "", "ACME account contact email (optional, for renewal notices)")
 	cmd.Flags().DurationVar(&interval, "interval", 30*time.Second, "heartbeat interval")
