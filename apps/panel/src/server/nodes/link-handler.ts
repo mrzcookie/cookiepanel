@@ -40,25 +40,30 @@ export const daemonLinkHooks = {
 			peer.close(1008, "unauthorized");
 			return;
 		}
-		peer.context.nodeId = nodeId;
 		const conn: LinkConnection = {
 			send: (data) => peer.send(data),
 			close: () => peer.close(),
 		};
-		linkHub.register(nodeId, conn);
+		// Thread the instance id back through message/close so this socket's late
+		// frames or close can't disturb a fresh reconnect (see link-hub).
+		const instanceId = linkHub.register(nodeId, conn);
+		peer.context.nodeId = nodeId;
+		peer.context.instanceId = instanceId;
 	},
 
 	message(peer: LinkPeer, message: LinkMessage): void {
 		const nodeId = peer.context.nodeId as string | undefined;
-		if (nodeId) {
-			linkHub.handleMessage(nodeId, message.text());
+		const instanceId = peer.context.instanceId as number | undefined;
+		if (nodeId && instanceId !== undefined) {
+			linkHub.handleMessage(nodeId, instanceId, message.text());
 		}
 	},
 
 	close(peer: LinkPeer): void {
 		const nodeId = peer.context.nodeId as string | undefined;
-		if (nodeId) {
-			linkHub.unregister(nodeId);
+		const instanceId = peer.context.instanceId as number | undefined;
+		if (nodeId && instanceId !== undefined) {
+			linkHub.unregister(nodeId, instanceId);
 		}
 	},
 };

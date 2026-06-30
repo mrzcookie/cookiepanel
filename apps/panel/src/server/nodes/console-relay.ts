@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { member } from "@/server/db/schema/auth";
+import { env } from "@/server/env";
 import { serversRepository } from "@/server/servers/repository";
 import { linkHub } from "./link-hub";
 
@@ -59,10 +60,52 @@ function serverIdFromPeer(peer: RelayPeer): string {
 	return match?.[1] ?? "";
 }
 
+/**
+ * Allowed WebSocket origins — the panel's own origin plus any AUTH_TRUSTED_ORIGINS.
+ * The console relay is cookie-authenticated, so an Origin check defends against
+ * cross-site WebSocket hijacking rather than relying solely on the cookie's
+ * SameSite. (The daemon link uses a bearer, not cookies, so it needs no such check.)
+ */
+const allowedOrigins = (() => {
+	const set = new Set<string>();
+	const add = (raw: string | undefined) => {
+		const v = raw?.trim();
+		if (!v) {
+			return;
+		}
+		try {
+			set.add(new URL(v).origin);
+		} catch {
+			set.add(v);
+		}
+	};
+	add(env.AUTH_URL);
+	for (const o of env.AUTH_TRUSTED_ORIGINS?.split(",") ?? []) {
+		add(o);
+	}
+	return set;
+})();
+
+function originAllowed(origin: string | null | undefined): boolean {
+	// Browsers always send Origin on a WS upgrade; a missing one is suspicious.
+	if (!origin) {
+		return false;
+	}
+	try {
+		return allowedOrigins.has(new URL(origin).origin);
+	} catch {
+		return allowedOrigins.has(origin);
+	}
+}
+
 export const consoleRelayHooks = {
 	async open(peer: RelayPeer): Promise<void> {
-		const serverId = serverIdFromPeer(peer);
 		const headers = peer.request?.headers;
+		if (!originAllowed(headers?.get("origin"))) {
+			peer.close(1008, "forbidden origin");
+			return;
+		}
+		const serverId = serverIdFromPeer(peer);
 		const nodeId =
 			serverId && headers
 				? await resolveNodeForServer(headers, serverId)

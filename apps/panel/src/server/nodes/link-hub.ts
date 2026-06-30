@@ -183,29 +183,66 @@ class Connection {
 		}
 		this.streams.clear();
 	}
+
+	/** Fail in-flight work and close the underlying socket. */
+	shutdown(reason: string): void {
+		this.closeAll(reason);
+		try {
+			this.conn.close();
+		} catch {
+			// already gone
+		}
+	}
+}
+
+interface Entry {
+	instanceId: number;
+	conn: Connection;
 }
 
 class LinkHub {
-	private readonly conns = new Map<string, Connection>();
+	private readonly conns = new Map<string, Entry>();
+	private seq = 0;
 
-	/** Register a node's socket, replacing any prior one (a reconnect). */
-	register(nodeId: string, conn: LinkConnection): void {
-		this.unregister(nodeId, "superseded by a new connection");
-		this.conns.set(nodeId, new Connection(conn));
+	/**
+	 * Register a node's socket, superseding any prior one (a reconnect). Returns
+	 * an instance id the WS handler threads back into handleMessage/unregister so
+	 * a stale socket's late frames or close can't disturb a fresh connection.
+	 */
+	register(nodeId: string, conn: LinkConnection): number {
+		this.unregister(nodeId, undefined, "superseded by a new connection");
+		const instanceId = ++this.seq;
+		this.conns.set(nodeId, { instanceId, conn: new Connection(conn) });
+		return instanceId;
 	}
 
-	/** Drop a node's socket and fail its in-flight requests. */
-	unregister(nodeId: string, reason = "daemon link closed"): void {
-		const c = this.conns.get(nodeId);
-		if (c) {
-			c.closeAll(reason);
-			this.conns.delete(nodeId);
+	/**
+	 * Drop a node's socket and fail its in-flight work. If instanceId is given,
+	 * only drops when it's the *current* connection — so the old socket's delayed
+	 * close (after a reconnect already registered a new one) is a no-op.
+	 */
+	unregister(
+		nodeId: string,
+		instanceId?: number,
+		reason = "daemon link closed"
+	): void {
+		const entry = this.conns.get(nodeId);
+		if (!entry) {
+			return;
 		}
+		if (instanceId !== undefined && entry.instanceId !== instanceId) {
+			return;
+		}
+		entry.conn.shutdown(reason);
+		this.conns.delete(nodeId);
 	}
 
-	/** Feed one inbound frame for a node. */
-	handleMessage(nodeId: string, data: string): void {
-		this.conns.get(nodeId)?.handle(data);
+	/** Feed one inbound frame for a node — ignored unless it's the current socket. */
+	handleMessage(nodeId: string, instanceId: number, data: string): void {
+		const entry = this.conns.get(nodeId);
+		if (entry && entry.instanceId === instanceId) {
+			entry.conn.handle(data);
+		}
 	}
 
 	/** Whether a node currently has a live link (the panel uses it iff so). */
@@ -219,11 +256,11 @@ class LinkHub {
 		cr: ControlRequest,
 		timeoutMs: number = DEFAULT_TIMEOUT_MS
 	): Promise<ControlResponse> {
-		const c = this.conns.get(nodeId);
-		if (!c) {
+		const entry = this.conns.get(nodeId);
+		if (!entry) {
 			return Promise.reject(new Error(`no daemon link for node ${nodeId}`));
 		}
-		return c.request(cr, timeoutMs);
+		return entry.conn.request(cr, timeoutMs);
 	}
 
 	/**
@@ -237,11 +274,11 @@ class LinkHub {
 		payload: unknown,
 		handlers: StreamHandlers
 	): () => void {
-		const c = this.conns.get(nodeId);
-		if (!c) {
+		const entry = this.conns.get(nodeId);
+		if (!entry) {
 			throw new Error(`no daemon link for node ${nodeId}`);
 		}
-		return c.stream(op, payload, handlers);
+		return entry.conn.stream(op, payload, handlers);
 	}
 }
 

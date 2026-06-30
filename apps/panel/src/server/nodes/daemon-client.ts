@@ -2,10 +2,8 @@ import { Readable } from "node:stream";
 import type { components } from "@raptor/contract";
 import { eq } from "drizzle-orm";
 import type { NodeHostInfo, NodeLiveStats } from "@/lib/domain/nodes";
-import { unseal } from "@/server/crypto";
 import { db } from "@/server/db";
-import { node, nodeCredential } from "@/server/db/schema/nodes";
-import { nodeKeyAad } from "./enrollment";
+import { node } from "@/server/db/schema/nodes";
 import { linkHub } from "./link-hub";
 
 // The daemon wire types are the OpenAPI contract's generated schemas — the spec
@@ -26,6 +24,10 @@ type Schemas = components["schemas"];
  */
 
 const REQUEST_TIMEOUT_MS = 10_000;
+
+// Max single file transfer over the link (raw bytes). Stays under the daemon's
+// 96 MiB WS frame cap after base64. Larger files need the chunked path (TODO).
+const MAX_TRANSFER_BYTES = 64 * 1024 * 1024;
 
 export class DaemonError extends Error {
 	status?: number;
@@ -66,35 +68,27 @@ type NodeRef = {
 };
 
 /**
- * Loads the node + credential, returning the dial args. The link routes control
- * by node id (the node key already authenticated the socket at connect), so the
- * id is all the transport needs; the unsealed key is kept for callers that still
- * thread it.
+ * Resolves a node id to its dial args. The link routes control by node id (the
+ * node key already authenticated the socket at connect), so the id is all the
+ * transport needs — we no longer join the credential or unseal the (root-
+ * equivalent) node key on every call. `nodeKey` stays in the return shape only so
+ * the ~70 wrappers' `{ node, nodeKey }` destructure is unchanged; it's empty and
+ * unused. A node with no live link fails later in the hub with a clear error.
  */
 async function loadDialer(
 	nodeId: string
 ): Promise<{ node: NodeRef; nodeKey: string }> {
 	const [row] = await db
-		.select({
-			id: node.id,
-			nodeKeyCiphertext: nodeCredential.nodeKeyCiphertext,
-		})
+		.select({ id: node.id })
 		.from(node)
-		.innerJoin(nodeCredential, eq(nodeCredential.nodeId, node.id))
 		.where(eq(node.id, nodeId))
 		.limit(1);
 
 	if (!row) {
 		throw new DaemonError(`node ${nodeId} not found`);
 	}
-	if (!row.nodeKeyCiphertext) {
-		throw new DaemonError("node is not activated");
-	}
 
-	return {
-		node: { id: row.id },
-		nodeKey: unseal(row.nodeKeyCiphertext, nodeKeyAad(row.id)),
-	};
+	return { node: { id: row.id }, nodeKey: "" };
 }
 
 type DaemonFetchOptions = {
@@ -169,6 +163,15 @@ async function hubBinary(
 	nodeId: string,
 	opts: DaemonBinaryOptions
 ): Promise<{ bytes: Buffer; headers: Record<string, string> }> {
+	// Cap uploads so a single file can't produce a frame past the daemon's WS read
+	// limit (which would drop the whole node link). base64 inflates ~1.33×, so
+	// 64 MiB raw stays under the daemon's 96 MiB frame cap.
+	if (opts.body && opts.body.byteLength > MAX_TRANSFER_BYTES) {
+		throw new DaemonError(
+			`file too large: ${opts.body.byteLength} bytes exceeds the ${MAX_TRANSFER_BYTES}-byte transfer limit`,
+			413
+		);
+	}
 	const resp = await linkHub.request(
 		nodeId,
 		{

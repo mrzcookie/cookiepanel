@@ -29,7 +29,7 @@ describe("link hub", () => {
 	test("correlates a response to its request", async () => {
 		const node = "node-correlate";
 		const conn = new FakeConn();
-		linkHub.register(node, conn);
+		const inst = linkHub.register(node, conn);
 
 		const pending = linkHub.request(node, {
 			method: "GET",
@@ -44,7 +44,11 @@ describe("link hub", () => {
 
 		// Reply over the socket; the promise resolves with the daemon's response.
 		const reply: ControlResponse = { status: 200, body: `{"ok":true}` };
-		linkHub.handleMessage(node, encodeFrame(result(conn.lastId(), reply)));
+		linkHub.handleMessage(
+			node,
+			inst,
+			encodeFrame(result(conn.lastId(), reply))
+		);
 		await expect(pending).resolves.toEqual(reply);
 
 		linkHub.unregister(node);
@@ -53,10 +57,11 @@ describe("link hub", () => {
 	test("rejects on an error frame", async () => {
 		const node = "node-err";
 		const conn = new FakeConn();
-		linkHub.register(node, conn);
+		const inst = linkHub.register(node, conn);
 		const pending = linkHub.request(node, { method: "GET", path: "/x" });
 		linkHub.handleMessage(
 			node,
+			inst,
 			encodeFrame(errorFrame(conn.lastId(), "not_found", "nope"))
 		);
 		await expect(pending).rejects.toThrow(/not_found: nope/);
@@ -92,10 +97,22 @@ describe("link hub", () => {
 		).rejects.toThrow(/no daemon link/);
 	});
 
+	test("a stale socket's close does not drop the reconnected socket", () => {
+		const node = "node-stale-close";
+		const instA = linkHub.register(node, new FakeConn());
+		const instB = linkHub.register(node, new FakeConn()); // reconnect supersedes A
+		// A's delayed close fires with its own (stale) instance id — must no-op.
+		linkHub.unregister(node, instA);
+		expect(linkHub.isConnected(node)).toBe(true);
+		// B's own close drops it.
+		linkHub.unregister(node, instB);
+		expect(linkHub.isConnected(node)).toBe(false);
+	});
+
 	test("streams chunk frames to onChunk, then onEnd", () => {
 		const node = "node-stream";
 		const conn = new FakeConn();
-		linkHub.register(node, conn);
+		const inst = linkHub.register(node, conn);
 
 		const chunks: unknown[] = [];
 		let ended = false;
@@ -118,9 +135,9 @@ describe("link hub", () => {
 		}
 		const id = conn.lastId();
 
-		linkHub.handleMessage(node, encodeFrame(chunk(id, { line: "a" })));
-		linkHub.handleMessage(node, encodeFrame(chunk(id, { line: "b" })));
-		linkHub.handleMessage(node, encodeFrame(result(id)));
+		linkHub.handleMessage(node, inst, encodeFrame(chunk(id, { line: "a" })));
+		linkHub.handleMessage(node, inst, encodeFrame(chunk(id, { line: "b" })));
+		linkHub.handleMessage(node, inst, encodeFrame(result(id)));
 
 		expect(chunks).toEqual([{ line: "a" }, { line: "b" }]);
 		expect(ended).toBe(true);
@@ -130,19 +147,19 @@ describe("link hub", () => {
 	test("cancel sends a cancel frame and stops delivering chunks", () => {
 		const node = "node-stream-cancel";
 		const conn = new FakeConn();
-		linkHub.register(node, conn);
+		const inst = linkHub.register(node, conn);
 
 		const chunks: unknown[] = [];
 		const cancel = linkHub.stream(node, "console", null, {
 			onChunk: (p) => chunks.push(p),
 		});
 		const id = conn.lastId();
-		linkHub.handleMessage(node, encodeFrame(chunk(id, { line: "a" })));
+		linkHub.handleMessage(node, inst, encodeFrame(chunk(id, { line: "a" })));
 		cancel();
 		// A cancel frame went out, and a late chunk is ignored.
 		const last = parseFrame(conn.sent.at(-1) as string);
 		expect(last.kind).toBe("cancel");
-		linkHub.handleMessage(node, encodeFrame(chunk(id, { line: "late" })));
+		linkHub.handleMessage(node, inst, encodeFrame(chunk(id, { line: "late" })));
 
 		expect(chunks).toEqual([{ line: "a" }]);
 		linkHub.unregister(node);

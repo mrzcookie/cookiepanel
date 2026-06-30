@@ -17,7 +17,10 @@ export const redis: Redis =
 	globalForRedis.__raptorRedis ??
 	new Redis(env.REDIS_URL, {
 		lazyConnect: true,
-		maxRetriesPerRequest: null,
+		// Fail a command after a few retries / a timeout rather than queueing it
+		// forever — so a Redis outage degrades the auth path instead of hanging it.
+		maxRetriesPerRequest: 3,
+		commandTimeout: 5_000,
 	});
 
 if (env.NODE_ENV !== "production") {

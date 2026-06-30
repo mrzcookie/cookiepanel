@@ -19,7 +19,6 @@
 	},
 	"dependencies": {
 		"@aws-sdk/client-s3": "^3.1070.0",
-		"h3": "2.0.1-rc.22",
 		"@fontsource-variable/hanken-grotesk": "^5.2.8",
 		"@fontsource-variable/jetbrains-mono": "^5.2.8",
 		"@monaco-editor/react": "^4.7.0",
@@ -40,6 +39,7 @@
 		"clsx": "^2.1.1",
 		"cmdk": "^1.1.1",
 		"drizzle-orm": "^0.45.2",
+		"h3": "2.0.1-rc.22",
 		"ioredis": "^5.4.2",
 		"lucide-react": "^1.17.0",
 		"monaco-editor": "^0.55.1",

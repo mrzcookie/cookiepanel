@@ -50,6 +50,10 @@ export function useServerConsole(serverId: string, enabled: boolean) {
 	const lineIdRef = useRef(0);
 	const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const closedRef = useRef(false);
+	// Reconnect backoff (ms): grows while the node/relay is unavailable so an
+	// offline node doesn't get re-dialed once a second (each dial costs DB work
+	// in the relay), and resets once a connection opens.
+	const backoffRef = useRef(1000);
 
 	const pushLine = useCallback((stream: "stdout" | "stderr", data: string) => {
 		setLines((prev) => {
@@ -81,7 +85,10 @@ export function useServerConsole(serverId: string, enabled: boolean) {
 			const url = `${wsProto}//${window.location.host}/api/servers/${serverId}/console`;
 			const ws = new WebSocket(url);
 			wsRef.current = ws;
-			ws.onopen = () => setStatus("open");
+			ws.onopen = () => {
+				backoffRef.current = 1000; // healthy connection — reset backoff
+				setStatus("open");
+			};
 			ws.onmessage = (event) => {
 				let frame: Frame;
 				try {
@@ -107,8 +114,11 @@ export function useServerConsole(serverId: string, enabled: boolean) {
 					return;
 				}
 				setStatus("closed");
-				// Token expired or the box dropped — reconnect after a beat.
-				reconnectRef.current = setTimeout(() => void connect(), 1000);
+				// The box dropped or the relay is unavailable — reconnect with
+				// exponential backoff (capped) so an offline node isn't hammered.
+				const delay = backoffRef.current;
+				backoffRef.current = Math.min(delay * 2, 30_000);
+				reconnectRef.current = setTimeout(() => connect(), delay);
 			};
 		};
 
