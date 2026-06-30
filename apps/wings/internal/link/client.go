@@ -12,6 +12,16 @@ import (
 	"github.com/xena-studios/raptor/apps/wings/internal/rpc"
 )
 
+const (
+	// maxFrameBytes is the hard cap on a single inbound frame (the WebSocket read
+	// limit). It sits above the base64-inflated file-transfer cap the panel
+	// enforces, so legitimate traffic never trips it.
+	maxFrameBytes = 96 << 20 // 96 MiB
+	// stableSession is how long a session must last to count as "stable" — only
+	// then does a reconnect reset the backoff (so a flapping panel backs off).
+	stableSession = 30 * time.Second
+)
+
 // DialFunc opens the WebSocket. It defaults to websocket.Dial; tests override it.
 type DialFunc func(ctx context.Context, url string, opts *websocket.DialOptions) (*websocket.Conn, *http.Response, error)
 
@@ -33,8 +43,11 @@ type Config struct {
 	Heartbeat func() (any, error)
 	// HeartbeatInterval is how often to send a heartbeat event.
 	HeartbeatInterval time.Duration
-	// MaxConcurrent bounds in-flight dispatches so a slow op can't starve reads.
+	// MaxConcurrent bounds in-flight unary dispatches.
 	MaxConcurrent int
+	// MaxStreams bounds concurrent streaming ops (the console), separately from
+	// MaxConcurrent so long-lived streams can't starve unary requests.
+	MaxStreams int
 	// MinBackoff / MaxBackoff bound the reconnect delay.
 	MinBackoff, MaxBackoff time.Duration
 	// Dial overrides the WebSocket dialer (tests).
@@ -50,6 +63,9 @@ type Client struct {
 func NewClient(cfg Config) *Client {
 	if cfg.MaxConcurrent <= 0 {
 		cfg.MaxConcurrent = 16
+	}
+	if cfg.MaxStreams <= 0 {
+		cfg.MaxStreams = 64
 	}
 	if cfg.MinBackoff <= 0 {
 		cfg.MinBackoff = time.Second
@@ -83,30 +99,33 @@ func (c *Client) Run(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		connected, err := c.serveOnce(ctx)
+		stable, err := c.serveOnce(ctx)
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		if connected {
-			// The link was up and then dropped — start the next retry fresh.
+		if stable {
+			// The link was up for a real session and then dropped — retry fresh.
 			backoff = c.cfg.MinBackoff
 			slog.Warn("link disconnected; reconnecting", "err", err)
 		} else {
-			slog.Warn("link dial failed; retrying", "err", err, "backoff", backoff)
+			// Dial failed, or the panel accepted and immediately dropped us — back
+			// off so a flapping panel can't trigger a fleet-wide reconnect storm.
+			slog.Warn("link down; retrying", "err", err, "backoff", backoff)
 		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(backoff):
 		}
-		if !connected {
+		if !stable {
 			backoff = min(backoff*2, c.cfg.MaxBackoff)
 		}
 	}
 }
 
 // serveOnce dials once and serves until the connection drops. The bool reports
-// whether the dial succeeded (so Run can reset backoff after a real session).
+// whether the session was *stable* (up at least stableSession) — Run only resets
+// its backoff for a stable session, so a panel that drops us immediately doesn't.
 func (c *Client) serveOnce(ctx context.Context) (bool, error) {
 	dialCtx, cancelDial := context.WithTimeout(ctx, 30*time.Second)
 	conn, _, err := c.cfg.Dial(dialCtx, c.cfg.URL, &websocket.DialOptions{
@@ -117,9 +136,12 @@ func (c *Client) serveOnce(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	defer conn.CloseNow()
-	// Generous read limit: file ops and listings can be large.
-	conn.SetReadLimit(32 << 20)
+	// Hard cap on a single inbound frame. File transfers above the documented
+	// limit are rejected by the panel before they reach this, so legitimate
+	// traffic never trips it; an oversized frame still drops only this link.
+	conn.SetReadLimit(maxFrameBytes)
 	slog.Info("link connected", "url", c.cfg.URL)
+	start := time.Now()
 
 	connCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -127,6 +149,9 @@ func (c *Client) serveOnce(ctx context.Context) (bool, error) {
 	out := make(chan rpc.Frame, 64)
 	var inflight sync.Map // frame id -> context.CancelFunc
 	sem := make(chan struct{}, c.cfg.MaxConcurrent)
+	// Long-lived streams (the console) get a separate budget so they can't
+	// exhaust the unary one — and neither acquire blocks the read loop.
+	streamSem := make(chan struct{}, c.cfg.MaxStreams)
 
 	writerDone := make(chan struct{})
 	go func() {
@@ -138,10 +163,10 @@ func (c *Client) serveOnce(ctx context.Context) (bool, error) {
 		go c.heartbeatLoop(connCtx, out)
 	}
 
-	readErr := c.readLoop(connCtx, conn, out, &inflight, sem)
+	readErr := c.readLoop(connCtx, conn, out, &inflight, sem, streamSem)
 	cancel()
 	<-writerDone
-	return true, readErr
+	return time.Since(start) >= stableSession, readErr
 }
 
 func (c *Client) readLoop(
@@ -150,6 +175,7 @@ func (c *Client) readLoop(
 	out chan<- rpc.Frame,
 	inflight *sync.Map,
 	sem chan struct{},
+	streamSem chan struct{},
 ) error {
 	for {
 		typ, data, err := conn.Read(ctx)
@@ -167,7 +193,7 @@ func (c *Client) readLoop(
 		switch frame.Kind {
 		case rpc.KindRequest:
 			if h, ok := c.cfg.StreamHandlers[frame.Op]; ok {
-				c.handleStream(ctx, frame, h, out, inflight, sem)
+				c.handleStream(ctx, frame, h, out, inflight, streamSem)
 			} else {
 				c.handleRequest(ctx, frame, out, inflight, sem)
 			}
@@ -182,8 +208,11 @@ func (c *Client) readLoop(
 	}
 }
 
-// handleRequest dispatches one control request in its own goroutine (bounded by
-// sem) so a slow operation can't head-of-line-block the read loop.
+// handleRequest dispatches one control request in its own goroutine. The cancel
+// func is registered synchronously (so a racing `cancel` frame finds it), but the
+// concurrency semaphore is acquired *inside* the goroutine — never in the read
+// loop — so a full queue can't block reads (including the very cancel frames that
+// would free slots). A cancelled op releases its slot via reqCtx.
 func (c *Client) handleRequest(
 	ctx context.Context,
 	frame rpc.Frame,
@@ -191,11 +220,6 @@ func (c *Client) handleRequest(
 	inflight *sync.Map,
 	sem chan struct{},
 ) {
-	select {
-	case sem <- struct{}{}:
-	case <-ctx.Done():
-		return
-	}
 	reqCtx, cancel := context.WithCancel(ctx)
 	inflight.Store(frame.ID, cancel)
 
@@ -203,11 +227,17 @@ func (c *Client) handleRequest(
 		defer func() {
 			inflight.Delete(frame.ID)
 			cancel()
-			<-sem
 			if r := recover(); r != nil {
 				c.send(ctx, out, rpc.Errorf(frame.ID, rpc.CodeInternal, "dispatch panic: %v", r))
 			}
 		}()
+
+		select {
+		case sem <- struct{}{}:
+		case <-reqCtx.Done():
+			return
+		}
+		defer func() { <-sem }()
 
 		var cr ControlRequest
 		if err := frame.Bind(&cr); err != nil {

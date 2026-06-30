@@ -25,11 +25,6 @@ func (c *Client) handleStream(
 	inflight *sync.Map,
 	sem chan struct{},
 ) {
-	select {
-	case sem <- struct{}{}:
-	case <-ctx.Done():
-		return
-	}
 	reqCtx, cancel := context.WithCancel(ctx)
 	inflight.Store(frame.ID, cancel)
 
@@ -37,11 +32,19 @@ func (c *Client) handleStream(
 		defer func() {
 			inflight.Delete(frame.ID)
 			cancel()
-			<-sem
 			if r := recover(); r != nil {
 				c.send(ctx, out, rpc.Errorf(frame.ID, rpc.CodeInternal, "stream panic: %v", r))
 			}
 		}()
+
+		// Bound concurrency here, not in the read loop, so a full stream budget
+		// never blocks reads (incl. cancel frames). Releases on return/cancel.
+		select {
+		case sem <- struct{}{}:
+		case <-reqCtx.Done():
+			return
+		}
+		defer func() { <-sem }()
 
 		emit := func(payload any) error {
 			f, err := rpc.Chunk(frame.ID, payload)

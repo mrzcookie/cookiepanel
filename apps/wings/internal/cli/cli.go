@@ -23,6 +23,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -55,7 +56,6 @@ import (
 const (
 	defaultDataDir  = "/etc/wings"
 	defaultStateDir = "/var/lib/wings"
-	defaultAPIPort  = 8443
 )
 
 // Run dispatches a wings subcommand and returns a process exit code.
@@ -252,8 +252,7 @@ func newInstallCmd() *cobra.Command {
 
 func newRunCmd() *cobra.Command {
 	var dataDir, stateDir, socketPath string
-	var apiPort int
-	var once bool
+	var once, insecureLink bool
 	var interval time.Duration
 	cmd := &cobra.Command{
 		Use:   "run",
@@ -318,7 +317,7 @@ func newRunCmd() *cobra.Command {
 			// channel (no inbound port, no TLS). SFTP and the local IPC socket are
 			// the only inbound listeners now.
 			if !once {
-				fw := firewall.NewManager(apiPort)
+				fw := firewall.NewManager(sftp.DefaultPort)
 				serverMgr := server.NewManager(dockerClient)
 
 				// SFTP server (best-effort): mints per-session credentials the
@@ -370,6 +369,15 @@ func newRunCmd() *cobra.Command {
 				// control port; the link reconnects on its own, so a failed dial
 				// never stops the daemon.
 				linkURL := link.WSURL(creds.PanelURL)
+				// The node key is a root-equivalent bearer sent on the upgrade, so
+				// the link must be TLS. Refuse a plaintext ws:// panel URL unless the
+				// operator explicitly opts in (local dev).
+				if strings.HasPrefix(linkURL, "ws://") && !insecureLink {
+					return fmt.Errorf(
+						"panel URL %q is not https; the node key would traverse cleartext — re-enroll with an https panel URL, or pass --insecure-link for local dev",
+						creds.PanelURL,
+					)
+				}
 				lc := link.NewClient(link.Config{
 					URL:        linkURL,
 					NodeKey:    creds.NodeKey,
@@ -377,10 +385,8 @@ func newRunCmd() *cobra.Command {
 					StreamHandlers: map[string]link.StreamHandler{
 						"console": consoleStreamHandler(apiSrv),
 					},
-					Heartbeat: func() (any, error) {
-						return composeInfo(context.Background(), dockerClient, staticInfo), nil
-					},
-					HeartbeatInterval: interval,
+					// Liveness rides the HTTP heartbeat (heartbeatLoop); the link
+					// heartbeat would just be discarded by the panel hub.
 				})
 				go func() {
 					if err := lc.Run(ctx); err != nil && ctx.Err() == nil {
@@ -430,8 +436,8 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&dataDir, "data-dir", defaultDataDir, "directory holding credentials")
 	cmd.Flags().StringVar(&stateDir, "state-dir", defaultStateDir, "directory for the local state db")
 	cmd.Flags().StringVar(&socketPath, "socket", ipc.DefaultSocket, "path for the box-local control socket")
-	cmd.Flags().IntVar(&apiPort, "api-port", defaultAPIPort, "TCP port the panel-facing HTTPS API will bind (advertised in the heartbeat)")
 	cmd.Flags().BoolVar(&once, "once", false, "send a single heartbeat and exit (testing)")
+	cmd.Flags().BoolVar(&insecureLink, "insecure-link", false, "allow a plaintext ws:// link to the panel (local dev only — the node key is sent in cleartext)")
 	cmd.Flags().DurationVar(&interval, "interval", 30*time.Second, "heartbeat interval")
 	return cmd
 }

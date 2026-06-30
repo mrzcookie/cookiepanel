@@ -86,10 +86,15 @@ func (d *Dispatcher) Dispatch(ctx context.Context, cr ControlRequest) ControlRes
 	contentType := "application/json"
 	if cr.Body != "" {
 		if cr.Encoding == "base64" {
-			if raw, err := base64.StdEncoding.DecodeString(cr.Body); err == nil {
-				body = bytes.NewReader(raw)
-				contentType = "application/octet-stream"
+			raw, err := base64.StdEncoding.DecodeString(cr.Body)
+			if err != nil {
+				return ControlResponse{
+					Status: http.StatusBadRequest,
+					Body:   `{"error":"invalid base64 request body"}`,
+				}
 			}
+			body = bytes.NewReader(raw)
+			contentType = "application/octet-stream"
 		} else {
 			body = strings.NewReader(cr.Body)
 		}
